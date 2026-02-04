@@ -111,8 +111,8 @@ class _HomePageState extends State<HomePage> {
   
   String _formatBytes(int bytes) {
     if (bytes < 1024) return "$bytes B/s";
-    if (bytes < 1024 * 1024) return "{(bytes / 1024).toStringAsFixed(1)} KB/s";
-    return "{(bytes / (1024 * 1024)).toStringAsFixed(1)} MB/s";
+    if (bytes < 1024 * 1024) return "${(bytes / 1024).toStringAsFixed(1)} KB/s";
+    return "${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB/s";
   }
 
   Future<void> _toggleVpn() async {
@@ -177,7 +177,7 @@ class _HomePageState extends State<HomePage> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: (i) => setState(() => _selectedIndex = i),
         backgroundColor: const Color(0xFF1E1E2E),
-        indicatorColor: const Color(0xFF6C63FF).withOpacity(0.2),
+        indicatorColor: const Color(0xFF6C63FF).withValues(alpha: 0.2), // Fixed deprecated withOpacity
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Dashboard'),
           NavigationDestination(icon: Icon(Icons.public_outlined), selectedIcon: Icon(Icons.public), label: 'Proxies'),
@@ -230,7 +230,7 @@ class DashboardTab extends StatelessWidget {
                     color: isRunning ? const Color(0xFF6C63FF) : const Color(0xFF272736),
                     boxShadow: [
                       BoxShadow(
-                        color: (isRunning ? const Color(0xFF6C63FF) : Colors.black).withOpacity(0.4),
+                        color: (isRunning ? const Color(0xFF6C63FF) : Colors.black).withValues(alpha: 0.4), // Fixed deprecated
                         blurRadius: 30,
                         spreadRadius: 10,
                       )
@@ -291,7 +291,7 @@ class StatCard extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)), // Fixed deprecated
             child: Icon(icon, color: color),
           ),
           const SizedBox(width: 15),
