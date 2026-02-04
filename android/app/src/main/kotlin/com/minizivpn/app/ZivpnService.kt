@@ -174,7 +174,7 @@ class ZivpnService : VpnService() {
                         "socks5://127.0.0.1:7777",
                         "fd://$fd",
                         "info",
-                        finalMtu.toInt(),
+                        finalMtu,
                         udpTimeout,
                         "4m", 
                         "4m", 
