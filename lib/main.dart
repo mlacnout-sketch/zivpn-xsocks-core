@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -61,6 +62,11 @@ class _HomePageState extends State<HomePage> {
   final List<String> _logs = [];
   final ScrollController _logScrollCtrl = ScrollController();
   
+  // Timer State
+  Timer? _timer;
+  DateTime? _startTime;
+  String _durationString = "00:00:00";
+  
   // Stats
   String _dlSpeed = "0 KB/s";
   String _ulSpeed = "0 KB/s";
@@ -73,10 +79,48 @@ class _HomePageState extends State<HomePage> {
     _initStatsListener();
   }
 
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _checkVpnStatus() async {
     final prefs = await SharedPreferences.getInstance();
+    final isRunning = prefs.getBool('vpn_running') ?? false;
+    final startMillis = prefs.getInt('vpn_start_time');
+    
     setState(() {
-      _isRunning = prefs.getBool('vpn_running') ?? false;
+      _isRunning = isRunning;
+      if (isRunning && startMillis != null) {
+        _startTime = DateTime.fromMillisecondsSinceEpoch(startMillis);
+        _startTimer();
+      } else {
+        _durationString = "00:00:00";
+      }
+    });
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_startTime == null) return;
+      final diff = DateTime.now().difference(_startTime!);
+      String twoDigits(int n) => n.toString().padLeft(2, "0");
+      final hours = twoDigits(diff.inHours);
+      final minutes = twoDigits(diff.inMinutes.remainder(60));
+      final seconds = twoDigits(diff.inSeconds.remainder(60));
+      setState(() {
+        _durationString = "$hours:$minutes:$seconds";
+      });
+    });
+  }
+
+  void _stopTimer() {
+    _timer?.cancel();
+    setState(() {
+      _durationString = "00:00:00";
+      _startTime = null;
     });
   }
 
@@ -118,15 +162,18 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _toggleVpn() async {
     HapticFeedback.mediumImpact();
+    final prefs = await SharedPreferences.getInstance();
+    
     if (_isRunning) {
       try {
         await platform.invokeMethod('stopCore');
+        _stopTimer();
+        await prefs.remove('vpn_start_time');
         setState(() => _isRunning = false);
       } catch (e) {
         _logs.add("Error stopping: $e");
       }
     } else {
-      final prefs = await SharedPreferences.getInstance();
       final ip = prefs.getString('ip') ?? "";
       if (ip.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -151,6 +198,13 @@ class _HomePageState extends State<HomePage> {
           "core_count": (prefs.getInt('core_count') ?? 4)
         });
         await platform.invokeMethod('startVpn');
+        
+        // Start Timer
+        final now = DateTime.now();
+        await prefs.setInt('vpn_start_time', now.millisecondsSinceEpoch);
+        _startTime = now;
+        _startTimer();
+        
         setState(() => _isRunning = true);
       } catch (e) {
         setState(() {
@@ -161,11 +215,38 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _handleAccountSwitch() async {
+    if (_isRunning) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Switching account..."),
+          duration: Duration(seconds: 1),
+          backgroundColor: Color(0xFF6C63FF),
+        )
+      );
+      
+      // Stop
+      await _toggleVpn();
+      
+      // Wait for cleanup
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Start
+      await _toggleVpn();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
-      DashboardTab(isRunning: _isRunning, onToggle: _toggleVpn, dl: _dlSpeed, ul: _ulSpeed),
-      const ProxiesTab(),
+      DashboardTab(
+        isRunning: _isRunning, 
+        onToggle: _toggleVpn, 
+        dl: _dlSpeed, 
+        ul: _ulSpeed,
+        duration: _durationString,
+      ),
+      ProxiesTab(onActivate: _handleAccountSwitch),
       LogsTab(logs: _logs, scrollController: _logScrollCtrl),
       const SettingsTab(),
     ];
@@ -198,13 +279,15 @@ class DashboardTab extends StatelessWidget {
   final VoidCallback onToggle;
   final String dl;
   final String ul;
+  final String duration;
 
   const DashboardTab({
     super.key, 
     required this.isRunning, 
     required this.onToggle,
     this.dl = "0 KB/s",
-    this.ul = "0 KB/s"
+    this.ul = "0 KB/s",
+    this.duration = "00:00:00",
   });
 
   @override
@@ -224,8 +307,8 @@ class DashboardTab extends StatelessWidget {
                 onTap: onToggle,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 500),
-                  width: 200,
-                  height: 200,
+                  width: 240,
+                  height: 240,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isRunning ? const Color(0xFF6C63FF) : const Color(0xFF272736),
@@ -245,11 +328,38 @@ class DashboardTab extends StatelessWidget {
                         size: 64,
                         color: Colors.white,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 15),
                       Text(
                         isRunning ? "CONNECTED" : "TAP TO CONNECT",
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      )
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      if (isRunning) ...[
+                        const SizedBox(height: 15),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black26,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white12)
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.timer, size: 14, color: Colors.white70),
+                              const SizedBox(width: 6),
+                              Text(
+                                duration,
+                                style: const TextStyle(
+                                  fontFamily: 'monospace', 
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Colors.white
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ]
                     ],
                   ),
                 ),
@@ -309,93 +419,162 @@ class StatCard extends StatelessWidget {
 }
 
 class ProxiesTab extends StatefulWidget {
-  const ProxiesTab({super.key});
+  final Future<void> Function()? onActivate;
+  
+  const ProxiesTab({super.key, this.onActivate});
 
   @override
   State<ProxiesTab> createState() => _ProxiesTabState();
 }
 
 class _ProxiesTabState extends State<ProxiesTab> {
-  String _latency = "Untested";
-  bool _isTesting = false;
+  List<Map<String, dynamic>> _accounts = [];
 
-  Future<void> _testPing() async {
-    setState(() {
-      _isTesting = true;
-      _latency = "Testing...";
-    });
+  @override
+  void initState() {
+    super.initState();
+    _loadAccounts();
+  }
 
-    final stopwatch = Stopwatch()..start();
-    try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 5);
-      final request = await client.headUrl(Uri.parse('http://gstatic.com/generate_204'));
-      final response = await request.close();
-      stopwatch.stop();
-      
-      if (response.statusCode == 204) {
-        setState(() => _latency = "${stopwatch.elapsedMilliseconds} ms");
-      } else {
-        setState(() => _latency = "Error: ${response.statusCode}");
-      }
-    } catch (e) {
-      setState(() => _latency = "Timeout");
-    } finally {
-      setState(() => _isTesting = false);
+  Future<void> _loadAccounts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? jsonStr = prefs.getString('saved_accounts');
+    if (jsonStr != null) {
+      setState(() {
+        _accounts = List<Map<String, dynamic>>.from(jsonDecode(jsonStr));
+      });
     }
+  }
+
+  Future<void> _saveAccounts() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_accounts', jsonEncode(_accounts));
+  }
+
+  Future<void> _activateAccount(Map<String, dynamic> account) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('ip', account['ip']);
+    await prefs.setString('auth', account['auth']);
+    await prefs.setString('obfs', account['obfs']);
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Activated: ${account['name']}"),
+          backgroundColor: const Color(0xFF6C63FF),
+          duration: const Duration(milliseconds: 800),
+        ),
+      );
+    }
+    
+    if (widget.onActivate != null) {
+      await widget.onActivate!();
+    }
+  }
+
+  Future<void> _deleteAccount(int index) async {
+    setState(() {
+      _accounts.removeAt(index);
+    });
+    await _saveAccounts();
+  }
+
+  void _showAddDialog() {
+    final nameCtrl = TextEditingController();
+    final ipCtrl = TextEditingController();
+    final authCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF272736),
+        title: const Text("Add Account"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Name (e.g. SG-1)")),
+              TextField(controller: ipCtrl, decoration: const InputDecoration(labelText: "IP:Port")),
+              TextField(controller: authCtrl, decoration: const InputDecoration(labelText: "Password")),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6C63FF), foregroundColor: Colors.white),
+            onPressed: () {
+              if (nameCtrl.text.isNotEmpty && ipCtrl.text.isNotEmpty) {
+                setState(() {
+                  _accounts.add({
+                    "name": nameCtrl.text,
+                    "ip": ipCtrl.text,
+                    "auth": authCtrl.text,
+                    "obfs": "hu``hqb`c",
+                  });
+                });
+                _saveAccounts();
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text("Proxy Groups", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            ElevatedButton.icon(
-              onPressed: _isTesting ? null : _testPing,
-              icon: _isTesting 
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
-                  : const Icon(Icons.flash_on),
-              label: Text(_isTesting ? "Testing" : "Test Latency"),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF272736), foregroundColor: Colors.white),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddDialog,
+        backgroundColor: const Color(0xFF6C63FF),
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+      body: _accounts.isEmpty 
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.no_accounts_outlined, size: 64, color: Colors.grey.withOpacity(0.3)),
+                  const SizedBox(height: 16),
+                  const Text("No accounts saved", style: TextStyle(color: Colors.grey)),
+                ],
+              ),
             )
-          ],
-        ),
-        const SizedBox(height: 20),
-        _buildGroup("Load Balancer", "Round Robin", Colors.blue, _latency),
-        const SizedBox(height: 20),
-        const Text("Nodes", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
-        const SizedBox(height: 10),
-        _buildNode("Hysteria-1", "127.0.0.1:20080"),
-        _buildNode("Hysteria-2", "127.0.0.1:20081"),
-        _buildNode("Hysteria-3", "127.0.0.1:20082"),
-        _buildNode("Hysteria-4", "127.0.0.1:20083"),
-      ],
-    );
-  }
-
-  Widget _buildGroup(String name, String type, Color color, String ping) {
-    return Card(
-      child: ListTile(
-        leading: Icon(Icons.hub, color: color),
-        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(type),
-        trailing: Text(ping, style: TextStyle(color: ping.contains("ms") ? Colors.green : Colors.grey, fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
-
-  Widget _buildNode(String name, String ip) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: const Icon(Icons.dns, color: Colors.white54),
-        title: Text(name),
-        subtitle: Text(ip),
-      ),
+          : ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: _accounts.length,
+              itemBuilder: (context, index) {
+                final acc = _accounts[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6C63FF).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.dns, color: Color(0xFF6C63FF)),
+                    ),
+                    title: Text(acc['name'] ?? "Unknown", style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(acc['ip'] ?? ""),
+                    trailing: PopupMenuButton(
+                      itemBuilder: (ctx) => [
+                        const PopupMenuItem(value: 'delete', child: Text("Delete")),
+                      ],
+                      onSelected: (val) {
+                        if (val == 'delete') _deleteAccount(index);
+                      },
+                    ),
+                    onTap: () => _activateAccount(acc),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
@@ -476,9 +655,6 @@ class SettingsTab extends StatefulWidget {
 }
 
 class _SettingsTabState extends State<SettingsTab> {
-  final _ipCtrl = TextEditingController();
-  final _authCtrl = TextEditingController();
-  final _obfsCtrl = TextEditingController();
   final _mtuCtrl = TextEditingController();
   
   bool _autoTuning = true;
@@ -495,9 +671,6 @@ class _SettingsTabState extends State<SettingsTab> {
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _ipCtrl.text = prefs.getString('ip') ?? "";
-      _authCtrl.text = prefs.getString('auth') ?? "";
-      _obfsCtrl.text = prefs.getString('obfs') ?? "hu``hqb`c";
       _mtuCtrl.text = prefs.getString('mtu') ?? "1200";
       _autoTuning = prefs.getBool('auto_tuning') ?? true;
       _bufferSize = prefs.getString('buffer_size') ?? "4m";
@@ -508,9 +681,6 @@ class _SettingsTabState extends State<SettingsTab> {
 
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('ip', _ipCtrl.text);
-    await prefs.setString('auth', _authCtrl.text);
-    await prefs.setString('obfs', _obfsCtrl.text);
     await prefs.setString('mtu', _mtuCtrl.text);
     await prefs.setBool('auto_tuning', _autoTuning);
     await prefs.setString('buffer_size', _bufferSize);
@@ -524,15 +694,8 @@ class _SettingsTabState extends State<SettingsTab> {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        const Text("Configuration", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        const Text("Core Settings", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
         const SizedBox(height: 20),
-        _buildInput(_ipCtrl, "Server IP / Domain", Icons.dns),
-        const SizedBox(height: 15),
-        _buildInput(_authCtrl, "Password / Auth", Icons.password),
-        const SizedBox(height: 30),
-        
-        const Text("Core Settings (Advanced)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
-        const SizedBox(height: 15),
         
         Card(
           child: Padding(
