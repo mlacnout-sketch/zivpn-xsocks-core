@@ -19,35 +19,30 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
 
-  // Core Channels
   static const platform = MethodChannel('com.minizivpn.app/core');
   static const logChannel = EventChannel('com.minizivpn.app/logs');
   static const statsChannel = EventChannel('com.minizivpn.app/stats');
 
-  // App State
-  bool _isRunning = false;
+  String _vpnState = "disconnected"; // disconnected, connecting, connected
   final List<String> _logs = [];
   final ScrollController _logScrollCtrl = ScrollController();
-
-  // Multi-Account State
+  
   List<Map<String, dynamic>> _accounts = [];
   int _activeAccountIndex = -1;
-
-  // Timer State
+  
   Timer? _timer;
   DateTime? _startTime;
   String _durationString = "00:00:00";
-
-  // Stats
+  
   String _dlSpeed = "0 KB/s";
   String _ulSpeed = "0 KB/s";
   int _sessionRx = 0;
   int _sessionTx = 0;
-
+  
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
+    _loadData();
     _initLogListener();
     _initStatsListener();
   }
@@ -58,26 +53,23 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  Future<void> _loadInitialData() async {
+  Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-
-    // Load Accounts
     final String? jsonStr = prefs.getString('saved_accounts');
     if (jsonStr != null) {
       _accounts = List<Map<String, dynamic>>.from(jsonDecode(jsonStr));
     }
-
-    // Load VPN Status
+    
     final isRunning = prefs.getBool('vpn_running') ?? false;
     final startMillis = prefs.getInt('vpn_start_time');
     final currentIp = prefs.getString('ip') ?? "";
-
+    
     if (currentIp.isNotEmpty) {
       _activeAccountIndex = _accounts.indexWhere((acc) => acc['ip'] == currentIp);
     }
-
+    
     setState(() {
-      _isRunning = isRunning;
+      _vpnState = isRunning ? "connected" : "disconnected";
       if (isRunning && startMillis != null) {
         _startTime = DateTime.fromMillisecondsSinceEpoch(startMillis);
         _startTimer();
@@ -151,12 +143,12 @@ class _HomePageState extends State<HomePage> {
     HapticFeedback.mediumImpact();
     final prefs = await SharedPreferences.getInstance();
 
-    if (_isRunning) {
+    if (_vpnState == "connected") {
       try {
         await platform.invokeMethod('stopCore');
         _timer?.cancel();
         setState(() {
-          _isRunning = false;
+          _vpnState = "disconnected";
           _durationString = "00:00:00";
           _startTime = null;
           _sessionRx = 0;
@@ -173,6 +165,8 @@ class _HomePageState extends State<HomePage> {
         setState(() => _selectedIndex = 3); // Go to settings
         return;
       }
+
+      setState(() => _vpnState = "connecting");
 
       try {
         await platform.invokeMethod('startCore', {
@@ -195,10 +189,10 @@ class _HomePageState extends State<HomePage> {
         _startTime = now;
         _startTimer();
 
-        setState(() => _isRunning = true);
+        setState(() => _vpnState = "connected");
       } catch (e) {
         setState(() {
-          _isRunning = false;
+          _vpnState = "disconnected";
           _logs.add("Start Failed: $e");
         });
       }
@@ -219,7 +213,7 @@ class _HomePageState extends State<HomePage> {
       _sessionTx = 0;
     });
 
-    if (_isRunning) {
+    if (_vpnState == "connected") {
       await _toggleVpn(); // Stop
       await Future.delayed(const Duration(milliseconds: 500));
       await _toggleVpn(); // Start
@@ -234,7 +228,7 @@ class _HomePageState extends State<HomePage> {
           index: _selectedIndex,
           children: [
             DashboardTab(
-              isRunning: _isRunning,
+              vpnState: _vpnState,
               onToggle: _toggleVpn,
               dl: _dlSpeed,
               ul: _ulSpeed,

@@ -67,16 +67,32 @@ class _ProxiesTabState extends State<ProxiesTab> {
               foregroundColor: Colors.white,
             ),
             onPressed: () {
-              if (nameCtrl.text.isNotEmpty && ipCtrl.text.isNotEmpty) {
-                widget.onAdd({
-                  "name": nameCtrl.text,
-                  "ip": ipCtrl.text,
-                  "auth": authCtrl.text,
-                  "obfs": "hu``hqb`c",
-                  "usage": 0,
-                });
-                Navigator.pop(ctx);
+              final name = nameCtrl.text.trim();
+              final ipPort = ipCtrl.text.trim();
+              final pass = authCtrl.text.trim();
+
+              if (name.isEmpty || ipPort.isEmpty || pass.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("All fields are required!")),
+                );
+                return;
               }
+
+              if (!ipPort.contains(":")) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Invalid format. Use IP:Port (e.g. 1.2.3.4:443)")),
+                );
+                return;
+              }
+
+              widget.onAdd({
+                "name": name,
+                "ip": ipPort,
+                "auth": pass,
+                "obfs": "hu``hqb`c",
+                "usage": 0,
+              });
+              Navigator.pop(ctx);
             },
             child: const Text("Save"),
           ),

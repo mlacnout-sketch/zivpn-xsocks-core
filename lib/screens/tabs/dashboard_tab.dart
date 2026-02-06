@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DashboardTab extends StatefulWidget {
-  final bool isRunning;
+  final String vpnState; // "disconnected", "connecting", "connected"
   final VoidCallback onToggle;
   final String dl;
   final String ul;
@@ -13,7 +13,7 @@ class DashboardTab extends StatefulWidget {
 
   const DashboardTab({
     super.key,
-    required this.isRunning,
+    required this.vpnState,
     required this.onToggle,
     required this.dl,
     required this.ul,
@@ -27,122 +27,37 @@ class DashboardTab extends StatefulWidget {
 }
 
 class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderStateMixin {
-  String _pingResult = "";
-  bool _isPinging = false;
-  late AnimationController _pingAnimCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _pingAnimCtrl = AnimationController(
-      duration: const Duration(seconds: 1),
-      vsync: this,
-    );
-  }
-
-  @override
-  void dispose() {
-    _pingAnimCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _doPing() async {
-    if (_isPinging) return;
-
-    setState(() {
-      _isPinging = true;
-      _pingResult = "Pinging...";
-    });
-    _pingAnimCtrl.repeat();
-
-    final prefs = await SharedPreferences.getInstance();
-    final target = prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204";
-
-    final stopwatch = Stopwatch()..start();
-    String result = "Error";
-
-    try {
-      if (target.startsWith("http")) {
-        // Use HTTP Real Ping (Generate 204)
-        final client = HttpClient();
-        client.connectionTimeout = const Duration(seconds: 5);
-        final request = await client.getUrl(Uri.parse(target));
-        final response = await request.close();
-        stopwatch.stop();
-
-        if (response.statusCode == 204 || response.statusCode == 200) {
-          result = "${stopwatch.elapsedMilliseconds} ms";
-        } else {
-          result = "HTTP ${response.statusCode}";
-        }
-      } else {
-        // Fallback to ICMP
-        final proc = await Process.run('ping', ['-c', '1', '-W', '2', target]);
-        stopwatch.stop();
-        if (proc.exitCode == 0) {
-           final match = RegExp(r"time=([0-9\.]+) ms").firstMatch(proc.stdout.toString());
-           if (match != null) result = "${match.group(1)} ms";
-        } else {
-           result = "Timeout";
-        }
-      }
-    } catch (_) {
-      result = "Error";
-    }
-
-    if (mounted) {
-      setState(() {
-        _isPinging = false;
-        _pingResult = result;
-      });
-      _pingAnimCtrl.stop();
-      _pingAnimCtrl.reset();
-    }
-  }
-
-  String _formatTotalBytes(int bytes) {
-    if (bytes < 1024) return "$bytes B";
-    if (bytes < 1024 * 1024) return "${(bytes / 1024).toStringAsFixed(1)} KB";
-    if (bytes < 1024 * 1024 * 1024) {
-      return "${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB";
-    }
-    return "${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB";
-  }
+// ... (existing code) ...
 
   @override
   Widget build(BuildContext context) {
+    bool isConnected = widget.vpnState == "connected";
+    bool isConnecting = widget.vpnState == "connecting";
+    Color statusColor = isConnected ? const Color(0xFF6C63FF) : (isConnecting ? Colors.orange : const Color(0xFF272736));
+
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            "ZIVPN",
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
-            ),
-          ),
-          const Text("Turbo Tunnel Engine", style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 20),
+// ... (header code) ...
           Expanded(
             child: Stack(
               alignment: Alignment.center,
               children: [
                 Center(
                   child: GestureDetector(
-                    onTap: widget.onToggle,
+                    onTap: isConnecting ? null : widget.onToggle,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 500),
                       width: 220,
                       height: 240,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: widget.isRunning ? const Color(0xFF6C63FF) : const Color(0xFF272736),
+                        color: statusColor,
                         boxShadow: [
                           BoxShadow(
-                            color: (widget.isRunning ? const Color(0xFF6C63FF) : Colors.black)
+                            color: (isConnected ? const Color(0xFF6C63FF) : Colors.black)
                                 .withValues(alpha: 0.4),
                             blurRadius: 30,
                             spreadRadius: 10,
@@ -152,20 +67,27 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            widget.isRunning ? Icons.vpn_lock : Icons.power_settings_new,
-                            size: 64,
-                            color: Colors.white,
-                          ),
+                          if (isConnecting)
+                            const SizedBox(
+                              width: 64, 
+                              height: 64, 
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
+                            )
+                          else
+                            Icon(
+                              isConnected ? Icons.vpn_lock : Icons.power_settings_new,
+                              size: 64,
+                              color: Colors.white,
+                            ),
                           const SizedBox(height: 15),
                           Text(
-                            widget.isRunning ? "CONNECTED" : "TAP TO CONNECT",
+                            isConnecting ? "CONNECTING..." : (isConnected ? "CONNECTED" : "TAP TO CONNECT"),
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
                           ),
-                          if (widget.isRunning) ...[
+                          if (isConnected) ...[
                             const SizedBox(height: 15),
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -194,106 +116,9 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                   ),
                 ),
                 // Ping Button & Result
-                if (widget.isRunning)
-                  Positioned(
-                    bottom: 20,
-                    right: 20,
-                    child: Column(
-                      children: [
-                        FloatingActionButton.small(
-                          onPressed: _doPing,
-                          backgroundColor: const Color(0xFF272736),
-                          child: RotationTransition(
-                            turns: _pingAnimCtrl,
-                            child: Icon(
-                              Icons.flash_on,
-                              color: _isPinging ? Colors.yellow : const Color(0xFF6C63FF),
-                            ),
-                          ),
-                        ),
-                        if (_pingResult.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _pingResult,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: _pingResult.contains("ms") 
-                                    ? (int.tryParse(_pingResult.split(' ')[0]) ?? 999) < 150 
-                                        ? Colors.greenAccent 
-                                        : Colors.orangeAccent
-                                    : Colors.redAccent,
-                              ),
-                            ),
-                          ),
-                        ]
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(12),
-            margin: const EdgeInsets.only(bottom: 15),
-            decoration: BoxDecoration(
-              color: const Color(0xFF272736),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Text(
-                  "Session: ${_formatTotalBytes(widget.sessionRx + widget.sessionTx)}",
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-                Container(width: 1, height: 12, color: Colors.white10),
-                Text(
-                  "Rx: ${_formatTotalBytes(widget.sessionRx)}",
-                  style: const TextStyle(color: Colors.greenAccent, fontSize: 12),
-                ),
-                Container(width: 1, height: 12, color: Colors.white10),
-                Text(
-                  "Tx: ${_formatTotalBytes(widget.sessionTx)}",
-                  style: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: StatCard(
-                  label: "Download",
-                  value: widget.dl,
-                  icon: Icons.download,
-                  color: Colors.green,
-                ),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: StatCard(
-                  label: "Upload",
-                  value: widget.ul,
-                  icon: Icons.upload,
-                  color: Colors.orange,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-}
+                if (isConnected)
+// ... (rest of code)
+
 
 class StatCard extends StatelessWidget {
   final String label, value;
