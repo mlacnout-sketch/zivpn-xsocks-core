@@ -56,47 +56,59 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
     _pingAnimCtrl.repeat();
 
     final prefs = await SharedPreferences.getInstance();
-    final target = prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204";
+    String target = prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204";
+    
+    // Ensure target has scheme for HTTP check
+    if (!target.startsWith("http")) {
+      target = "http://$target";
+    }
 
     final stopwatch = Stopwatch()..start();
     String result = "Error";
 
     try {
-      if (target.startsWith("http")) {
-        // Use HTTP Real Ping (Generate 204)
+      // 1. Try HTTP Real Ping (Generate 204)
+      try {
         final client = HttpClient();
         client.connectionTimeout = const Duration(seconds: 5);
         final request = await client.getUrl(Uri.parse(target));
         final response = await request.close();
-        stopwatch.stop();
-
+        
         if (response.statusCode == 204 || response.statusCode == 200) {
+          stopwatch.stop();
           result = "${stopwatch.elapsedMilliseconds} ms";
         } else {
-          result = "HTTP ${response.statusCode}";
+          throw Exception("HTTP ${response.statusCode}");
         }
-      } else {
-        // Fallback to ICMP
-        final proc = await Process.run('ping', ['-c', '1', '-W', '2', target]);
+      } catch (e) {
+        // 2. Fallback to ICMP if HTTP fails
+        // Strip scheme for ICMP
+        final cleanTarget = target.replaceAll(RegExp(r'^https?://'), '').split('/')[0];
+        final proc = await Process.run('ping', ['-c', '1', '-W', '2', cleanTarget]);
         stopwatch.stop();
+        
         if (proc.exitCode == 0) {
            final match = RegExp(r"time=([0-9\.]+) ms").firstMatch(proc.stdout.toString());
-           if (match != null) result = "${match.group(1)} ms";
+           if (match != null) {
+             result = "${match.group(1)} ms";
+           } else {
+             result = "Reply";
+           }
         } else {
            result = "Timeout";
         }
       }
     } catch (_) {
       result = "Error";
-    }
-
-    if (mounted) {
-      setState(() {
-        _isPinging = false;
-        _pingResult = result;
-      });
-      _pingAnimCtrl.stop();
-      _pingAnimCtrl.reset();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPinging = false;
+          _pingResult = result;
+        });
+        _pingAnimCtrl.stop();
+        _pingAnimCtrl.reset();
+      }
     }
   }
 
@@ -235,11 +247,7 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: _pingResult.contains("ms") 
-                                    ? (int.tryParse(_pingResult.split(' ')[0]) ?? 999) < 150 
-                                        ? Colors.greenAccent 
-                                        : Colors.orangeAccent
-                                    : Colors.redAccent,
+                                color: _getPingColor(_pingResult),
                               ),
                             ),
                           ),
@@ -252,6 +260,22 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
           ),
           Container(
             padding: const EdgeInsets.all(12),
+// ... (rest of the file) ...
+  Color _getPingColor(String result) {
+    if (result.contains("Error") || result.contains("Timeout") || result.contains("HTTP")) {
+      return Colors.redAccent;
+    }
+    try {
+      // Extract number from "120 ms" or "120.5 ms"
+      final msString = result.split(' ')[0];
+      final ms = double.tryParse(msString);
+      if (ms != null) {
+        if (ms < 150) return Colors.greenAccent;
+        if (ms < 300) return Colors.orangeAccent;
+      }
+    } catch (_) {}
+    return Colors.redAccent;
+  }
             margin: const EdgeInsets.only(bottom: 15),
             decoration: BoxDecoration(
               color: const Color(0xFF272736),
