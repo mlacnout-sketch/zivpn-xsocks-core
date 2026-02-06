@@ -58,7 +58,6 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
     final prefs = await SharedPreferences.getInstance();
     String target = prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204";
     
-    // Ensure target has scheme for HTTP check
     if (!target.startsWith("http")) {
       target = "http://$target";
     }
@@ -67,7 +66,6 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
     String result = "Error";
 
     try {
-      // 1. Try HTTP Real Ping (Generate 204)
       try {
         final client = HttpClient();
         client.connectionTimeout = const Duration(seconds: 5);
@@ -81,8 +79,6 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
           throw Exception("HTTP ${response.statusCode}");
         }
       } catch (e) {
-        // 2. Fallback to ICMP if HTTP fails
-        // Strip scheme for ICMP
         final cleanTarget = target.replaceAll(RegExp(r'^https?://'), '').split('/')[0];
         final proc = await Process.run('ping', ['-c', '1', '-W', '2', cleanTarget]);
         stopwatch.stop();
@@ -110,6 +106,21 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
         _pingAnimCtrl.reset();
       }
     }
+  }
+
+  Color _getPingColor(String result) {
+    if (result.contains("Error") || result.contains("Timeout") || result.contains("HTTP")) {
+      return Colors.redAccent;
+    }
+    try {
+      final msString = result.split(' ')[0];
+      final ms = double.tryParse(msString);
+      if (ms != null) {
+        if (ms < 150) return Colors.greenAccent;
+        if (ms < 300) return Colors.orangeAccent;
+      }
+    } catch (_) {}
+    return Colors.redAccent;
   }
 
   String _formatTotalBytes(int bytes) {
@@ -216,7 +227,6 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                     ),
                   ),
                 ),
-                // Ping Button & Result
                 if (isConnected)
                   Positioned(
                     bottom: 20,
@@ -260,22 +270,6 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
           ),
           Container(
             padding: const EdgeInsets.all(12),
-// ... (rest of the file) ...
-  Color _getPingColor(String result) {
-    if (result.contains("Error") || result.contains("Timeout") || result.contains("HTTP")) {
-      return Colors.redAccent;
-    }
-    try {
-      // Extract number from "120 ms" or "120.5 ms"
-      final msString = result.split(' ')[0];
-      final ms = double.tryParse(msString);
-      if (ms != null) {
-        if (ms < 150) return Colors.greenAccent;
-        if (ms < 300) return Colors.orangeAccent;
-      }
-    } catch (_) {}
-    return Colors.redAccent;
-  }
             margin: const EdgeInsets.only(bottom: 15),
             decoration: BoxDecoration(
               color: const Color(0xFF272736),
