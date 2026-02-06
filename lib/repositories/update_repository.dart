@@ -63,14 +63,43 @@ class UpdateRepository {
     return null;
   }
 
-  bool _isNewer(String latest, String current) {
-    List<int> v1 = latest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    List<int> v2 = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    for (int i = 0; i < v1.length; i++) {
-      if (i >= v2.length) return true;
-      if (v1[i] > v2[i]) return true;
-      if (v1[i] < v2[i]) return false;
+  bool _isNewer(String latestTag, String currentVersion) {
+    try {
+      // Extract x.y.z from tag (e.g. v1.0.2-b55 -> 1.0.2)
+      final RegExp reg = RegExp(r'(\d+)\.(\d+)\.(\d+)');
+      final match1 = reg.firstMatch(latestTag);
+      final match2 = reg.firstMatch(currentVersion);
+
+      if (match1 == null || match2 == null) return false;
+
+      final v1 = [
+        int.parse(match1.group(1)!),
+        int.parse(match1.group(2)!),
+        int.parse(match1.group(3)!)
+      ];
+      
+      final v2 = [
+        int.parse(match2.group(1)!),
+        int.parse(match2.group(2)!),
+        int.parse(match2.group(3)!)
+      ];
+
+      for (int i = 0; i < 3; i++) {
+        if (v1[i] > v2[i]) return true;
+        if (v1[i] < v2[i]) return false;
+      }
+      
+      // If versions are equal (1.0.2 == 1.0.2), check build number if available in tag
+      if (latestTag.contains("-b")) {
+         // Logic: If current app is dev build, maybe we want to update? 
+         // For now, let's assume same version x.y.z means NO update to avoid loops.
+         return false;
+      }
+      
+      return false;
+    } catch (e) {
+      print("Version compare error: $e");
+      return false;
     }
-    return false;
   }
 }
