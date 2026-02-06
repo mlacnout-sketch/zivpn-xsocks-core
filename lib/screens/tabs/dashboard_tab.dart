@@ -55,46 +55,13 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
     });
     _pingAnimCtrl.repeat();
 
-    final prefs = await SharedPreferences.getInstance();
-    String target = prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204";
-    
-    if (!target.startsWith("http")) {
-      target = "http://$target";
-    }
-
-    final stopwatch = Stopwatch()..start();
     String result = "Error";
-
     try {
-      try {
-        final client = HttpClient();
-        client.connectionTimeout = const Duration(seconds: 5);
-        final request = await client.getUrl(Uri.parse(target));
-        final response = await request.close();
-        
-        if (response.statusCode == 204 || response.statusCode == 200) {
-          stopwatch.stop();
-          result = "${stopwatch.elapsedMilliseconds} ms";
-        } else {
-          throw Exception("HTTP ${response.statusCode}");
-        }
-      } catch (e) {
-        final cleanTarget = target.replaceAll(RegExp(r'^https?://'), '').split('/')[0];
-        final proc = await Process.run('ping', ['-c', '1', '-W', '2', cleanTarget]);
-        stopwatch.stop();
-        
-        if (proc.exitCode == 0) {
-           final match = RegExp(r"time=([0-9\.]+) ms").firstMatch(proc.stdout.toString());
-           if (match != null) {
-             result = "${match.group(1)} ms";
-           } else {
-             result = "Reply";
-           }
-        } else {
-           result = "Timeout";
-        }
-      }
-    } catch (_) {
+      // Enforce 10s hard timeout for the entire operation
+      result = await _performPingLogic().timeout(const Duration(seconds: 10), onTimeout: () {
+        return "Timeout";
+      });
+    } catch (e) {
       result = "Error";
     } finally {
       if (mounted) {
@@ -105,6 +72,45 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
         _pingAnimCtrl.stop();
         _pingAnimCtrl.reset();
       }
+    }
+  }
+
+  Future<String> _performPingLogic() async {
+    final prefs = await SharedPreferences.getInstance();
+    String target = prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204";
+    
+    if (!target.startsWith("http")) {
+      target = "http://$target";
+    }
+
+    final stopwatch = Stopwatch()..start();
+
+    try {
+      // 1. Try HTTP
+      try {
+        final client = HttpClient();
+        client.connectionTimeout = const Duration(seconds: 5);
+        final request = await client.getUrl(Uri.parse(target));
+        final response = await request.close();
+        
+        if (response.statusCode == 204 || response.statusCode == 200) {
+          stopwatch.stop();
+          return "${stopwatch.elapsedMilliseconds} ms";
+        }
+      } catch (_) {}
+
+      // 2. Fallback to ICMP
+      final cleanTarget = target.replaceAll(RegExp(r'^https?://'), '').split('/')[0];
+      final proc = await Process.run('ping', ['-c', '1', '-W', '2', cleanTarget]);
+      stopwatch.stop();
+      
+      if (proc.exitCode == 0) {
+         final match = RegExp(r"time=([0-9\.]+) ms").firstMatch(proc.stdout.toString());
+         if (match != null) return "${match.group(1)} ms";
+      }
+      return "Timeout";
+    } catch (_) {
+      return "Error";
     }
   }
 
