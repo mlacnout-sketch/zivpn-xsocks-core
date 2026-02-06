@@ -38,7 +38,7 @@ class ProxiesTab extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Name (e.g. SG-1)")),
-              TextField(controller: ipCtrl, decoration: const InputDecoration(labelText: "IP:Port")),
+              TextField(controller: ipCtrl, decoration: const InputDecoration(labelText: "IP/Domain:Port")),
               TextField(controller: authCtrl, decoration: const InputDecoration(labelText: "Password")),
             ],
           ),
