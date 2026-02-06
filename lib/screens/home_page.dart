@@ -264,7 +264,7 @@ class _HomePageState extends State<HomePage> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: (i) => setState(() => _selectedIndex = i),
         backgroundColor: const Color(0xFF1E1E2E),
-        indicatorColor: const Color(0xFF6C63FF).withOpacity(0.2),
+        indicatorColor: const Color(0xFF6C63FF).withValues(alpha: 0.2),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),

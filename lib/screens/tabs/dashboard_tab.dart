@@ -60,7 +60,7 @@ class DashboardTab extends StatelessWidget {
                     boxShadow: [
                       BoxShadow(
                         color: (isRunning ? const Color(0xFF6C63FF) : Colors.black)
-                            .withOpacity(0.4),
+                            .withValues(alpha: 0.4),
                         blurRadius: 30,
                         spreadRadius: 10,
                       )
@@ -117,7 +117,7 @@ class DashboardTab extends StatelessWidget {
             decoration: BoxDecoration(
               color: const Color(0xFF272736),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -193,7 +193,7 @@ class StatCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color),

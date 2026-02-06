@@ -42,12 +42,6 @@ class _ProxiesTabState extends State<ProxiesTab> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  String _formatTotalBytes(int bytes) {
-    if (bytes < 1024) return "$bytes B";
-    if (bytes < 1024 * 1024) return "${(bytes / 1024).toStringAsFixed(1)} KB";
-    return "${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB";
-  }
-
   void _showAddDialog(BuildContext context) {
     final nameCtrl = TextEditingController();
     final ipCtrl = TextEditingController();
@@ -263,7 +257,7 @@ class _ProxiesTabState extends State<ProxiesTab> with TickerProviderStateMixin {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: res.contains("ms") ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                              color: res.contains("ms") ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
