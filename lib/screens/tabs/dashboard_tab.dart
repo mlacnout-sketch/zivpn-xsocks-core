@@ -77,40 +77,53 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
 
   Future<String> _performPingLogic() async {
     final prefs = await SharedPreferences.getInstance();
-    String target = prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204";
+    String target = (prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204").trim();
     
+    if (target.isEmpty) target = "http://www.gstatic.com/generate_204";
     if (!target.startsWith("http")) {
       target = "http://$target";
     }
 
     final stopwatch = Stopwatch()..start();
+    final client = HttpClient();
+    
+    // Crucial: Trust all certificates for pinging (avoid handshake errors on captive portals or weird networks)
+    client.badCertificateCallback = (cert, host, port) => true;
+    client.connectionTimeout = const Duration(seconds: 5);
 
     try {
-      // 1. Try HTTP
-      try {
-        final client = HttpClient();
-        client.connectionTimeout = const Duration(seconds: 5);
-        final request = await client.getUrl(Uri.parse(target));
-        final response = await request.close();
-        
-        if (response.statusCode == 204 || response.statusCode == 200) {
-          stopwatch.stop();
-          return "${stopwatch.elapsedMilliseconds} ms";
-        }
-      } catch (_) {}
-
-      // 2. Fallback to ICMP
-      final cleanTarget = target.replaceAll(RegExp(r'^https?://'), '').split('/')[0];
-      final proc = await Process.run('ping', ['-c', '1', '-W', '2', cleanTarget]);
+      // 1. Try HTTP Request
+      final request = await client.getUrl(Uri.parse(target));
+      
+      // Fake User-Agent to avoid being blocked by some firewalls
+      request.headers.add("User-Agent", "Mozilla/5.0 (compatible; ZIVPN/1.0)");
+      
+      final response = await request.close();
       stopwatch.stop();
       
-      if (proc.exitCode == 0) {
-         final match = RegExp(r"time=([0-9\.]+) ms").firstMatch(proc.stdout.toString());
-         if (match != null) return "${match.group(1)} ms";
+      if (response.statusCode >= 200 && response.statusCode < 400) {
+        return "${stopwatch.elapsedMilliseconds} ms";
+      } else {
+        return "HTTP ${response.statusCode}";
       }
-      return "Timeout";
-    } catch (_) {
+    } catch (e) {
+      // 2. Fallback to ICMP (Only if HTTP totally fails)
+      try {
+        final cleanTarget = target.replaceAll(RegExp(r'^https?://'), '').split('/')[0];
+        // Note: This often fails on Android 10+ due to permissions
+        final proc = await Process.run('ping', ['-c', '1', '-W', '1', cleanTarget]);
+        if (proc.exitCode == 0) {
+           final match = RegExp(r"time=([0-9\.]+) ms").firstMatch(proc.stdout.toString());
+           if (match != null) return "${match.group(1)} ms";
+        }
+      } catch (_) {}
+      
+      // Return specific error for debugging
+      if (e.toString().contains("SocketException")) return "Net Error";
+      if (e.toString().contains("Timeout")) return "Timeout";
       return "Error";
+    } finally {
+      client.close(); // Ensure resources are released
     }
   }
 
