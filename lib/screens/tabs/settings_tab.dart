@@ -10,6 +10,7 @@ class SettingsTab extends StatefulWidget {
 
 class _SettingsTabState extends State<SettingsTab> {
   final _mtuCtrl = TextEditingController();
+  final _pingTargetCtrl = TextEditingController();
 
   bool _autoTuning = true;
   String _bufferSize = "4m";
@@ -26,6 +27,7 @@ class _SettingsTabState extends State<SettingsTab> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _mtuCtrl.text = prefs.getString('mtu') ?? "1200";
+      _pingTargetCtrl.text = prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204";
       _autoTuning = prefs.getBool('auto_tuning') ?? true;
       _bufferSize = prefs.getString('buffer_size') ?? "4m";
       _logLevel = prefs.getString('log_level') ?? "info";
@@ -36,6 +38,7 @@ class _SettingsTabState extends State<SettingsTab> {
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('mtu', _mtuCtrl.text);
+    await prefs.setString('ping_target', _pingTargetCtrl.text);
     await prefs.setBool('auto_tuning', _autoTuning);
     await prefs.setString('buffer_size', _bufferSize);
     await prefs.setString('log_level', _logLevel);
@@ -67,6 +70,12 @@ class _SettingsTabState extends State<SettingsTab> {
                   _mtuCtrl,
                   "MTU (Default: 1500)",
                   Icons.settings_ethernet,
+                ),
+                const SizedBox(height: 16),
+                _buildTextInput(
+                  _pingTargetCtrl,
+                  "Ping Destination (URL/IP)",
+                  Icons.network_check,
                 ),
                 const SizedBox(height: 20),
                 _buildSliderSection(),
