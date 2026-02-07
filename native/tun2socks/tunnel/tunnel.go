@@ -7,6 +7,7 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/xjasonlyu/tun2socks/v2/badvpn"
 	"github.com/xjasonlyu/tun2socks/v2/core/adapter"
 	"github.com/xjasonlyu/tun2socks/v2/proxy"
 	"github.com/xjasonlyu/tun2socks/v2/tunnel/statistic"
@@ -30,6 +31,11 @@ type Tunnel struct {
 
 	// UDP session timeout.
 	udpTimeout *atomic.Duration
+	
+	// BadVPN/UDPGW Remote Address (e.g. "127.0.0.1:7300")
+	udpgwRemote string
+	udpgwMu     sync.Mutex
+	udpgwMgr    *badvpn.Manager
 
 	// Internal proxy.Proxy for Tunnel.
 	proxyMu sync.RWMutex
@@ -113,4 +119,17 @@ func (t *Tunnel) SetProxy(proxy proxy.Proxy) {
 
 func (t *Tunnel) SetUDPTimeout(timeout time.Duration) {
 	t.udpTimeout.Store(timeout)
+}
+
+func (t *Tunnel) SetUDPGWRemote(addr string) {
+	t.udpgwMu.Lock()
+	defer t.udpgwMu.Unlock()
+	t.udpgwRemote = addr
+	if t.udpgwMgr != nil {
+		t.udpgwMgr.Close() // Use Close() not Stop() based on my impl
+		t.udpgwMgr = nil
+	}
+	if addr != "" {
+		t.udpgwMgr = badvpn.NewManager(addr)
+	}
 }
