@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/xjasonlyu/tun2socks/v2/log"
 	"golang.org/x/net/proxy"
