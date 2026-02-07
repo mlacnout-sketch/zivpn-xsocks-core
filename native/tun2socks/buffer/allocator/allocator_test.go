@@ -46,3 +46,26 @@ func BenchmarkMSB(b *testing.B) {
 		msb(rand.Int())
 	}
 }
+
+func TestMSB(t *testing.T) {
+	tests := []struct {
+		size     int
+		expected uint16
+	}{
+		{1, 0},
+		{2, 1},
+		{3, 1},
+		{4, 2},
+		{7, 2},
+		{8, 3},
+		{1023, 9},
+		{1024, 10},
+		{65535, 15},
+		{65536, 16},
+	}
+
+	for _, tt := range tests {
+		result := msb(tt.size)
+		assert.Equal(t, tt.expected, result, "msb(%d) failed", tt.size)
+	}
+}
