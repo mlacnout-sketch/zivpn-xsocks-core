@@ -148,7 +148,7 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: _getColor(value).withOpacity(0.3),
+                    color: _getColor(value).withValues(alpha: 0.3),
                     width: 1
                   )
                 ),
