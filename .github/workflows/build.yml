@@ -35,8 +35,10 @@ jobs:
       - name: Setup Android NDK
         uses: android-actions/setup-android@v3
 
-      - name: Install NDK
-        run: sdkmanager "ndk;27.0.12077973"
+      - name: Install Android SDK & NDK
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "ndk;27.0.12077973"
 
       - name: Install Gomobile
         run: |
