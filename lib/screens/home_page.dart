@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import 'dart:io';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:open_filex/open_filex.dart';
@@ -11,6 +12,7 @@ import 'tabs/proxies_tab.dart';
 import 'tabs/logs_tab.dart';
 import 'tabs/settings_tab.dart';
 import '../viewmodels/update_viewmodel.dart';
+import '../repositories/backup_repository.dart';
 import '../models/app_version.dart';
 
 class HomePage extends StatefulWidget {
@@ -53,6 +55,7 @@ class _HomePageState extends State<HomePage> {
     _loadData();
     _initLogListener();
     _initStatsListener();
+    _checkInitialImport();
     
     // Auto-update check
     _updateViewModel.availableUpdate.listen((update) {
@@ -73,6 +76,47 @@ class _HomePageState extends State<HomePage> {
     _sessionRx.dispose();
     _sessionTx.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkInitialImport() async {
+    try {
+      final String? filePath = await platform.invokeMethod('getInitialFile');
+      if (filePath != null && mounted) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: AppColors.card,
+            title: const Text("Import Backup?"),
+            content: const Text("A backup file was detected. Do you want to restore it now? This will overwrite current settings."),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                onPressed: () => Navigator.pop(context, true), 
+                child: const Text("Import")
+              ),
+            ],
+          ),
+        );
+
+        if (confirmed == true) {
+            final repo = BackupRepository();
+            final success = await repo.restoreBackup(File(filePath));
+            if (success) {
+                _loadData(); // Refresh UI
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Backup imported successfully.")),
+                );
+            } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Failed to import backup.")),
+                );
+            }
+        }
+      }
+    } catch (e) {
+      print("Import check error: $e");
+    }
   }
 
   void _showUpdateDialog(AppVersion update) {

@@ -33,6 +33,7 @@ class MainActivity: FlutterActivity() {
     private var logSink: EventChannel.EventSink? = null
     private var statsSink: EventChannel.EventSink? = null
     private var statsTimer: Timer? = null
+    private var initialIntentData: String? = null // Store file URI
     
     private val uiHandler = Handler(Looper.getMainLooper())
 
@@ -47,9 +48,41 @@ class MainActivity: FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleIntent(intent) // Check intent on launch
         // Ensure environment is clean on launch
         stopEngine()
         registerReceiver(logReceiver, IntentFilter(ACTION_LOG))
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent) // Check intent on new intent (already running)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action == Intent.ACTION_VIEW) {
+            val data = intent.data
+            if (data != null) {
+                // Copy content stream to temp file to be accessible by Flutter File object
+                try {
+                    val inputStream = contentResolver.openInputStream(data)
+                    val tempFile = java.io.File(cacheDir, "import_backup.zip")
+                    if (tempFile.exists()) tempFile.delete()
+                    
+                    val outputStream = java.io.FileOutputStream(tempFile)
+                    inputStream?.copyTo(outputStream)
+                    
+                    inputStream?.close()
+                    outputStream.close()
+                    
+                    initialIntentData = tempFile.absolutePath
+                    Log.d("ZIVPN-Import", "File copied to: $initialIntentData")
+                } catch (e: Exception) {
+                    Log.e("ZIVPN-Import", "Failed to copy content: ${e.message}")
+                    initialIntentData = null
+                }
+            }
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -82,7 +115,10 @@ class MainActivity: FlutterActivity() {
         )
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method == "startCore") {
+            if (call.method == "getInitialFile") {
+                result.success(initialIntentData)
+                initialIntentData = null // Clear after reading
+            } else if (call.method == "startCore") {
                 val ip = call.argument<String>("ip") ?: ""
                 val range = call.argument<String>("port_range") ?: "6000-19999"
                 val pass = call.argument<String>("pass") ?: ""
