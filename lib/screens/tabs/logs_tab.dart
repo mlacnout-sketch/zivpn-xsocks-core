@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../app_colors.dart';
 
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import '../../app_colors.dart';
-
 class LogsTab extends StatefulWidget {
   final List<String> logs;
   final ScrollController scrollController;
