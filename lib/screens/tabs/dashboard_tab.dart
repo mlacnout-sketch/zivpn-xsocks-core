@@ -36,18 +36,11 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1000),
     );
-    _pulseAnimation = Tween<double>(begin: 0.0, end: 20.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    _pulseAnimation = Tween<double>(begin: 0.0, end: 10.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOutSine),
     );
-    
-    // Debug listener
-    _pulseController.addListener(() {
-      if (widget.vpnState == "connecting" && _pulseController.value == 0.0) {
-         print("Pulse Anim Tick: ${_pulseAnimation.value}"); 
-      }
-    });
     
     if (widget.vpnState == "connecting") {
       _pulseController.repeat(reverse: true);
@@ -58,12 +51,9 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
   void didUpdateWidget(DashboardTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.vpnState != oldWidget.vpnState) {
-      print("DashboardTab State Change: ${oldWidget.vpnState} -> ${widget.vpnState}");
       if (widget.vpnState == "connecting") {
-        print("Starting Pulse Animation");
         _pulseController.repeat(reverse: true);
       } else {
-        print("Stopping Pulse Animation");
         _pulseController.stop();
         _pulseController.reset();
       }
@@ -102,76 +92,78 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
               alignment: Alignment.center,
               children: [
                 Center(
-                  child: GestureDetector(
-                    onTap: isConnecting ? null : widget.onToggle,
-                    child: AnimatedBuilder(
-                      animation: _pulseAnimation,
-                      builder: (context, child) {
-                        return Container(
-                          width: 220,
-                          height: 240,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: statusColor,
-                            boxShadow: [
-                              BoxShadow(
-                                color: (isConnecting ? Colors.orange : (isConnected ? AppColors.primary : Colors.black))
-                                    .withValues(alpha: isConnecting ? 0.6 : 0.4),
-                                blurRadius: isConnecting ? 20 + _pulseAnimation.value : 30,
-                                spreadRadius: isConnecting ? 5 + _pulseAnimation.value : 10,
+                  child: RepaintBoundary(
+                    child: GestureDetector(
+                      onTap: isConnecting ? null : widget.onToggle,
+                      child: AnimatedBuilder(
+                        animation: _pulseAnimation,
+                        builder: (context, child) {
+                          return Container(
+                            width: 220,
+                            height: 240,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: statusColor,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (isConnecting ? Colors.orange : (isConnected ? AppColors.primary : Colors.black))
+                                      .withValues(alpha: isConnecting ? 0.6 : 0.4),
+                                  blurRadius: isConnecting ? 20 + _pulseAnimation.value : 30,
+                                  spreadRadius: isConnecting ? 5 + _pulseAnimation.value : 10,
+                                )
+                              ],
+                            ),
+                            child: child,
+                          );
+                        },
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (isConnecting)
+                              const SizedBox(
+                                width: 64, 
+                                height: 64, 
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
                               )
-                            ],
-                          ),
-                          child: child,
-                        );
-                      },
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (isConnecting)
-                            const SizedBox(
-                              width: 64, 
-                              height: 64, 
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
-                            )
-                          else
-                            Icon(
-                              isConnected ? Icons.vpn_lock : Icons.power_settings_new,
-                              size: 64,
-                              color: Colors.white,
-                            ),
-                          const SizedBox(height: 15),
-                          Text(
-                            isConnecting ? "CONNECTING..." : (isConnected ? "CONNECTED" : "TAP TO CONNECT"),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          if (isConnected) ...[
+                            else
+                              Icon(
+                                isConnected ? Icons.vpn_lock : Icons.power_settings_new,
+                                size: 64,
+                                color: Colors.white,
+                              ),
                             const SizedBox(height: 15),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 6,
+                            Text(
+                              isConnecting ? "CONNECTING..." : (isConnected ? "CONNECTED" : "TAP TO CONNECT"),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
                               ),
-                              decoration: BoxDecoration(
-                                color: Colors.black26,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.white12),
-                              ),
-                              child: Text(
-                                widget.duration,
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: Colors.white,
+                            ),
+                            if (isConnected) ...[
+                              const SizedBox(height: 15),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 6,
                                 ),
-                              ),
-                            )
-                          ]
-                        ],
+                                decoration: BoxDecoration(
+                                  color: Colors.black26,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: Colors.white12),
+                                ),
+                                child: Text(
+                                  widget.duration,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              )
+                            ]
+                          ],
+                        ),
                       ),
                     ),
                   ),
