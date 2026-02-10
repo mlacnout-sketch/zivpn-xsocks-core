@@ -21,7 +21,6 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'none'
 
       - name: Setup Android Environment
         uses: android-actions/setup-android@v3
