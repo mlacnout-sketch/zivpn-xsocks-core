@@ -276,6 +276,9 @@ class ZivpnService : VpnService() {
                         else -> "info"
                     }
 
+                    val useUdpgw = prefs.getBoolean("enable_udpgw", true)
+                    val udpgwPort = prefs.getString("udpgw_port", "7300") ?: "7300"
+
                     val tunCmd = arrayListOf(
                         tun2socksBin,
                         "--netif-ipaddr", "169.254.1.2",
@@ -284,9 +287,13 @@ class ZivpnService : VpnService() {
                         "--tunmtu", finalMtu,
                         "--loglevel", tsLogLevel,
                         "--dnsgw", "169.254.1.1:$pdnsdPort", // Redirection point
-                        "--fake-proc",
-                        "--udpgw-remote-server-addr", "127.0.0.1:7300"
+                        "--fake-proc"
                     )
+                    
+                    if (useUdpgw) {
+                        tunCmd.add("--udpgw-remote-server-addr")
+                        tunCmd.add("127.0.0.1:$udpgwPort")
+                    }
                     
                     // Add UDPGW support
                      tunCmd.add("--enable-udprelay")

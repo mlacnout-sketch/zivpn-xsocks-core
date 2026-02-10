@@ -24,9 +24,11 @@ class SettingsTab extends StatefulWidget {
 class _SettingsTabState extends State<SettingsTab> {
   final _mtuCtrl = TextEditingController();
   final _pingTargetCtrl = TextEditingController();
+  final _udpgwPortCtrl = TextEditingController();
 
   bool _autoTuning = true;
   bool _cpuWakelock = false;
+  bool _enableUdpgw = true;
   String _bufferSize = "4m";
   String _logLevel = "info";
   double _coreCount = 4.0;
@@ -91,8 +93,10 @@ class _SettingsTabState extends State<SettingsTab> {
     setState(() {
       _mtuCtrl.text = prefs.getString('mtu') ?? "1200";
       _pingTargetCtrl.text = prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204";
+      _udpgwPortCtrl.text = prefs.getString('udpgw_port') ?? "7300";
       _autoTuning = prefs.getBool('auto_tuning') ?? true;
       _cpuWakelock = prefs.getBool('cpu_wakelock') ?? false;
+      _enableUdpgw = prefs.getBool('enable_udpgw') ?? true;
       _bufferSize = prefs.getString('buffer_size') ?? "4m";
       _logLevel = prefs.getString('log_level') ?? "info";
       _coreCount = (prefs.getInt('core_count') ?? 4).toDouble();
@@ -103,8 +107,10 @@ class _SettingsTabState extends State<SettingsTab> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('mtu', _mtuCtrl.text);
     await prefs.setString('ping_target', _pingTargetCtrl.text);
+    await prefs.setString('udpgw_port', _udpgwPortCtrl.text);
     await prefs.setBool('auto_tuning', _autoTuning);
     await prefs.setBool('cpu_wakelock', _cpuWakelock);
+    await prefs.setBool('enable_udpgw', _enableUdpgw);
     await prefs.setString('buffer_size', _bufferSize);
     await prefs.setString('log_level', _logLevel);
     await prefs.setInt('core_count', _coreCount.toInt());
@@ -157,6 +163,22 @@ class _SettingsTabState extends State<SettingsTab> {
                   value: _autoTuning,
                   onChanged: (val) => setState(() => _autoTuning = val),
                 ),
+                const Divider(),
+                SwitchListTile(
+                  title: const Text("Enable UDPGW"),
+                  subtitle: const Text("Allow UDP traffic (Gaming/VOIP)"),
+                  value: _enableUdpgw,
+                  onChanged: (val) => setState(() => _enableUdpgw = val),
+                ),
+                if (_enableUdpgw)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: _buildTextInput(
+                      _udpgwPortCtrl,
+                      "UDPGW Port (Default: 7300)",
+                      Icons.door_sliding,
+                    ),
+                  ),
                 const Divider(),
                 _buildDropdownTile(
                   "TCP Buffer Size",
