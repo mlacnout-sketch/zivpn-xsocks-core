@@ -29,7 +29,8 @@ object Pdnsd {
                 min_ttl=15m;
                 max_ttl=1w;
                 timeout=10;
-                daemon=off; 
+                daemon=off;
+                verbosity=2;
             }
 
             server {

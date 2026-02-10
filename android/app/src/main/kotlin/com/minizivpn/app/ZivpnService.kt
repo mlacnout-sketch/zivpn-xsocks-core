@@ -234,7 +234,7 @@ class ZivpnService : VpnService() {
                 // Ensure executable permissions (sometimes needed on some devices/filesystems)
                 File(pdnsdBin).setExecutable(true)
 
-                val pdnsdCmd = listOf(pdnsdBin, "-c", pdnsdConf)
+                val pdnsdCmd = listOf(pdnsdBin, "-g", "-c", pdnsdConf)
                 logToApp("Starting Pdnsd: $pdnsdCmd")
                 
                 val pb = ProcessBuilder(pdnsdCmd)
