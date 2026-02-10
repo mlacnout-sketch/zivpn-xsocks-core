@@ -172,43 +172,27 @@ class ZivpnService : VpnService() {
         builder.setConfigureIntent(pendingIntent)
         builder.setMtu(mtu)
         
-        // GLOBAL ROUTING: Catch EVERYTHING
-        try {
-            builder.addRoute("0.0.0.0", 0)
-            // Handle Fake-IP range (198.18.0.0/15) to prevent "host unreachable" errors
-            builder.addRoute("198.18.0.0", 15)
-        } catch (e: Exception) {
-            Log.e("ZIVPN-Tun", "Failed to add global route, falling back to subnets")
-            // Fallback to stable subnets if 0.0.0.0/0 is rejected by system
-            val subnets = listOf(
-                "0.0.0.0" to 5, "8.0.0.0" to 7, "11.0.0.0" to 8, "12.0.0.0" to 6,
-                "16.0.0.0" to 4, "32.0.0.0" to 3, "64.0.0.0" to 2, "128.0.0.0" to 3,
-                "160.0.0.0" to 5, "168.0.0.0" to 6, "176.0.0.0" to 4, "192.0.0.0" to 9,
-                "192.128.0.0" to 11, "192.160.0.0" to 13, "192.169.0.0" to 16,
-                "192.170.0.0" to 15, "192.172.0.0" to 14, "193.0.0.0" to 8,
-                "194.0.0.0" to 7, "196.0.0.0" to 6, "200.0.0.0" to 3
-            )
-            for ((addr, mask) in subnets) {
-                try { builder.addRoute(addr, mask) } catch (ex: Exception) {}
+        // Use exact production routes from Zivpn
+        for (route in Routing.ZIVPN_ROUTES) {
+            try {
+                builder.addRoute(route.first, route.second)
+            } catch (e: Exception) {
+                Log.e("ZIVPN-Tun", "Failed to add route: ${route.first}/${route.second}")
             }
         }
         
-        // Intercept common DNS IPs to prevent leaks
-        val dnsToHijack = listOf(
-            "1.1.1.1", "1.0.0.1", "8.8.8.8", "8.8.4.4", "9.9.9.9", 
-            "149.112.112.112", "208.67.222.222", "208.67.220.220",
-            "112.215.198.248", "112.215.198.249" // Common ISP DNS (XL/Tsel)
-        )
-        for (dns in dnsToHijack) {
-            try { builder.addRoute(dns, 32) } catch (e: Exception) {}
-        }
+        // Add Local/Fake IP Route
+        try {
+            builder.addRoute("169.254.1.0", 24)
+            builder.addRoute("198.18.0.0", 15)
+        } catch (e: Exception) {}
 
         try {
             builder.addDisallowedApplication(packageName)
         } catch (e: Exception) {}
 
-        builder.addDnsServer("1.1.1.1")
-        builder.addDnsServer("8.8.8.8")
+        // Set System DNS to the virtual DNS IP used by Zivpn
+        builder.addDnsServer("169.254.1.2")
         builder.addAddress("169.254.1.1", 24)
 
         try {
@@ -273,7 +257,7 @@ class ZivpnService : VpnService() {
                         "--socks-server-addr", "127.0.0.1:7777",
                         "--tunmtu", finalMtu,
                         "--loglevel", tsLogLevel,
-                        "--dnsgw", "169.254.1.1:$pdnsdPort", // Redirect UDP DNS to Pdnsd on Gateway IP
+                        "--dnsgw", "169.254.1.1:$pdnsdPort", // Redirection point
                         "--fake-proc"
                     )
                     
