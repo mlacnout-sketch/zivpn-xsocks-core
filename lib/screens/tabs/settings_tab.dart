@@ -25,6 +25,7 @@ class _SettingsTabState extends State<SettingsTab> {
   final _mtuCtrl = TextEditingController();
   final _pingTargetCtrl = TextEditingController();
   final _udpgwPortCtrl = TextEditingController();
+  final _dnsCtrl = TextEditingController();
 
   bool _autoTuning = true;
   bool _cpuWakelock = false;
@@ -94,6 +95,7 @@ class _SettingsTabState extends State<SettingsTab> {
       _mtuCtrl.text = prefs.getString('mtu') ?? "1200";
       _pingTargetCtrl.text = prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204";
       _udpgwPortCtrl.text = prefs.getString('udpgw_port') ?? "7300";
+      _dnsCtrl.text = prefs.getString('upstream_dns') ?? "208.67.222.222";
       _autoTuning = prefs.getBool('auto_tuning') ?? true;
       _cpuWakelock = prefs.getBool('cpu_wakelock') ?? false;
       _enableUdpgw = prefs.getBool('enable_udpgw') ?? true;
@@ -108,6 +110,7 @@ class _SettingsTabState extends State<SettingsTab> {
     await prefs.setString('mtu', _mtuCtrl.text);
     await prefs.setString('ping_target', _pingTargetCtrl.text);
     await prefs.setString('udpgw_port', _udpgwPortCtrl.text);
+    await prefs.setString('upstream_dns', _dnsCtrl.text);
     await prefs.setBool('auto_tuning', _autoTuning);
     await prefs.setBool('cpu_wakelock', _cpuWakelock);
     await prefs.setBool('enable_udpgw', _enableUdpgw);
@@ -179,6 +182,22 @@ class _SettingsTabState extends State<SettingsTab> {
                       Icons.door_sliding,
                     ),
                   ),
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: _buildTextInput(
+                    _dnsCtrl,
+                    "Upstream DNS (IP:PORT)",
+                    Icons.dns,
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    "Default: 208.67.222.222:443 (OpenDNS)",
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ),
                 const Divider(),
                 _buildDropdownTile(
                   "TCP Buffer Size",

@@ -8,13 +8,17 @@ object Pdnsd {
         return File(context.applicationInfo.nativeLibraryDir, "libpdnsd.so").absolutePath
     }
 
-    fun writeConfig(context: Context, listenPort: Int, upstreamIp: String): String {
+    fun writeConfig(context: Context, listenPort: Int, upstreamDns: String): String {
         val cacheDir = File(context.filesDir, "pdnsd_cache")
         if (!cacheDir.exists()) cacheDir.mkdirs()
         
         val configFile = File(context.filesDir, "pdnsd.conf")
         
-        // Using OpenDNS over port 443 (TCP) to bypass port 53 restrictions and avoid loops
+        // Handle IP or IP:PORT format. Default to 443 if no port specified.
+        val parts = upstreamDns.split(":")
+        val ip = parts[0].ifEmpty { "208.67.222.222" } // Default to OpenDNS
+        val port = if (parts.size > 1) parts[1] else "443" 
+        
         val conf = """
             global {
                 perm_cache=2048;
@@ -31,17 +35,9 @@ object Pdnsd {
             }
 
             server {
-                label= "opendns-https-port";
-                ip = 208.67.222.222;
-                port = 443;
-                uptest = none;
-                proxy_only=on;
-            }
-
-            server {
-                label= "opendns-backup";
-                ip = 208.67.220.220;
-                port = 443;
+                label= "upstream";
+                ip = $ip;
+                port = $port;
                 uptest = none;
                 proxy_only=on;
             }

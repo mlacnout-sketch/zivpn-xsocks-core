@@ -236,8 +236,7 @@ class ZivpnService : VpnService() {
                     cacheDir.mkdirs()
                 }
                 
-                // Use a default upstream or prefer one
-                val upstreamDns = "8.8.8.8" 
+                val upstreamDns = prefs.getString("upstream_dns", "208.67.222.222") ?: "208.67.222.222"
                 val pdnsdConf = Pdnsd.writeConfig(this, pdnsdPort, upstreamDns)
                 val pdnsdBin = Pdnsd.getExecutable(this)
                 
