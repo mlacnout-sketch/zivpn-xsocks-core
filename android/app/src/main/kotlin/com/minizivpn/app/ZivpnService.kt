@@ -290,14 +290,10 @@ class ZivpnService : VpnService() {
                     )
                     
                     if (useUdpgw) {
-                        tunCmd.add("--udpgw-remote-server-addr")
-                        tunCmd.add("127.0.0.1:$udpgwPort")
+                        tunCmd.add("--enable-udprelay")
+                        tunCmd.add("--udprelay-max-connections")
+                        tunCmd.add("512")
                     }
-                    
-                    // Add UDPGW support
-                     tunCmd.add("--enable-udprelay")
-                     tunCmd.add("--udprelay-max-connections")
-                     tunCmd.add("512")
 
                     logToApp("Starting Native Tun2Socks: $tunCmd")
                     
