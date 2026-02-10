@@ -21,13 +21,13 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
+          # cache: 'gradle' # Disabled to prevent conflicts
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true
+          cache: false
 
       - name: Setup Android Environment
         uses: android-actions/setup-android@v3
