@@ -102,22 +102,24 @@ target_include_directories(tun2socks PRIVATE
 target_link_libraries(tun2socks ancillary log dl)
 target_compile_options(tun2socks PRIVATE -O3)
 
-# --- system (JNI) ---
-add_library(system SHARED
-    system/system.cpp
-)
+if(NOT SKIP_JNI_CHECK)
+    # --- system (JNI) ---
+    add_library(system SHARED
+        system/system.cpp
+    )
 
-target_include_directories(system PRIVATE libancillary)
-target_compile_options(system PRIVATE -O3)
+    target_include_directories(system PRIVATE libancillary)
+    target_compile_options(system PRIVATE -O3)
 
-# For android_getCpuFamily - Only include if running within NDK context
-if(ANDROID_NDK_REVISION)
-    include(AndroidNdkModules)
-    android_ndk_import_module_cpufeatures()
-    target_link_libraries(system ancillary log dl cpufeatures)
-    target_compile_definitions(system PRIVATE HAVE_CPU_FEATURES)
-else()
-    target_link_libraries(system ancillary log dl)
+    # For android_getCpuFamily - Only include if running within NDK context
+    if(ANDROID_NDK_REVISION OR ANDROID_PLATFORM)
+        include(AndroidNdkModules)
+        android_ndk_import_module_cpufeatures()
+        target_link_libraries(system ancillary log dl cpufeatures)
+        target_compile_definitions(system PRIVATE HAVE_CPU_FEATURES)
+    else()
+        target_link_libraries(system ancillary log dl)
+    endif()
 endif()
 
 # --- pdnsd ---
