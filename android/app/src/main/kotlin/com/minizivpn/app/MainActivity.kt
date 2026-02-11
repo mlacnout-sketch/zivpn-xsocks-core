@@ -289,13 +289,15 @@ class MainActivity: FlutterActivity() {
         intent.action = ZivpnService.ACTION_DISCONNECT
         startService(intent)
 
-        // Brute force cleanup for ALL instances of the cores
-        try {
-            val cleanupCmd = arrayOf("sh", "-c", "pkill -9 libuz; pkill -9 libload; pkill -9 libuz.so; pkill -9 libload.so")
-            Runtime.getRuntime().exec(cleanupCmd).waitFor()
-        } catch (e: Exception) {}
+        // Brute force cleanup for ALL instances of the cores in background
+        Thread {
+            try {
+                val cleanupCmd = arrayOf("sh", "-c", "pkill -9 libuz; pkill -9 libload; pkill -9 libuz.so; pkill -9 libload.so; pkill -9 libtun2socks.so")
+                Runtime.getRuntime().exec(cleanupCmd).waitFor()
+            } catch (e: Exception) {}
+        }.start()
         
-        sendToLog("Aggressive cleanup executed.")
+        sendToLog("Aggressive cleanup triggered in background.")
     }
     
     override fun onDestroy() {

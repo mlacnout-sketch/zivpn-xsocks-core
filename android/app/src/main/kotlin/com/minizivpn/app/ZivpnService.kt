@@ -130,247 +130,150 @@ class ZivpnService : VpnService() {
     private fun connect() {
         if (vpnInterface != null) return
 
-        Log.i("ZIVPN-Tun", "Initializing ZIVPN (native tun2socks)...")
-        
-        val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
-        
-        val ip = prefs.getString("server_ip", "") ?: ""
-        val range = prefs.getString("server_range", "") ?: ""
-        val pass = prefs.getString("server_pass", "") ?: ""
-        val obfs = prefs.getString("server_obfs", "") ?: ""
-        val multiplier = prefs.getFloat("multiplier", 1.0f)
-        val mtu = prefs.getInt("mtu", 1500)
-        val autoTuning = prefs.getBoolean("auto_tuning", true)
-        val bufferSize = prefs.getString("buffer_size", "4m") ?: "4m"
-        val logLevel = prefs.getString("log_level", "info") ?: "info"
-        val coreCount = prefs.getInt("core_count", 4)
-        val useWakelock = prefs.getBoolean("cpu_wakelock", false)
-
-        if (useWakelock) {
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MiniZivpn::CoreWakelock")
-            wakeLock?.acquire()
-            logToApp("CPU Wakelock acquired")
-        }
-
-        // 1. START HYSTERIA & LOAD BALANCER
-        try {
-            startCores(ip, range, pass, obfs, multiplier.toDouble(), coreCount, logLevel)
-        } catch (e: Exception) {
-            Log.e("ZIVPN-Tun", "Failed to start cores: ${e.message}")
-            stopSelf()
-            return
-        }
-
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // 2. Build VPN Interface
-        val builder = Builder()
-        builder.setSession("MiniZivpn")
-        builder.setConfigureIntent(pendingIntent)
-        builder.setMtu(mtu)
-        
-        // DYNAMIC ROUTING: Generate routes that cover the world but exclude the Server IP
-        try {
-            val serverHost = prefs.getString("server_ip", "") ?: ""
-            if (serverHost.isNotEmpty()) {
-                logToApp("Resolving server: $serverHost")
-                
-                // Perform DNS resolution in a background-friendly way (within this thread)
-                val resolvedIp = try {
-                    InetAddress.getByName(serverHost).hostAddress
-                } catch (e: Exception) {
-                    Log.e("ZIVPN-Tun", "DNS Resolution failed for $serverHost")
-                    serverHost // Use as-is if resolution fails
-                }
-                
-                logToApp("Excluding server IP from VPN: $resolvedIp")
-                
-                val dynamicRoutes = RoutingUtils.calculateDynamicRoutes(resolvedIp)
-                for (route in dynamicRoutes) {
-                    try {
-                        builder.addRoute(route.first, route.second)
-                    } catch (e: Exception) {}
-                }
-                logToApp("Added ${dynamicRoutes.size} dynamic routes.")
-            } else {
-                // Default fallback if no server IP is set
-                builder.addRoute("0.0.0.0", 1)
-                builder.addRoute("128.0.0.0", 1)
-            }
-            
-        } catch (e: Exception) {
-            Log.e("ZIVPN-Tun", "Failed to calculate dynamic routes, using fallback")
-            builder.addRoute("0.0.0.0", 1)
-            builder.addRoute("128.0.0.0", 1)
-        }
-        
-        // Handle Fake-IP and DNS Hijacking
-        try {
-            builder.addRoute("169.254.1.0", 24)
-            builder.addRoute("198.18.0.0", 15)
-        } catch (e: Exception) {}
-
-        try {
-            builder.addDisallowedApplication(packageName)
-        } catch (e: Exception) {}
-
-        // Apps Filter Logic
-        val filterApps = prefs.getBoolean("filter_apps", false)
-        val bypassMode = prefs.getBoolean("bypass_mode", false)
-        val appsList = prefs.getString("apps_list", "") ?: ""
-
-        if (filterApps && appsList.isNotEmpty()) {
-            val appPackages = appsList.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-            for (pkg in appPackages) {
-                try {
-                    if (bypassMode) {
-                        builder.addDisallowedApplication(pkg)
-                    } else {
-                        builder.addAllowedApplication(pkg)
-                    }
-                } catch (e: Exception) {
-                    logToApp("Apps Filter: Failed to add $pkg (Not found or invalid)")
-                }
-            }
-            logToApp("Apps Filter: Applied to ${appPackages.size} apps (Bypass: $bypassMode)")
-        }
-
-        // Virtual DNS setup (Zivpn Standard)
-        builder.addDnsServer("169.254.1.2")
-        builder.addAddress("169.254.1.1", 24)
-
-        try {
-            vpnInterface = builder.establish()
-            val fd = vpnInterface?.fd ?: return
-
-            Log.i("ZIVPN-Tun", "VPN Interface established. FD: $fd")
-
-            // 2.5 START PDNSD (Local DNS Cache)
-            val pdnsdPort = 8091
+        Thread {
             try {
-                // Ensure cache directory exists and is writable
-                val cacheDir = File(cacheDir, "pdnsd_cache")
-                if (!cacheDir.exists()) {
-                    cacheDir.mkdirs()
+                Log.i("ZIVPN-Tun", "Initializing ZIVPN (native tun2socks)...")
+                
+                val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+                
+                val ip = prefs.getString("server_ip", "") ?: ""
+                val range = prefs.getString("server_range", "") ?: ""
+                val pass = prefs.getString("server_pass", "") ?: ""
+                val obfs = prefs.getString("server_obfs", "") ?: ""
+                val multiplier = prefs.getFloat("multiplier", 1.0f)
+                val mtu = prefs.getInt("mtu", 1500)
+                val logLevel = prefs.getString("log_level", "info") ?: "info"
+                val coreCount = prefs.getInt("core_count", 4)
+                val useWakelock = prefs.getBoolean("cpu_wakelock", false)
+
+                if (useWakelock) {
+                    val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MiniZivpn::CoreWakelock")
+                    wakeLock?.acquire()
+                    logToApp("CPU Wakelock acquired")
+                }
+
+                // 1. START HYSTERIA & LOAD BALANCER
+                startCores(ip, range, pass, obfs, multiplier.toDouble(), coreCount, logLevel)
+
+                val pendingIntent = PendingIntent.getActivity(
+                    this, 0, Intent(this, MainActivity::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                // 2. Build VPN Interface
+                val builder = Builder()
+                builder.setSession("MiniZivpn")
+                builder.setConfigureIntent(pendingIntent)
+                builder.setMtu(mtu)
+                
+                // DYNAMIC ROUTING: Exclude Server IP
+                val serverHost = prefs.getString("server_ip", "") ?: ""
+                if (serverHost.isNotEmpty()) {
+                    logToApp("Resolving server: $serverHost")
+                    val resolvedIp = try {
+                        InetAddress.getByName(serverHost).hostAddress
+                    } catch (e: Exception) {
+                        serverHost
+                    }
+                    
+                    logToApp("Excluding server IP: $resolvedIp")
+                    val dynamicRoutes = RoutingUtils.calculateDynamicRoutes(resolvedIp)
+                    for (route in dynamicRoutes) {
+                        try {
+                            builder.addRoute(route.first, route.second)
+                        } catch (e: Exception) {}
+                    }
+                } else {
+                    builder.addRoute("0.0.0.0", 1)
+                    builder.addRoute("128.0.0.0", 1)
                 }
                 
-                val upstreamDns = prefs.getString("upstream_dns", "208.67.222.222") ?: "208.67.222.222"
-                val pdnsdConf = Pdnsd.writeConfig(this, pdnsdPort, upstreamDns)
-                val pdnsdBin = Pdnsd.getExecutable(this)
-                
-                // Ensure executable permissions (sometimes needed on some devices/filesystems)
-                File(pdnsdBin).setExecutable(true)
+                // Apps Filter
+                val filterApps = prefs.getBoolean("filter_apps", false)
+                val bypassMode = prefs.getBoolean("bypass_mode", false)
+                val appsList = prefs.getString("apps_list", "") ?: ""
 
-                val pdnsdCmd = listOf(pdnsdBin, "-g", "-c", pdnsdConf)
-                logToApp("Starting Pdnsd: $pdnsdCmd")
-                
-                val pb = ProcessBuilder(pdnsdCmd)
-                pb.directory(filesDir)
-                pb.redirectErrorStream(true)
-                val p = pb.start()
-                processes.add(p)
-                captureProcessLog(p, "Pdnsd")
-                
-                Thread.sleep(500) // Give it a moment
+                if (filterApps && appsList.isNotEmpty()) {
+                    val appPackages = appsList.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                    for (pkg in appPackages) {
+                        try {
+                            if (bypassMode) builder.addDisallowedApplication(pkg)
+                            else builder.addAllowedApplication(pkg)
+                        } catch (e: Exception) {}
+                    }
+                }
+
+                builder.addRoute("169.254.1.0", 24)
+                builder.addRoute("198.18.0.0", 15)
+                builder.addDisallowedApplication(packageName)
+                builder.addDnsServer("169.254.1.2")
+                builder.addAddress("169.254.1.1", 24)
+
+                vpnInterface = builder.establish()
+                val fd = vpnInterface?.fd ?: return@Thread
+
+                // 3. Start Pdnsd & tun2socks
+                startNativeEngines(fd, mtu, logLevel, prefs, 8091)
+
             } catch (e: Exception) {
-                logToApp("Pdnsd Error: ${e.message}")
+                logToApp("Connect Error: ${e.message}")
+                stopSelf()
+            }
+        }.start()
+    }
+
+    private fun startNativeEngines(fd: Int, mtu: Int, logLevel: String, prefs: android.content.SharedPreferences, pdnsdPort: Int) {
+        // Logika pdnsd dan tun2socks (yang tadinya ada di connect) 
+        // Saya buat fungsi bantuan agar kode lebih bersih
+        try {
+            val cacheDir = File(cacheDir, "pdnsd_cache")
+            if (!cacheDir.exists()) cacheDir.mkdirs()
+            
+            val upstreamDns = prefs.getString("upstream_dns", "208.67.222.222") ?: "208.67.222.222"
+            val pdnsdConf = Pdnsd.writeConfig(this, pdnsdPort, upstreamDns)
+            val pdnsdBin = Pdnsd.getExecutable(this)
+            File(pdnsdBin).setExecutable(true)
+
+            val pdnsdCmd = listOf(pdnsdBin, "-g", "-c", pdnsdConf)
+            val pdnsdProc = ProcessBuilder(pdnsdCmd).directory(filesDir).start()
+            processes.add(pdnsdProc)
+            captureProcessLog(pdnsdProc, "Pdnsd")
+
+            val libDir = applicationInfo.nativeLibraryDir
+            val tun2socksBin = File(libDir, "libtun2socks.so").absolutePath
+            val tsLogLevel = when (logLevel) { "debug" -> "debug"; "error" -> "error"; "silent" -> "none"; else -> "info" }
+
+            val useUdpgw = prefs.getBoolean("enable_udpgw", true)
+            val udpgwMode = prefs.getString("udpgw_mode", "relay") ?: "relay"
+            val udpgwPort = prefs.getString("udpgw_port", "7300") ?: "7300"
+
+            val tunCmd = arrayListOf(
+                tun2socksBin, "--netif-ipaddr", "169.254.1.2", "--netif-netmask", "255.255.255.0",
+                "--socks-server-addr", "127.0.0.1:7777", "--tunmtu", mtu.toString(),
+                "--loglevel", tsLogLevel, "--dnsgw", "169.254.1.1:$pdnsdPort", "--fake-proc"
+            )
+            
+            if (useUdpgw) {
+                if (udpgwMode == "standard") {
+                    tunCmd.add("--udpgw-remote-server-addr"); tunCmd.add("127.0.0.1:$udpgwPort")
+                } else { tunCmd.add("--enable-udprelay") }
+                tunCmd.add("--udprelay-max-connections"); tunCmd.add("512")
             }
 
-            // 3. Start tun2socks (Native C Engine) via ProcessBuilder
-            Thread {
-                try {
-                    val libDir = applicationInfo.nativeLibraryDir
-                    val tun2socksBin = File(libDir, "libtun2socks.so").absolutePath
-                    val finalMtu = mtu.toString()
-                    
-                    // Ensure executable permissions
-                    File(tun2socksBin).setExecutable(true)
+            val tunProc = ProcessBuilder(tunCmd).directory(filesDir).start()
+            processes.add(tunProc)
+            captureProcessLog(tunProc, "Tun2Socks")
 
-                    val tsLogLevel = when (logLevel) {
-                        "silent" -> "none"
-                        "error" -> "error"
-                        "debug" -> "debug"
-                        else -> "info"
-                    }
-
-                    val useUdpgw = prefs.getBoolean("enable_udpgw", true)
-                    val udpgwMode = prefs.getString("udpgw_mode", "relay") ?: "relay"
-                    val udpgwPort = prefs.getString("udpgw_port", "7300") ?: "7300"
-
-                    val tunCmd = arrayListOf(
-                        tun2socksBin,
-                        "--netif-ipaddr", "169.254.1.2",
-                        "--netif-netmask", "255.255.255.0",
-                        "--socks-server-addr", "127.0.0.1:7777",
-                        "--tunmtu", finalMtu,
-                        "--loglevel", tsLogLevel,
-                        "--dnsgw", "169.254.1.1:$pdnsdPort", // Redirection point
-                        "--fake-proc"
-                    )
-                    
-                    if (useUdpgw) {
-                        if (udpgwMode == "standard") {
-                            tunCmd.add("--udpgw-remote-server-addr")
-                            tunCmd.add("127.0.0.1:$udpgwPort")
-                        } else {
-                            tunCmd.add("--enable-udprelay")
-                        }
-                        tunCmd.add("--udprelay-max-connections")
-                        tunCmd.add("512")
-                    }
-
-                    logToApp("Starting Native Tun2Socks: $tunCmd")
-                    
-                    val pb = ProcessBuilder(tunCmd)
-                    pb.directory(filesDir)
-                    pb.environment()["LD_LIBRARY_PATH"] = libDir
-                    pb.redirectErrorStream(true)
-                    
-                    val p = pb.start()
-                    processes.add(p)
-                    captureProcessLog(p, "Tun2Socks-Native")
-
-                    // Wait for the process to initialize and open the socket
-                    var sentFd = false
-                    for (i in 1..10) {
-                        Thread.sleep(500)
-                        logToApp("Attempting to send FD (Attempt $i)...")
-                        if (NativeSystem.sendfd(fd) == 0) {
-                            logToApp("Successfully sent FD to tun2socks.")
-                            sentFd = true
-                            break
-                        }
-                    }
-
-                    if (!sentFd) {
-                        logToApp("Failed to send FD to tun2socks after retries.")
-                        // Maybe kill process?
-                    } else {
-                         logToApp("Tun2Socks Engine Running.")
-                         prefs.edit().putBoolean("flutter.vpn_running", true).apply()
-                         
-                         // 4. Start Auto-Ping
-                         val pingInterval = prefs.getInt("ping_interval", 3)
-                         val pingTarget = prefs.getString("ping_target", "http://www.gstatic.com/generate_204") ?: "http://www.gstatic.com/generate_204"
-                         
-                         if (pingInterval > 0) {
-                             startPingTimer(pingTarget, pingInterval)
-                         }
-                    }
-
-                } catch (e: Exception) {
-                    logToApp("Engine Error: ${e.message}")
-                    e.printStackTrace()
-                }
-            }.start()
-
-        } catch (e: Throwable) {
-            Log.e("ZIVPN-Tun", "Error starting VPN: ${e.message}")
-            stopSelf()
+            Thread.sleep(1000)
+            if (NativeSystem.sendfd(fd) == 0) {
+                logToApp("VPN Engine Running.")
+                prefs.edit().putBoolean("flutter.vpn_running", true).apply()
+                val pingInterval = prefs.getInt("ping_interval", 3)
+                if (pingInterval > 0) startPingTimer(prefs.getString("ping_target", "") ?: "", pingInterval)
+            }
+        } catch (e: Exception) {
+            logToApp("Native Engine Error: ${e.message}")
         }
     }
 
