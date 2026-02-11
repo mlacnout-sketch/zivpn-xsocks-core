@@ -43,6 +43,7 @@
 #include "lwip/ip6_addr.h"
 #include "lwip/netif.h"
 #include "lwip/tcp_impl.h"
+#include "lwip/udp.h"
 #include "lwip/snmp.h"
 #include "lwip/igmp.h"
 #include "netif/etharp.h"
@@ -368,8 +369,6 @@ int netif_is_named (struct netif *netif, const char name[3])
 void
 netif_set_ipaddr(struct netif *netif, ip_addr_t *ipaddr)
 {
-  /* TODO: Handling of obsolete pcbs */
-  /* See:  http://mail.gnu.org/archive/html/lwip-users/2003-03/msg00118.html */
 #if LWIP_TCP
   struct tcp_pcb *pcb;
   struct tcp_pcb_listen *lpcb;
@@ -405,8 +404,54 @@ netif_set_ipaddr(struct netif *netif, ip_addr_t *ipaddr)
         ip_addr_set(ipX_2_ip(&lpcb->local_ip), ipaddr);
       }
     }
+
+    /* Check bound PCBs and TIME-WAIT PCBs. */
+    for (pcb = tcp_bound_pcbs; pcb != NULL; pcb = pcb->next) {
+      if ((!ip_addr_isany(ipX_2_ip(&pcb->local_ip))) &&
+          (ip_addr_cmp(ipX_2_ip(&pcb->local_ip), &(netif->ip_addr)))
+#if LWIP_AUTOIP
+          /* connections to link-local addresses must persist (RFC3927 ch. 1.9) */
+          && !ip_addr_islinklocal(ipX_2_ip(&pcb->local_ip))
+#endif /* LWIP_AUTOIP */
+          ) {
+        ip_addr_set(ipX_2_ip(&pcb->local_ip), ipaddr);
+      }
+    }
+
+    pcb = tcp_tw_pcbs;
+    while (pcb != NULL) {
+      struct tcp_pcb *next = pcb->next;
+      if ((!ip_addr_isany(ipX_2_ip(&pcb->local_ip))) &&
+          (ip_addr_cmp(ipX_2_ip(&pcb->local_ip), &(netif->ip_addr)))
+#if LWIP_AUTOIP
+          /* connections to link-local addresses must persist (RFC3927 ch. 1.9) */
+          && !ip_addr_islinklocal(ipX_2_ip(&pcb->local_ip))
+#endif /* LWIP_AUTOIP */
+          ) {
+        tcp_abort(pcb);
+      }
+      pcb = next;
+    }
   }
 #endif
+#if LWIP_UDP
+  {
+    struct udp_pcb *upcb;
+    if (ipaddr && (ip_addr_cmp(ipaddr, &(netif->ip_addr))) == 0) {
+      for (upcb = udp_pcbs; upcb != NULL; upcb = upcb->next) {
+        if ((!ip_addr_isany(ipX_2_ip(&upcb->local_ip))) &&
+            (ip_addr_cmp(ipX_2_ip(&upcb->local_ip), &(netif->ip_addr)))
+#if LWIP_AUTOIP
+            /* connections to link-local addresses must persist (RFC3927 ch. 1.9) */
+            && !ip_addr_islinklocal(ipX_2_ip(&upcb->local_ip))
+#endif /* LWIP_AUTOIP */
+            ) {
+          ip_addr_set(ipX_2_ip(&upcb->local_ip), ipaddr);
+        }
+      }
+    }
+  }
+#endif /* LWIP_UDP */
   snmp_delete_ipaddridx_tree(netif);
   snmp_delete_iprteidx_tree(0,netif);
   /* set new IP address to netif */
