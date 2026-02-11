@@ -843,7 +843,7 @@ udp_sendto_if_chksum(struct udp_pcb *pcb, struct pbuf *p, ip_addr_t *dst_ip,
   err = ipX_output_if(PCB_ISIPV6(pcb), q, src_ip, dst_ip, pcb->ttl, pcb->tos, ip_proto, netif);
   NETIF_SET_HWADDRHINT(netif, NULL);
 
-  /* TODO: must this be increased even if error occured? */
+  /* Incremented even if error occurred, as the packet was passed to the IP layer. */
   snmp_inc_udpoutdatagrams();
 
   /* did we chain a separate header pbuf earlier? */
