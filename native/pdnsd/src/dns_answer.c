@@ -992,7 +992,7 @@ return_ans:
 
 /*
  * Decode the query (the query messgage is in data and rlen bytes long) into a dlist.
- * XXX: data needs to be aligned.
+ * data needs to be aligned.
  * The return value can be RC_OK or RC_TRUNC, in which case the (partially) constructed list is
  * returned in qp, or something else (RC_FORMAT or RC_SERVFAIL), in which case no list is returned.
  *
@@ -1363,7 +1363,7 @@ static void udp_answer_thread_cleanup(void *data)
  * A thread opened to answer a query transmitted via udp. Data is a pointer to the structure udp_buf_t that
  * contains the received data and various other parameters.
  * After the query is answered, the thread terminates
- * XXX: data must point to a correctly aligned buffer
+ * data must point to a correctly aligned buffer
  */
 static void *udp_answer_thread(void *data)
 {
@@ -1375,7 +1375,7 @@ static void *udp_answer_thread(void *data)
 #endif
 	size_t rlen=((udp_buf_t *)data)->len;
 	unsigned udpmaxrespsize = UDP_BUFSIZE;
-	/* XXX: process_query is assigned to this, this mallocs, so this points to aligned memory */
+	/* process_query is assigned to this, this mallocs, so this points to aligned memory */
 	dns_msg_t *resp;
 	int rcode;
 	unsigned thrid;
@@ -1810,7 +1810,7 @@ static void tcp_answer_thread_cleanup(void *csock)
  */
 static void *tcp_answer_thread(void *csock)
 {
-	/* XXX: This should be OK, the original must be (and is) aligned */
+	/* This is OK, the original must be (and is) aligned */
 	int sock=*((int *)csock);
 	unsigned thrid;
 
