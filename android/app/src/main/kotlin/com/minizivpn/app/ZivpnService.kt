@@ -18,6 +18,7 @@ import java.util.LinkedList
 import androidx.annotation.Keep
 import java.io.File
 import org.json.JSONObject
+import com.minizivpn.app.R
 
 import java.io.BufferedReader
 import java.io.InputStreamReader

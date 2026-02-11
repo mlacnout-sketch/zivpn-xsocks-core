@@ -10,6 +10,7 @@ import android.net.VpnService
 import android.os.Handler
 import android.os.Looper
 import android.os.Bundle
+import android.os.Build
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -56,7 +57,13 @@ class MainActivity: FlutterActivity() {
         handleIntent(intent) // Check intent on launch
         // Ensure environment is clean on launch
         stopEngine()
-        registerReceiver(logReceiver, IntentFilter(ACTION_LOG))
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(logReceiver, IntentFilter(ACTION_LOG), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(logReceiver, IntentFilter(ACTION_LOG))
+        }
+        
         checkAndRequestNotificationPermission()
     }
 
@@ -301,7 +308,7 @@ class MainActivity: FlutterActivity() {
     private fun stopEngine() {
         val intent = Intent(this, ZivpnService::class.java)
         intent.action = ZivpnService.ACTION_DISCONNECT
-        startService(intent)
+        ContextCompat.startForegroundService(this, intent)
 
         // Brute force cleanup for ALL instances of the cores in background
         Thread {
