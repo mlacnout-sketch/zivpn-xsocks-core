@@ -40,8 +40,7 @@
 #include "ipvers.h"
 #if (TARGET==TARGET_LINUX)
 # include <netinet/ip.h>
-# include <linux/types.h>
-# include <linux/icmp.h>
+# include <netinet/ip_icmp.h>
 #elif (TARGET==TARGET_BSD)
 # include <netinet/in_systm.h>
 # include <netinet/ip.h>
@@ -78,10 +77,15 @@ volatile int ping6_isocket=-1;
 
 /* different names, same thing... be careful, as these are macros... */
 #if (TARGET==TARGET_LINUX)
+# define icmphdr   icmp
 # define ip_saddr  saddr
 # define ip_daddr  daddr
 # define ip_hl     ihl
 # define ip_p	   protocol
+# define ICMP_FILTER 1
+struct icmp_filter {
+	uint32_t data;
+};
 #else
 # define icmphdr   icmp
 # define iphdr     ip
@@ -90,11 +94,7 @@ volatile int ping6_isocket=-1;
 #endif
 
 #if (TARGET==TARGET_LINUX)
-# define icmp_type  type
-# define icmp_code  code
-# define icmp_cksum checksum
-# define icmp_id un.echo.id
-# define icmp_seq un.echo.sequence
+/* struct icmp in netinet/ip_icmp.h has the same member names as the BSD version */
 #else
 # define ICMP_DEST_UNREACH  ICMP_UNREACH
 # define ICMP_TIME_EXCEEDED ICMP_TIMXCEED
@@ -135,24 +135,26 @@ void init_ping_socket()
  * We do not compare more, as this is all we need.*/
 static int icmp4_errcmp(char *packet, int plen, struct in_addr *to, char *errmsg, int elen, int errtype)
 {
-	struct iphdr iph;
-	struct icmphdr icmph;
-	struct iphdr eiph;
+	struct iphdr *iph;
+	struct icmphdr *icmph;
+	struct iphdr *eiph;
 	char *data;
 
 	/* XXX: lots of memcpy to avoid unaligned accesses on alpha */
 	if (elen<sizeof(struct iphdr))
 		return 0;
-	memcpy(&iph,errmsg,sizeof(iph));
-	if (iph.ip_p!=IPPROTO_ICMP || elen<iph.ip_hl*4+ICMP_BASEHDR_LEN+sizeof(eiph))
+	iph = (struct iphdr *)errmsg;
+
+	if (iph->ip_p!=IPPROTO_ICMP || elen<iph->ip_hl*4+ICMP_BASEHDR_LEN+sizeof(struct iphdr))
 		return 0;
-	PDNSD_ASSERT(sizeof(icmph) >= ICMP_BASEHDR_LEN, "icmp4_errcmp: ICMP_BASEHDR_LEN botched");
-	memcpy(&icmph,errmsg+iph.ip_hl*4,ICMP_BASEHDR_LEN);
-	memcpy(&eiph,errmsg+iph.ip_hl*4+ICMP_BASEHDR_LEN,sizeof(eiph));
-	if (elen<iph.ip_hl*4+ICMP_BASEHDR_LEN+eiph.ip_hl*4+8)
+	PDNSD_ASSERT(sizeof(struct icmphdr) >= ICMP_BASEHDR_LEN, "icmp4_errcmp: ICMP_BASEHDR_LEN botched");
+	icmph = (struct icmphdr *)(errmsg+iph->ip_hl*4);
+	eiph = (struct iphdr *)(errmsg+iph->ip_hl*4+ICMP_BASEHDR_LEN);
+
+	if (elen<iph->ip_hl*4+ICMP_BASEHDR_LEN+eiph->ip_hl*4+8)
 		return 0;
-	data=errmsg+iph.ip_hl*4+ICMP_BASEHDR_LEN+eiph.ip_hl*4;
-	return icmph.icmp_type==errtype && memcmp(&to->s_addr, &eiph.ip_daddr, sizeof(to->s_addr))==0 &&
+	data=errmsg+iph->ip_hl*4+ICMP_BASEHDR_LEN+eiph->ip_hl*4;
+	return icmph->icmp_type==errtype && memcmp(&to->s_addr, &eiph->ip_daddr, sizeof(to->s_addr))==0 &&
 		memcmp(data, packet, plen<8?plen:8)==0;
 }
 
@@ -276,26 +278,29 @@ static int ping4(struct in_addr addr, int timeout, int rep)
 			if (pfd.revents&(POLLIN|POLLERR))
 #endif
 			{
-				char buf[1024];
+				union {
+					struct iphdr h;
+					char buf[1024];
+				} u;
 				socklen_t sl=sizeof(from);
 				int len;
 
-				if ((len=recvfrom(isock,&buf,sizeof(buf),0,(struct sockaddr *)&from,&sl))!=-1) {
+				if ((len=recvfrom(isock,u.buf,sizeof(u.buf),0,(struct sockaddr *)&from,&sl))!=-1) {
 					if (len>sizeof(struct iphdr)) {
 						struct iphdr iph;
 
-						memcpy(&iph, buf, sizeof(iph));
+						memcpy(&iph, u.buf, sizeof(iph));
 						if (len-iph.ip_hl*4>=ICMP_BASEHDR_LEN) {
 							struct icmphdr icmpp;
 
-							memcpy(&icmpp, ((uint32_t *)buf)+iph.ip_hl, sizeof(icmpp));
+							memcpy(&icmpp, ((uint32_t *)u.buf)+iph.ip_hl, sizeof(icmpp));
 							if (iph.ip_saddr==addr.s_addr && icmpp.icmp_type==ICMP_ECHOREPLY &&
 							    ntohs(icmpp.icmp_id)==id && ntohs(icmpp.icmp_seq)<=i) {
 								return (i-ntohs(icmpp.icmp_seq))*timeout+(time(NULL)-tm); /* return the number of ticks */
 							} else {
 								/* No regular echo reply. Maybe an error? */
-								if (icmp4_errcmp((char *)&icmpd, ICMP4_ECHO_LEN, &to.sin_addr, buf, len, ICMP_DEST_UNREACH) ||
-								    icmp4_errcmp((char *)&icmpd, ICMP4_ECHO_LEN, &to.sin_addr, buf, len, ICMP_TIME_EXCEEDED)) {
+								if (icmp4_errcmp((char *)&icmpd, ICMP4_ECHO_LEN, &to.sin_addr, u.buf, len, ICMP_DEST_UNREACH) ||
+								    icmp4_errcmp((char *)&icmpd, ICMP4_ECHO_LEN, &to.sin_addr, u.buf, len, ICMP_TIME_EXCEEDED)) {
 									return -1;
 								}
 							}
