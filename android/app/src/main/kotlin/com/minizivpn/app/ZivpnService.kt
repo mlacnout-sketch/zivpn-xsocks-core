@@ -255,9 +255,9 @@ class ZivpnService : VpnService() {
             )
             
             if (useUdpgw) {
-                if (udpgwMode == "standard") {
-                    tunCmd.add("--udpgw-remote-server-addr"); tunCmd.add("127.0.0.1:$udpgwPort")
-                } else { tunCmd.add("--enable-udprelay") }
+                // Android build of tun2socks does not support --udpgw-remote-server-addr
+                // forcing --enable-udprelay regardless of mode setting
+                tunCmd.add("--enable-udprelay")
                 tunCmd.add("--udprelay-max-connections"); tunCmd.add("512")
             }
 
