@@ -41,7 +41,7 @@ class _HomePageState extends State<HomePage> {
   
   Timer? _timer;
   DateTime? _startTime;
-  String _durationString = "00:00:00";
+  final ValueNotifier<String> _durationNotifier = ValueNotifier("00:00:00");
   
   // Optimized: Use ValueNotifier to prevent full rebuilds on stats update
   final ValueNotifier<String> _dlSpeed = ValueNotifier("0 KB/s");
@@ -75,6 +75,8 @@ class _HomePageState extends State<HomePage> {
     _ulSpeed.dispose();
     _sessionRx.dispose();
     _sessionTx.dispose();
+    _durationNotifier.dispose();
+    _logScrollCtrl.dispose();
     super.dispose();
   }
 
@@ -234,10 +236,8 @@ class _HomePageState extends State<HomePage> {
       if (_startTime == null) return;
       final diff = DateTime.now().difference(_startTime!);
       String twoDigits(int n) => n.toString().padLeft(2, "0");
-      setState(() {
-        _durationString =
+      _durationNotifier.value =
             "${twoDigits(diff.inHours)}:${twoDigits(diff.inMinutes.remainder(60))}:${twoDigits(diff.inSeconds.remainder(60))}";
-      });
     });
   }
 
@@ -313,9 +313,9 @@ class _HomePageState extends State<HomePage> {
         _timer?.cancel();
         setState(() {
           _vpnState = "disconnected";
-          _durationString = "00:00:00";
           _startTime = null;
         });
+        _durationNotifier.value = "00:00:00";
         // Reset stats via notifier
         _sessionRx.value = 0;
         _sessionTx.value = 0;
@@ -411,6 +411,8 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -423,7 +425,7 @@ class _HomePageState extends State<HomePage> {
               onToggle: _toggleVpn,
               dl: _dlSpeed,
               ul: _ulSpeed,
-              duration: _durationString,
+              duration: _durationNotifier,
               sessionRx: _sessionRx,
               sessionTx: _sessionTx,
             ),

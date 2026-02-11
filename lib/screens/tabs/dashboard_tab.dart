@@ -1,16 +1,13 @@
-import 'package:flutter/foundation.dart'; // Import for ValueListenable
 import 'package:flutter/material.dart';
 import '../../app_colors.dart';
 import '../../widgets/ping_button.dart';
 
 class DashboardTab extends StatefulWidget {
-  final String vpnState; // "disconnected", "connecting", "connected"
+  final String vpnState;
   final VoidCallback onToggle;
-  final ValueListenable<String> dl;
-  final ValueListenable<String> ul;
-  final String duration;
-  final ValueListenable<int> sessionRx;
-  final ValueListenable<int> sessionTx;
+  final ValueNotifier<String> dl, ul;
+  final ValueNotifier<String> duration;
+  final ValueNotifier<int> sessionRx, sessionTx;
 
   const DashboardTab({
     super.key,
@@ -151,14 +148,19 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(color: Colors.white12),
                                 ),
-                                child: Text(
-                                  widget.duration,
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                    color: Colors.white,
-                                  ),
+                                child: ValueListenableBuilder<String>(
+                                  valueListenable: widget.duration,
+                                  builder: (context, val, _) {
+                                    return Text(
+                                      val,
+                                      style: const TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: Colors.white,
+                                      ),
+                                    );
+                                  }
                                 ),
                               )
                             ]
