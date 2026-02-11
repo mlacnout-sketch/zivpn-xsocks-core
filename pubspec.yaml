@@ -1,7 +1,7 @@
 name: mini_zivpn
-description: A minimal ZIVPN Turbo controller with optimized tunnel and DNS fixes.
+description: A professional xSocks core for ZIVPN with optimized tunnel and DNS fixes.
 publish_to: 'none'
-version: 1.0.22+12
+version: 1.0.22+13
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
