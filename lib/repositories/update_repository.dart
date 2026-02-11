@@ -51,22 +51,27 @@ class UpdateRepository {
   }
 
   Future<AppVersion?> _processResponse(String jsonStr) async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    return findUpdateInJson(jsonStr, packageInfo.version);
+  }
+
+  /// Parses the release JSON and finds a valid update newer than [currentVersion].
+  AppVersion? findUpdateInJson(String jsonStr, String currentVersion) {
+    try {
       final List releases = json.decode(jsonStr);
-      final packageInfo = await PackageInfo.fromPlatform();
-      final currentVersion = packageInfo.version;
       // Build number ignored to prevent loop (Local 2 vs Remote CI RunNumber)
-      
+
       print("Current App: $currentVersion");
-      
+
       for (var release in releases) {
         final tagName = release['tag_name'].toString();
-        if (_isNewer(tagName, currentVersion)) {
+        if (isNewerVersion(tagName, currentVersion)) {
           final assets = release['assets'] as List?;
           if (assets == null) continue;
 
           final asset = assets.firstWhere(
-            (a) => a['content_type'] == 'application/vnd.android.package-archive' || a['name'].toString().endsWith('.apk'),
-            orElse: () => null
+                  (a) => a['content_type'] == 'application/vnd.android.package-archive' || a['name'].toString().endsWith('.apk'),
+              orElse: () => null
           );
 
           if (asset != null) {
@@ -79,10 +84,15 @@ class UpdateRepository {
           }
         }
       }
-      return null;
+    } catch (e) {
+      print("Error parsing update JSON: $e");
+    }
+    return null;
   }
 
-  bool _isNewer(String latestTag, String currentVersion) {
+  /// Compares [latestTag] with [currentVersion] strictly by Semantic Versioning (Major.Minor.Patch).
+  /// Returns true if [latestTag] is newer.
+  bool isNewerVersion(String latestTag, String currentVersion) {
     try {
       final RegExp regVer = RegExp(r'(\d+)\.(\d+)\.(\d+)');
       final match1 = regVer.firstMatch(latestTag);
