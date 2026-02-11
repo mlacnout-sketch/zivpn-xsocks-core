@@ -1265,7 +1265,6 @@ void tcp_timer_handler (void *unused)
     BLog(BLOG_DEBUG, "TCP timer");
 
     // schedule next timer
-    // TODO: calculate timeout so we don't drift
     BReactor_SetTimerAbsolute(&ss, &tcp_timer, btime_add(tcp_timer.base.absTime, TCP_TMR_INTERVAL));
 
     tcp_tmr();
