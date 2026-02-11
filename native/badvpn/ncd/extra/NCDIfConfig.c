@@ -38,6 +38,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <linux/if_tun.h>
 #include <pwd.h>
@@ -54,11 +55,51 @@
 #define RESOLVCONF_TEMP_FILE "/etc/resolv.conf-ncd-temp"
 #define TUN_DEVNODE "/dev/net/tun"
 
-static int run_command (const char *cmd)
+static int run_command_system (const char *cmd)
 {
     BLog(BLOG_INFO, "run: %s", cmd);
     
     return system(cmd);
+}
+
+static int run_command_args (char *const argv[])
+{
+    char cmd_buf[1024];
+    size_t pos = 0;
+    for (int i = 0; argv[i]; i++) {
+        size_t len = strlen(argv[i]);
+        if (pos + len + 1 >= sizeof(cmd_buf)) break;
+        if (i > 0) cmd_buf[pos++] = ' ';
+        memcpy(cmd_buf + pos, argv[i], len);
+        pos += len;
+    }
+    cmd_buf[pos] = '\0';
+
+    BLog(BLOG_INFO, "run: %s", cmd_buf);
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        BLog(BLOG_ERROR, "fork failed");
+        return 1;
+    }
+
+    if (pid == 0) {
+        execvp(argv[0], argv);
+        BLog(BLOG_ERROR, "execvp failed");
+        _exit(127);
+    }
+
+    int status;
+    if (waitpid(pid, &status, 0) < 0) {
+        BLog(BLOG_ERROR, "waitpid failed");
+        return 1;
+    }
+
+    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+        return 0;
+    }
+
+    return 1;
 }
 
 static int write_to_file (uint8_t *data, size_t data_len, FILE *f)
@@ -117,10 +158,9 @@ int NCDIfConfig_set_up (const char *ifname)
         return 0;
     }
     
-    char cmd[50 + IFNAMSIZ];
-    sprintf(cmd, IP_CMD" link set %s up", ifname);
+    char *argv[] = { IP_CMD, "link", "set", (char *)ifname, "up", NULL };
     
-    return !run_command(cmd);
+    return !run_command_args(argv);
 }
 
 int NCDIfConfig_set_down (const char *ifname)
@@ -130,10 +170,9 @@ int NCDIfConfig_set_down (const char *ifname)
         return 0;
     }
     
-    char cmd[50 + IFNAMSIZ];
-    sprintf(cmd, IP_CMD" link set %s down", ifname);
+    char *argv[] = { IP_CMD, "link", "set", (char *)ifname, "down", NULL };
     
-    return !run_command(cmd);
+    return !run_command_args(argv);
 }
 
 int NCDIfConfig_add_ipv4_addr (const char *ifname, struct ipv4_ifaddr ifaddr)
@@ -147,11 +186,12 @@ int NCDIfConfig_add_ipv4_addr (const char *ifname, struct ipv4_ifaddr ifaddr)
     }
     
     uint8_t *addr = (uint8_t *)&ifaddr.addr;
+    char addr_str[64];
+    snprintf(addr_str, sizeof(addr_str), "%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8"/%d", addr[0], addr[1], addr[2], addr[3], ifaddr.prefix);
     
-    char cmd[50 + IFNAMSIZ];
-    sprintf(cmd, IP_CMD" addr add %"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8"/%d dev %s", addr[0], addr[1], addr[2], addr[3], ifaddr.prefix, ifname);
+    char *argv[] = { IP_CMD, "addr", "add", addr_str, "dev", (char *)ifname, NULL };
     
-    return !run_command(cmd);
+    return !run_command_args(argv);
 }
 
 int NCDIfConfig_remove_ipv4_addr (const char *ifname, struct ipv4_ifaddr ifaddr)
@@ -165,11 +205,12 @@ int NCDIfConfig_remove_ipv4_addr (const char *ifname, struct ipv4_ifaddr ifaddr)
     }
     
     uint8_t *addr = (uint8_t *)&ifaddr.addr;
+    char addr_str[64];
+    snprintf(addr_str, sizeof(addr_str), "%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8"/%d", addr[0], addr[1], addr[2], addr[3], ifaddr.prefix);
     
-    char cmd[50 + IFNAMSIZ];
-    sprintf(cmd, IP_CMD" addr del %"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8"/%d dev %s", addr[0], addr[1], addr[2], addr[3], ifaddr.prefix, ifname);
+    char *argv[] = { IP_CMD, "addr", "del", addr_str, "dev", (char *)ifname, NULL };
     
-    return !run_command(cmd);
+    return !run_command_args(argv);
 }
 
 int NCDIfConfig_add_ipv6_addr (const char *ifname, struct ipv6_ifaddr ifaddr)
@@ -185,10 +226,12 @@ int NCDIfConfig_add_ipv6_addr (const char *ifname, struct ipv6_ifaddr ifaddr)
     char addr_str[IPADDR6_PRINT_MAX];
     ipaddr6_print_addr(ifaddr.addr, addr_str);
     
-    char cmd[40 + IPADDR6_PRINT_MAX + IFNAMSIZ];
-    sprintf(cmd, IP_CMD" addr add %s/%d dev %s", addr_str, ifaddr.prefix, ifname);
+    char addr_prefix_str[IPADDR6_PRINT_MAX + 10];
+    snprintf(addr_prefix_str, sizeof(addr_prefix_str), "%s/%d", addr_str, ifaddr.prefix);
     
-    return !run_command(cmd);
+    char *argv[] = { IP_CMD, "addr", "add", addr_prefix_str, "dev", (char *)ifname, NULL };
+
+    return !run_command_args(argv);
 }
 
 int NCDIfConfig_remove_ipv6_addr (const char *ifname, struct ipv6_ifaddr ifaddr)
@@ -204,10 +247,12 @@ int NCDIfConfig_remove_ipv6_addr (const char *ifname, struct ipv6_ifaddr ifaddr)
     char addr_str[IPADDR6_PRINT_MAX];
     ipaddr6_print_addr(ifaddr.addr, addr_str);
     
-    char cmd[40 + IPADDR6_PRINT_MAX + IFNAMSIZ];
-    sprintf(cmd, IP_CMD" addr del %s/%d dev %s", addr_str, ifaddr.prefix, ifname);
+    char addr_prefix_str[IPADDR6_PRINT_MAX + 10];
+    snprintf(addr_prefix_str, sizeof(addr_prefix_str), "%s/%d", addr_str, ifaddr.prefix);
+
+    char *argv[] = { IP_CMD, "addr", "del", addr_prefix_str, "dev", (char *)ifname, NULL };
     
-    return !run_command(cmd);
+    return !run_command_args(argv);
 }
 
 static int route_cmd (const char *cmdtype, struct ipv4_ifaddr dest, const uint32_t *gateway, int metric, const char *ifname)
@@ -222,20 +267,35 @@ static int route_cmd (const char *cmdtype, struct ipv4_ifaddr dest, const uint32
     }
     
     uint8_t *d_addr = (uint8_t *)&dest.addr;
+    char dest_str[64];
+    snprintf(dest_str, sizeof(dest_str), "%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8"/%d", d_addr[0], d_addr[1], d_addr[2], d_addr[3], dest.prefix);
     
-    char gwstr[30];
+    char metric_str[32];
+    snprintf(metric_str, sizeof(metric_str), "%d", metric);
+
+    char gw_str[64];
     if (gateway) {
         const uint8_t *g_addr = (uint8_t *)gateway;
-        sprintf(gwstr, " via %"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8, g_addr[0], g_addr[1], g_addr[2], g_addr[3]);
-    } else {
-        gwstr[0] = '\0';
+        snprintf(gw_str, sizeof(gw_str), "%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8, g_addr[0], g_addr[1], g_addr[2], g_addr[3]);
     }
     
-    char cmd[120 + IFNAMSIZ];
-    sprintf(cmd, IP_CMD" route %s %"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8"/%d%s metric %d dev %s",
-            cmdtype, d_addr[0], d_addr[1], d_addr[2], d_addr[3], dest.prefix, gwstr, metric, ifname);
+    char *argv[12];
+    int i = 0;
+    argv[i++] = IP_CMD;
+    argv[i++] = "route";
+    argv[i++] = (char *)cmdtype;
+    argv[i++] = dest_str;
+    if (gateway) {
+        argv[i++] = "via";
+        argv[i++] = gw_str;
+    }
+    argv[i++] = "metric";
+    argv[i++] = metric_str;
+    argv[i++] = "dev";
+    argv[i++] = (char *)ifname;
+    argv[i++] = NULL;
     
-    return !run_command(cmd);
+    return !run_command_args(argv);
 }
 
 int NCDIfConfig_add_ipv4_route (struct ipv4_ifaddr dest, const uint32_t *gateway, int metric, const char *device)
@@ -262,19 +322,34 @@ static int route_cmd6 (const char *cmdtype, struct ipv6_ifaddr dest, const struc
     char dest_str[IPADDR6_PRINT_MAX];
     ipaddr6_print_addr(dest.addr, dest_str);
     
-    char gwstr[10 + IPADDR6_PRINT_MAX];
+    char dest_prefix_str[IPADDR6_PRINT_MAX + 10];
+    snprintf(dest_prefix_str, sizeof(dest_prefix_str), "%s/%d", dest_str, dest.prefix);
+
+    char metric_str[32];
+    snprintf(metric_str, sizeof(metric_str), "%d", metric);
+
+    char gw_str[IPADDR6_PRINT_MAX];
     if (gateway) {
-        strcpy(gwstr, " via ");
-        ipaddr6_print_addr(*gateway, gwstr + strlen(gwstr));
-    } else {
-        gwstr[0] = '\0';
+        ipaddr6_print_addr(*gateway, gw_str);
     }
     
-    char cmd[70 + IPADDR6_PRINT_MAX + IPADDR6_PRINT_MAX + IFNAMSIZ];
-    sprintf(cmd, IP_CMD" route %s %s/%d%s metric %d dev %s",
-            cmdtype, dest_str, dest.prefix, gwstr, metric, ifname);
+    char *argv[12];
+    int i = 0;
+    argv[i++] = IP_CMD;
+    argv[i++] = "route";
+    argv[i++] = (char *)cmdtype;
+    argv[i++] = dest_prefix_str;
+    if (gateway) {
+        argv[i++] = "via";
+        argv[i++] = gw_str;
+    }
+    argv[i++] = "metric";
+    argv[i++] = metric_str;
+    argv[i++] = "dev";
+    argv[i++] = (char *)ifname;
+    argv[i++] = NULL;
     
-    return !run_command(cmd);
+    return !run_command_args(argv);
 }
 
 int NCDIfConfig_add_ipv6_route (struct ipv6_ifaddr dest, const struct ipv6_addr *gateway, int metric, const char *device)
@@ -294,12 +369,15 @@ static int blackhole_route_cmd (const char *cmdtype, struct ipv4_ifaddr dest, in
     ASSERT(dest.prefix <= 32)
     
     uint8_t *d_addr = (uint8_t *)&dest.addr;
+    char dest_str[64];
+    snprintf(dest_str, sizeof(dest_str), "%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8"/%d", d_addr[0], d_addr[1], d_addr[2], d_addr[3], dest.prefix);
     
-    char cmd[120];
-    sprintf(cmd, IP_CMD" route %s blackhole %"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8"/%d metric %d",
-            cmdtype, d_addr[0], d_addr[1], d_addr[2], d_addr[3], dest.prefix, metric);
+    char metric_str[32];
+    snprintf(metric_str, sizeof(metric_str), "%d", metric);
     
-    return !run_command(cmd);
+    char *argv[] = { IP_CMD, "route", (char *)cmdtype, "blackhole", dest_str, "metric", metric_str, NULL };
+
+    return !run_command_args(argv);
 }
 
 int NCDIfConfig_add_ipv4_blackhole_route (struct ipv4_ifaddr dest, int metric)
@@ -321,11 +399,15 @@ static int blackhole_route_cmd6 (const char *cmdtype, struct ipv6_ifaddr dest, i
     char dest_str[IPADDR6_PRINT_MAX];
     ipaddr6_print_addr(dest.addr, dest_str);
     
-    char cmd[70 + IPADDR6_PRINT_MAX];
-    sprintf(cmd, IP_CMD" route %s blackhole %s/%d metric %d",
-            cmdtype, dest_str, dest.prefix, metric);
+    char dest_prefix_str[IPADDR6_PRINT_MAX + 10];
+    snprintf(dest_prefix_str, sizeof(dest_prefix_str), "%s/%d", dest_str, dest.prefix);
+
+    char metric_str[32];
+    snprintf(metric_str, sizeof(metric_str), "%d", metric);
+
+    char *argv[] = { IP_CMD, "route", (char *)cmdtype, "blackhole", dest_prefix_str, "metric", metric_str, NULL };
     
-    return !run_command(cmd);
+    return !run_command_args(argv);
 }
 
 int NCDIfConfig_add_ipv6_blackhole_route (struct ipv6_ifaddr dest, int metric)
@@ -413,7 +495,7 @@ int NCDIfConfig_make_tuntap (const char *ifname, const char *owner, int tun)
 {
     // load tun module if needed
     if (access(TUN_DEVNODE, F_OK) < 0) {
-        if (run_command("/sbin/modprobe tun") != 0) {
+        if (run_command_system("/sbin/modprobe tun") != 0) {
             BLog(BLOG_ERROR, "modprobe tun failed");
         }
     }
