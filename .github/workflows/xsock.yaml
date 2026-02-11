@@ -1,13 +1,13 @@
-name: Build xSocks Migration
+name: ZIVPN xSocks Core Build
 
 on:
   push:
-    branches: [ "feat/native-xsocks" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
-  build-migration:
-    name: Compile Native xSocks & Build Release APK
+  build:
+    name: Compile Native & Build Release APK
     runs-on: ubuntu-latest
     
     steps:
@@ -36,11 +36,11 @@ jobs:
           # Manually trigger CMake build to catch C/C++ errors early
           mkdir -p native/build
           cd native/build
-          cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_HOME/ndk/27.0.12077973/build/cmake/android.toolchain.cmake \
-                -DANDROID_ABI=arm64-v8a \
-                -DANDROID_PLATFORM=android-24 \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DSKIP_JNI_CHECK=ON \
+          cmake -DCMAKE_TOOLCHAIN_FILE=$ANDROID_HOME/ndk/27.0.12077973/build/cmake/android.toolchain.cmake 
+                -DANDROID_ABI=arm64-v8a 
+                -DANDROID_PLATFORM=android-24 
+                -DCMAKE_BUILD_TYPE=Release 
+                -DSKIP_JNI_CHECK=ON 
                 ..
           make -j$(nproc)
           echo "Native compilation successful!"
@@ -80,5 +80,5 @@ jobs:
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: MiniZivpn-xSocks-Migration-Release
+          name: ZIVPN-xSocks-Core-Release
           path: build/app/outputs/flutter-apk/app-release.apk
