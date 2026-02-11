@@ -1,7 +1,7 @@
 name: mini_zivpn
 description: A minimal ZIVPN Turbo controller with optimized tunnel and DNS fixes.
 publish_to: 'none'
-version: 1.0.15+5
+version: 1.0.16+6
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
