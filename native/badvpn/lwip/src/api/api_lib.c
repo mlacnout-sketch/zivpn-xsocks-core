@@ -46,6 +46,7 @@
 #include "lwip/api.h"
 #include "lwip/tcpip.h"
 #include "lwip/memp.h"
+#include "lwip/mem.h"
 
 #include "lwip/ip.h"
 #include "lwip/raw.h"
@@ -342,6 +343,29 @@ netconn_accept(struct netconn *conn, struct netconn **new_conn)
 #endif /* LWIP_TCP */
 }
 
+struct recv_updated_ctx {
+  struct netconn *conn;
+  u32_t len;
+};
+
+static void
+recv_tcp_updated(void *ctx)
+{
+  struct recv_updated_ctx *msg = (struct recv_updated_ctx *)ctx;
+  struct netconn *conn = msg->conn;
+
+  /* Check that the connection is still valid. */
+  if (conn->pcb.tcp != NULL && NETCONNTYPE_GROUP(conn->type) == NETCONN_TCP) {
+      u32_t remaining = msg->len;
+      do {
+        u16_t recved = (remaining > 0xffff) ? 0xffff : (u16_t)remaining;
+        tcp_recved(conn->pcb.tcp, recved);
+        remaining -= recved;
+      } while (remaining != 0);
+  }
+  mem_free(msg);
+}
+
 /**
  * Receive data: actual implementation that doesn't care whether pbuf or netbuf
  * is received
@@ -390,17 +414,28 @@ netconn_recv_data(struct netconn *conn, void **new_buf)
 #endif /* (LWIP_UDP || LWIP_RAW) */
   {
     if (!netconn_get_noautorecved(conn) || (buf == NULL)) {
+      u32_t recv_len = (buf != NULL) ? ((struct pbuf *)buf)->tot_len : 1;
+      struct recv_updated_ctx *ctx = (struct recv_updated_ctx *)mem_malloc(sizeof(struct recv_updated_ctx));
+
+      if (ctx != NULL) {
+        ctx->conn = conn;
+        ctx->len = recv_len;
+        if (tcpip_callback(recv_tcp_updated, ctx) == ERR_OK) {
+           /* successfully posted */
+           goto recv_updated_done;
+        }
+        mem_free(ctx);
+      }
+
       /* Let the stack know that we have taken the data. */
       /* TODO: Speedup: Don't block and wait for the answer here
          (to prevent multiple thread-switches). */
       msg.msg.conn = conn;
-      if (buf != NULL) {
-        msg.msg.msg.r.len = ((struct pbuf *)buf)->tot_len;
-      } else {
-        msg.msg.msg.r.len = 1;
-      }
+      msg.msg.msg.r.len = recv_len;
       /* don't care for the return value of lwip_netconn_do_recv */
       TCPIP_APIMSG_NOERR(&msg, lwip_netconn_do_recv);
+
+recv_updated_done: ;
     }
 
     /* If we are closed, we indicate that we no longer wish to use the socket */
