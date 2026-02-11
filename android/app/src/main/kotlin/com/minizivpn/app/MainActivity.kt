@@ -24,6 +24,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+
 /**
  * ZIVPN Turbo Main Activity
  * Optimized for high-performance tunneling and aggressive cleanup.
@@ -53,7 +55,22 @@ class MainActivity: FlutterActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+        
+        // Optimize Exit Animation
+        splashScreen.setOnExitAnimationListener { splashProvider ->
+            val iconView = splashProvider.iconView
+            iconView.animate()
+                .scaleX(0f)
+                .scaleY(0f)
+                .alpha(0f)
+                .setDuration(500)
+                .setInterpolator(android.view.animation.AccelerateInterpolator())
+                .withEndAction { splashProvider.remove() }
+                .start()
+        }
+
         handleIntent(intent) // Check intent on launch
         // Ensure environment is clean on launch
         stopEngine()

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:animate_do/animate_do.dart';
+import 'package:lottie/lottie.dart';
 import '../../app_colors.dart';
 import '../../widgets/ping_button.dart';
 
@@ -74,15 +76,23 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            "ZIVPN",
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
+          FadeInDown(
+            duration: const Duration(milliseconds: 600),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "ZIVPN",
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const Text("Turbo Tunnel Engine", style: TextStyle(color: Colors.grey)),
+              ],
             ),
           ),
-          const Text("Turbo Tunnel Engine", style: TextStyle(color: Colors.grey)),
           const SizedBox(height: 20),
           Expanded(
             child: Stack(
@@ -90,159 +100,174 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
               children: [
                 Center(
                   child: RepaintBoundary(
-                    child: GestureDetector(
-                      onTap: isConnecting ? null : widget.onToggle,
-                      child: AnimatedBuilder(
-                        animation: _pulseAnimation,
-                        builder: (context, child) {
-                          return Container(
-                            width: 220,
-                            height: 240,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: statusColor,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: (isConnecting ? Colors.orange : (isConnected ? AppColors.primary : Colors.black))
-                                      .withValues(alpha: isConnecting ? 0.6 : 0.4),
-                                  blurRadius: isConnecting ? 20 + _pulseAnimation.value : 30,
-                                  spreadRadius: isConnecting ? 5 + _pulseAnimation.value : 10,
+                    child: ZoomIn(
+                      duration: const Duration(milliseconds: 800),
+                      child: GestureDetector(
+                        onTap: isConnecting ? null : widget.onToggle,
+                        child: AnimatedBuilder(
+                          animation: _pulseAnimation,
+                          builder: (context, child) {
+                            return Container(
+                              width: 220,
+                              height: 240,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: statusColor,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: (isConnecting ? Colors.orange : (isConnected ? AppColors.primary : Colors.black))
+                                        .withValues(alpha: isConnecting ? 0.6 : 0.4),
+                                    blurRadius: isConnecting ? 20 + _pulseAnimation.value : 30,
+                                    spreadRadius: isConnecting ? 5 + _pulseAnimation.value : 10,
+                                  )
+                                ],
+                              ),
+                              child: child,
+                            );
+                          },
+                                                  child: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      if (isConnecting || isConnected)
+                                                        Lottie.asset(
+                                                          'assets/animations/rocket.json',
+                                                          width: 140,
+                                                          height: 140,
+                                                          fit: BoxFit.contain,
+                                                          animate: true,
+                                                        )
+                                                      else
+                                                        const Icon(
+                                                          Icons.power_settings_new,
+                                                          size: 80,
+                                                          color: Colors.white,
+                                                        ),
+                                                      const SizedBox(height: 5),
+                                                      Text(
+                                                        isConnecting ? "CONNECTING..." : (isConnected ? "CONNECTED" : "TAP TO CONNECT"),
+                                                        style: const TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 16,
+                                                        ),
+                                                      ),                              if (isConnected) ...[
+                                const SizedBox(height: 15),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black26,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: Colors.white12),
+                                  ),
+                                  child: ValueListenableBuilder<String>(
+                                    valueListenable: widget.duration,
+                                    builder: (context, val, _) {
+                                      return Text(
+                                        val,
+                                        style: const TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: Colors.white,
+                                        ),
+                                      );
+                                    }
+                                  ),
                                 )
-                              ],
-                            ),
-                            child: child,
-                          );
-                        },
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (isConnecting)
-                              const SizedBox(
-                                width: 64, 
-                                height: 64, 
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
-                              )
-                            else
-                              Icon(
-                                isConnected ? Icons.vpn_lock : Icons.power_settings_new,
-                                size: 64,
-                                color: Colors.white,
-                              ),
-                            const SizedBox(height: 15),
-                            Text(
-                              isConnecting ? "CONNECTING..." : (isConnected ? "CONNECTED" : "TAP TO CONNECT"),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            if (isConnected) ...[
-                              const SizedBox(height: 15),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black26,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: Colors.white12),
-                                ),
-                                child: ValueListenableBuilder<String>(
-                                  valueListenable: widget.duration,
-                                  builder: (context, val, _) {
-                                    return Text(
-                                      val,
-                                      style: const TextStyle(
-                                        fontFamily: 'monospace',
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: Colors.white,
-                                      ),
-                                    );
-                                  }
-                                ),
-                              )
-                            ]
-                          ],
+                              ]
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
                 if (isConnected)
-                  const Positioned(
+                  Positioned(
                     bottom: 20,
                     right: 20,
-                    child: PingButton(),
+                    child: FadeInUp(
+                      delay: const Duration(milliseconds: 500),
+                      child: const PingButton(),
+                    ),
                   ),
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(12),
-            margin: const EdgeInsets.only(bottom: 15),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-            ),
-            child: ValueListenableBuilder<int>(
-              valueListenable: widget.sessionRx,
-              builder: (context, rx, _) {
-                return ValueListenableBuilder<int>(
-                  valueListenable: widget.sessionTx,
-                  builder: (context, tx, _) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Text(
-                          "Session: ${_formatTotalBytes(rx + tx)}",
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                        Container(width: 1, height: 12, color: Colors.white10),
-                        Text(
-                          "Rx: ${_formatTotalBytes(rx)}",
-                          style: const TextStyle(color: Colors.greenAccent, fontSize: 12),
-                        ),
-                        Container(width: 1, height: 12, color: Colors.white10),
-                        Text(
-                          "Tx: ${_formatTotalBytes(tx)}",
-                          style: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
-                        ),
-                      ],
-                    );
-                  }
-                );
-              }
+          FadeInUp(
+            delay: const Duration(milliseconds: 300),
+            duration: const Duration(milliseconds: 600),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 15),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              ),
+              child: ValueListenableBuilder<int>(
+                valueListenable: widget.sessionRx,
+                builder: (context, rx, _) {
+                  return ValueListenableBuilder<int>(
+                    valueListenable: widget.sessionTx,
+                    builder: (context, tx, _) {
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Text(
+                            "Session: ${_formatTotalBytes(rx + tx)}",
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                          Container(width: 1, height: 12, color: Colors.white10),
+                          Text(
+                            "Rx: ${_formatTotalBytes(rx)}",
+                            style: const TextStyle(color: Colors.greenAccent, fontSize: 12),
+                          ),
+                          Container(width: 1, height: 12, color: Colors.white10),
+                          Text(
+                            "Tx: ${_formatTotalBytes(tx)}",
+                            style: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
+                          ),
+                        ],
+                      );
+                    }
+                  );
+                }
+              ),
             ),
           ),
-          Row(
-            children: [
-              Expanded(
-                child: ValueListenableBuilder<String>(
-                  valueListenable: widget.dl,
-                  builder: (context, val, _) => StatCard(
-                    label: "Download",
-                    value: val,
-                    icon: Icons.download,
-                    color: Colors.green,
+          FadeInUp(
+            delay: const Duration(milliseconds: 400),
+            duration: const Duration(milliseconds: 600),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: widget.dl,
+                    builder: (context, val, _) => StatCard(
+                      label: "Download",
+                      value: val,
+                      icon: Icons.download,
+                      color: Colors.green,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: ValueListenableBuilder<String>(
-                  valueListenable: widget.ul,
-                  builder: (context, val, _) => StatCard(
-                    label: "Upload",
-                    value: val,
-                    icon: Icons.upload,
-                    color: Colors.orange,
+                const SizedBox(width: 15),
+                Expanded(
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: widget.ul,
+                    builder: (context, val, _) => StatCard(
+                      label: "Upload",
+                      value: val,
+                      icon: Icons.upload,
+                      color: Colors.orange,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 20),
         ],
