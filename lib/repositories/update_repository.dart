@@ -7,10 +7,11 @@ class UpdateRepository {
   final String apiUrl = "https://api.github.com/repos/mlacnout-sketch/zivpn-xsocks-core/releases";
 
   Future<AppVersion?> fetchUpdate() async {
-    // Strategy: Try Proxies First (Tunnel), then Direct
+    // Strategy: Try DIRECT first (if VPN is on, OS will tunnel this automatically)
+    // Then try SOCKS5 explicitly as a fallback.
     final strategies = [
-      "PROXY 127.0.0.1:7778",  // HTTP Proxy (Go) - Best for Updates
-      "DIRECT"                 // No Quota / WiFi
+      "DIRECT",
+      "SOCKS5 127.0.0.1:7777",
     ];
 
     for (final proxy in strategies) {
