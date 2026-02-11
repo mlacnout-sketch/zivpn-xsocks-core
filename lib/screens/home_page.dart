@@ -215,7 +215,7 @@ class _HomePageState extends State<HomePage> {
     if (savedIndex >= 0 && savedIndex < _accounts.length) {
       _activeAccountIndex = savedIndex;
     } else if (currentIp.isNotEmpty) {
-      _activeAccountIndex = _accounts.indexWhere((acc) => acc['ip'] == currentIp);
+      _activeAccountIndex = _accounts.indexWhere((acc) => acc.ip == currentIp);
     }
     
     setState(() {
