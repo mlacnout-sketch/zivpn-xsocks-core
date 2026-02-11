@@ -262,9 +262,14 @@ class ZivpnService : VpnService() {
             
             if (useUdpgw) {
                 if (udpgwMode == "standard") {
-                    tunCmd.add("--udpgw-remote-server-addr"); tunCmd.add("127.0.0.1:$udpgwPort")
-                } else { tunCmd.add("--enable-udprelay") }
-                tunCmd.add("--udprelay-max-connections"); tunCmd.add("512")
+                    // Connect directly to UDPGW on VPS (passed from IP settings)
+                    tunCmd.add("--udpgw-remote-server-addr")
+                    tunCmd.add("$ip:$udpgwPort")
+                } else {
+                    tunCmd.add("--enable-udprelay")
+                }
+                tunCmd.add("--udprelay-max-connections")
+                tunCmd.add("512")
             }
 
             val tunProc = ProcessBuilder(tunCmd).directory(filesDir).start()
