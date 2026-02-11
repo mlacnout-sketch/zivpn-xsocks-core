@@ -562,6 +562,41 @@ lwip_netconn_do_newconn(struct api_msg_msg *msg)
   TCPIP_APIMSG_ACK(msg);
 }
 
+#if LWIP_TCP
+static void
+recv_tcp_updated(void *ctx)
+{
+  struct netconn *conn = (struct netconn *)ctx;
+  u32_t len;
+  SYS_ARCH_DECL_PROTECT(lev);
+
+  /* Check that the connection is still valid. */
+  if (conn->pcb.tcp != NULL && NETCONNTYPE_GROUP(conn->type) == NETCONN_TCP) {
+    SYS_ARCH_PROTECT(lev);
+    len = conn->recv_avail_pending;
+    conn->recv_avail_pending = 0;
+    SYS_ARCH_UNPROTECT(lev);
+
+    if (len > 0) {
+      /* This is not a listening netconn, since recvmbox is set */
+#if TCP_LISTEN_BACKLOG
+      if (conn->pcb.tcp->state == LISTEN) {
+        tcp_accepted(conn->pcb.tcp);
+      } else
+#endif /* TCP_LISTEN_BACKLOG */
+      {
+        u32_t remaining = len;
+        do {
+          u16_t recved = (remaining > 0xffff) ? 0xffff : (u16_t)remaining;
+          tcp_recved(conn->pcb.tcp, recved);
+          remaining -= recved;
+        }while(remaining != 0);
+      }
+    }
+  }
+}
+#endif /* LWIP_TCP */
+
 /**
  * Create a new netconn (of a specific type) that has a callback function.
  * The corresponding pcb is NOT created!
@@ -629,6 +664,17 @@ netconn_alloc(enum netconn_type t, netconn_callback callback)
 #if LWIP_TCP
   conn->current_msg  = NULL;
   conn->write_offset = 0;
+  conn->recv_avail_pending = 0;
+  if (NETCONNTYPE_GROUP(t) == NETCONN_TCP) {
+    conn->recv_callback_msg = tcpip_callbackmsg_new(recv_tcp_updated, conn);
+    if (conn->recv_callback_msg == NULL) {
+      sys_mbox_free(&conn->recvmbox);
+      sys_sem_free(&conn->op_completed);
+      goto free_and_return;
+    }
+  } else {
+    conn->recv_callback_msg = NULL;
+  }
 #endif /* LWIP_TCP */
 #if LWIP_SO_SNDTIMEO
   conn->send_timeout = 0;
@@ -662,6 +708,10 @@ netconn_free(struct netconn *conn)
 #if LWIP_TCP
   LWIP_ASSERT("acceptmbox must be deallocated before calling this function",
     !sys_mbox_valid(&conn->acceptmbox));
+  if (conn->recv_callback_msg != NULL) {
+    tcpip_callbackmsg_delete(conn->recv_callback_msg);
+    conn->recv_callback_msg = NULL;
+  }
 #endif /* LWIP_TCP */
 
   sys_sem_free(&conn->op_completed);

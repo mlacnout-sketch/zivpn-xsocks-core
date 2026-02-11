@@ -153,6 +153,7 @@ struct udp_pcb;
 struct raw_pcb;
 struct netconn;
 struct api_msg_msg;
+struct tcpip_callback_msg;
 
 /** A callback prototype to inform about events for a netconn */
 typedef void (* netconn_callback)(struct netconn *, enum netconn_evt, u16_t len);
@@ -215,6 +216,10 @@ struct netconn {
       this temporarily stores the message.
       Also used during connect and close. */
   struct api_msg_msg *current_msg;
+  /** TCP: pending bytes to be acknowledged to the stack */
+  u32_t recv_avail_pending;
+  /** TCP: pre-allocated callback message for window updates */
+  struct tcpip_callback_msg *recv_callback_msg;
 #endif /* LWIP_TCP */
   /** A callback function that is informed about events for this netconn */
   netconn_callback callback;
