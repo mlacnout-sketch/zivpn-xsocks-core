@@ -167,6 +167,15 @@ class ZivpnService : VpnService() {
                 builder.setConfigureIntent(pendingIntent)
                 builder.setMtu(mtu)
                 
+                // TRICK: Exclude our own app from the VPN route to avoid loops.
+                // It can still access 127.0.0.1:7777 (SOCKS5) directly.
+                try {
+                    builder.addDisallowedApplication(packageName)
+                    logToApp("App Bypassed from VPN route (Local Proxy update mode active)")
+                } catch (e: Exception) {
+                    logToApp("Bypass failed: ${e.message}")
+                }
+                
                 // DYNAMIC ROUTING: Exclude Server IP
                 val serverHost = prefs.getString("server_ip", "") ?: ""
                 if (serverHost.isNotEmpty()) {
