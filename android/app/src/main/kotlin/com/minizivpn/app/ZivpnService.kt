@@ -249,9 +249,15 @@ class ZivpnService : VpnService() {
             val udpgwPort = prefs.getString("udpgw_port", "7300") ?: "7300"
 
             val tunCmd = arrayListOf(
-                tun2socksBin, "--netif-ipaddr", "169.254.1.2", "--netif-netmask", "255.255.255.0",
-                "--socks-server-addr", "127.0.0.1:7777", "--tunmtu", mtu.toString(),
-                "--loglevel", tsLogLevel, "--dnsgw", "169.254.1.1:$pdnsdPort", "--fake-proc"
+                tun2socksBin,
+                "--tundev", "tun0",
+                "--netif-ipaddr", "169.254.1.2",
+                "--netif-netmask", "255.255.255.0",
+                "--socks-server-addr", "127.0.0.1:7777",
+                "--tunmtu", mtu.toString(),
+                "--dnsgw", "169.254.1.1:$pdnsdPort",
+                "--loglevel", tsLogLevel,
+                "--fake-proc"
             )
             
             if (useUdpgw) {
