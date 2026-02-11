@@ -5,7 +5,10 @@ import '../models/app_version.dart';
 import '../repositories/update_repository.dart';
 
 class UpdateViewModel {
-  final _repository = UpdateRepository();
+  final UpdateRepository _repository;
+
+  UpdateViewModel({UpdateRepository? repository})
+      : _repository = repository ?? UpdateRepository();
 
   final _availableUpdate = BehaviorSubject<AppVersion?>();
   final _downloadProgress = BehaviorSubject<double>.seeded(-1.0);
