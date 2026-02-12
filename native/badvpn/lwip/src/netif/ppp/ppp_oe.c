@@ -1012,7 +1012,8 @@ pppoe_send_pads(struct pppoe_softc *sc)
 {
   struct pbuf *pb;
   u8_t *p;
-  size_t len, l1 = 0;  /* XXX: gcc */
+  size_t len;
+  size_t l1 = 0;
 
   if (sc->sc_state != PPPOE_STATE_PADO_SENT) {
     return ERR_CONN;
@@ -1025,8 +1026,9 @@ pppoe_send_pads(struct pppoe_softc *sc)
   len += 2 + 2 + 2 + 2 + sc->sc_hunique_len;  /* service name, host unique*/
   if (sc->sc_service_name != NULL) {    /* service name tag maybe empty */
     l1 = strlen(sc->sc_service_name);
-    len += l1;
   }
+  len += l1;
+
   pb = pbuf_alloc(PBUF_LINK, sizeof(struct eth_hdr) + PPPOE_HEADERLEN + len, PBUF_RAM);
   if (!pb) {
     return ERR_MEM;
@@ -1035,13 +1037,13 @@ pppoe_send_pads(struct pppoe_softc *sc)
   p = (u8_t*)pb->payload + sizeof (struct eth_hdr);
   PPPOE_ADD_HEADER(p, PPPOE_CODE_PADS, sc->sc_session, len);
   PPPOE_ADD_16(p, PPPOE_TAG_SNAME);
+
+  PPPOE_ADD_16(p, l1);
   if (sc->sc_service_name != NULL) {
-    PPPOE_ADD_16(p, l1);
     MEMCPY(p, sc->sc_service_name, l1);
     p += l1;
-  } else {
-    PPPOE_ADD_16(p, 0);
   }
+
   PPPOE_ADD_16(p, PPPOE_TAG_HUNIQUE);
   PPPOE_ADD_16(p, sc->sc_hunique_len);
   MEMCPY(p, sc->sc_hunique, sc->sc_hunique_len);
