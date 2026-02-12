@@ -337,7 +337,6 @@ class _HomePageState extends State<HomePage> {
 
       setState(() => _vpnState = "connecting");
 
-      final bool useWakelock = prefs.getBool('cpu_wakelock') ?? false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Connecting..."),
