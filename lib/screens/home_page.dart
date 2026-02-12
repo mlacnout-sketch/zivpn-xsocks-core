@@ -17,6 +17,7 @@ import '../repositories/backup_repository.dart';
 import '../services/autopilot_service.dart';
 import '../models/app_version.dart';
 import '../models/account.dart';
+import '../widgets/donation_widgets.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -46,25 +47,27 @@ class _HomePageState extends State<HomePage> {
   DateTime? _startTime;
   final ValueNotifier<String> _durationNotifier = ValueNotifier("00:00:00");
   
-  // Optimized: Use ValueNotifier to prevent full rebuilds on stats update
   final ValueNotifier<String> _dlSpeed = ValueNotifier("0 KB/s");
   final ValueNotifier<String> _ulSpeed = ValueNotifier("0 KB/s");
   final ValueNotifier<int> _sessionRx = ValueNotifier(0);
   final ValueNotifier<int> _sessionTx = ValueNotifier(0);
   
+  // AutoPilot Service
+  final _autoPilot = AutoPilotService();
+  bool _autoPilotActive = false;
+  bool _autoPilotResetting = false;
+
   @override
   void initState() {
     super.initState();
     _loadData();
     _initLogListener();
     _initStatsListener();
+    _initAutoPilotListener();
     _checkInitialImport();
     
-    // Auto-update check
     _updateViewModel.availableUpdate.listen((update) {
-      if (update != null && mounted) {
-        _showUpdateDialog(update);
-      }
+      if (update != null && mounted) _showUpdateDialog(update);
     });
     _updateViewModel.checkForUpdate();
   }
@@ -83,6 +86,26 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  void _initAutoPilotListener() {
+    _autoPilot.stateStream.listen((state) {
+      if (mounted) {
+        setState(() {
+          _autoPilotActive = state.status != AutoPilotStatus.stopped;
+          _autoPilotResetting = state.status == AutoPilotStatus.resetting || 
+                               state.status == AutoPilotStatus.stabilizing;
+          
+          // Log AutoPilot messages to main log
+          if (state.message != null && !state.message!.contains("Monitoring")) {
+             // Only important messages
+             if (!_logs.contains("[AUTOPILOT] ${state.message}")) {
+                _logs.add("[AUTOPILOT] ${state.message}");
+             }
+          }
+        });
+      }
+    });
+  }
+
   Future<void> _checkInitialImport() async {
     try {
       final String? filePath = await platform.invokeMethod('getInitialFile');
@@ -92,7 +115,7 @@ class _HomePageState extends State<HomePage> {
           builder: (context) => AlertDialog(
             backgroundColor: AppColors.card,
             title: const Text("Import Backup?"),
-            content: const Text("A backup file was detected. Do you want to restore it now? This will overwrite current settings."),
+            content: const Text("A backup file was detected. Do you want to restore it now?"),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
               ElevatedButton(
@@ -105,23 +128,11 @@ class _HomePageState extends State<HomePage> {
         );
 
         if (confirmed == true) {
-            final repo = BackupRepository();
-            final success = await repo.restoreBackup(File(filePath));
-            if (success) {
-                _loadData(); // Refresh UI
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Backup imported successfully.")),
-                );
-            } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Failed to import backup.")),
-                );
-            }
+            final success = await BackupRepository().restoreBackup(File(filePath));
+            if (success) _loadData();
         }
       }
-    } catch (e) {
-      print("Import check error: $e");
-    }
+    } catch (e) {}
   }
 
   void _showUpdateDialog(AppVersion update) {
@@ -131,24 +142,9 @@ class _HomePageState extends State<HomePage> {
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.card,
         title: Text("Update Available: v${update.name}"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Size: ${(update.apkSize / (1024 * 1024)).toStringAsFixed(2)} MB"),
-            const SizedBox(height: 10),
-            const Text("Changelog:"),
-            Container(
-              constraints: const BoxConstraints(maxHeight: 200),
-              child: SingleChildScrollView(child: Text(update.description)),
-            ),
-          ],
-        ),
+        content: SingleChildScrollView(child: Text(update.description)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context), 
-            child: const Text("Later")
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Later")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             onPressed: () {
@@ -163,59 +159,17 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _executeDownload(AppVersion update) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => StreamBuilder<double>(
-        stream: _updateViewModel.downloadProgress,
-        builder: (context, snapshot) {
-          double progress = snapshot.data ?? 0.0;
-          return AlertDialog(
-            backgroundColor: AppColors.card,
-            title: const Text("Downloading Update..."),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                LinearProgressIndicator(
-                  value: progress >= 0 ? progress : null,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(height: 10),
-                Text(progress >= 0 ? "${(progress * 100).toStringAsFixed(0)}%" : "Connecting..."),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-
     final file = await _updateViewModel.startDownload(update);
-    if (mounted) Navigator.pop(context); // Close progress dialog
-
-    if (file != null) {
-      await OpenFilex.open(file.path);
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Download failed")),
-      );
-    }
+    if (file != null) await OpenFilex.open(file.path);
   }
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-
-    // Set defaults if not present
+    
+    // Set Defaults
     if (!prefs.containsKey('mtu')) await prefs.setInt('mtu', 1500);
-    if (!prefs.containsKey('tcp_snd_buf')) await prefs.setString('tcp_snd_buf', '65535');
-    if (!prefs.containsKey('tcp_wnd')) await prefs.setString('tcp_wnd', '65535');
-    if (!prefs.containsKey('socks_buf')) await prefs.setString('socks_buf', '65536');
-    if (!prefs.containsKey('udpgw_max_connections')) await prefs.setString('udpgw_max_connections', '512');
-    if (!prefs.containsKey('udpgw_buffer_size')) await prefs.setString('udpgw_buffer_size', '32');
     if (!prefs.containsKey('ping_interval')) await prefs.setInt('ping_interval', 3);
-    if (!prefs.containsKey('ping_target')) await prefs.setString('ping_target', 'http://www.gstatic.com/generate_204');
-    if (!prefs.containsKey('log_level')) await prefs.setString('log_level', 'info');
-    if (!prefs.containsKey('core_count')) await prefs.setInt('core_count', 4);
-
+    
     final String? jsonStr = prefs.getString('saved_accounts');
     if (jsonStr != null) {
       final List<dynamic> jsonData = jsonDecode(jsonStr);
@@ -241,7 +195,10 @@ class _HomePageState extends State<HomePage> {
       }
     });
 
-    await AutoPilotService().init();
+    await _autoPilot.init();
+    if (isRunning && _autoPilot.config.autoReset) {
+      _autoPilot.start();
+    }
   }
 
   Future<void> _saveAccounts() async {
@@ -273,21 +230,14 @@ class _HomePageState extends State<HomePage> {
 
   void _flushLogs() {
     if (!mounted || _logBuffer.isEmpty) return;
-    
     setState(() {
       _logs.addAll(_logBuffer);
       _logBuffer.clear();
-      if (_logs.length > 1000) {
-        _logs.removeRange(0, _logs.length - 1000);
-      }
+      if (_logs.length > 1000) _logs.removeRange(0, _logs.length - 1000);
     });
-
     if (_selectedIndex == 2 && _logScrollCtrl.hasClients) {
-      // Scroll to bottom after frame build
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_logScrollCtrl.hasClients) {
-          _logScrollCtrl.jumpTo(_logScrollCtrl.position.maxScrollExtent);
-        }
+        if (_logScrollCtrl.hasClients) _logScrollCtrl.jumpTo(_logScrollCtrl.position.maxScrollExtent);
       });
     }
   }
@@ -299,16 +249,11 @@ class _HomePageState extends State<HomePage> {
         if (parts.length == 2) {
           final rx = int.tryParse(parts[0]) ?? 0;
           final tx = int.tryParse(parts[1]) ?? 0;
-
-          // Optimized: Update notifiers directly, no setState
           _dlSpeed.value = _formatBytes(rx);
           _ulSpeed.value = _formatBytes(tx);
           _sessionRx.value += rx;
           _sessionTx.value += tx;
-
-          if (_activeAccountIndex != -1) {
-            _accounts[_activeAccountIndex].usage += rx + tx;
-          }
+          if (_activeAccountIndex != -1) _accounts[_activeAccountIndex].usage += rx + tx;
         }
       }
     });
@@ -323,44 +268,40 @@ class _HomePageState extends State<HomePage> {
   Future<void> _toggleVpn() async {
     HapticFeedback.mediumImpact();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.reload(); // Force reload to get latest settings from SettingsTab
+    await prefs.reload();
 
     if (_vpnState == "connected") {
-      try {
-        await platform.invokeMethod('stopCore');
-        _timer?.cancel();
-        setState(() {
-          _vpnState = "disconnected";
-          _startTime = null;
-        });
-        _durationNotifier.value = "00:00:00";
-        // Reset stats via notifier
-        _sessionRx.value = 0;
-        _sessionTx.value = 0;
-        _dlSpeed.value = "0 KB/s";
-        _ulSpeed.value = "0 KB/s";
-        
-        await prefs.remove('vpn_start_time');
-        await _saveAccounts();
-      } catch (e) {
-        _logs.add("Error stopping: $e");
+      // --- LOGIKA DISCONNECT DENGAN SARCASTIC DIALOG ---
+      void performStop() async {
+        try {
+          await platform.invokeMethod('stopCore');
+          _autoPilot.stop();
+          _timer?.cancel();
+          setState(() {
+            _vpnState = "disconnected";
+            _startTime = null;
+          });
+          _durationNotifier.value = "00:00:00";
+          _sessionRx.value = 0; _sessionTx.value = 0;
+          _dlSpeed.value = "0 KB/s"; _ulSpeed.value = "0 KB/s";
+          await prefs.remove('vpn_start_time');
+          await _saveAccounts();
+        } catch (e) {
+          _logs.add("Error stopping: $e");
+        }
       }
+
+      if (mounted) {
+        showSarcasticDialog(context, onProceed: performStop);
+      } else {
+        performStop();
+      }
+
     } else {
       final ip = prefs.getString('ip') ?? "";
-      if (ip.isEmpty) {
-        setState(() => _selectedIndex = 3); // Go to settings
-        return;
-      }
+      if (ip.isEmpty) { setState(() => _selectedIndex = 4); return; } // Settings index is now 4
 
       setState(() => _vpnState = "connecting");
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Connecting..."),
-          duration: Duration(seconds: 1),
-          backgroundColor: AppColors.primary,
-        ),
-      );
 
       try {
         await platform.invokeMethod('startCore', {
@@ -392,13 +333,13 @@ class _HomePageState extends State<HomePage> {
         await prefs.setInt('vpn_start_time', now.millisecondsSinceEpoch);
         _startTime = now;
         _startTimer();
-
         setState(() => _vpnState = "connected");
+
+        await _autoPilot.init();
+        if (_autoPilot.config.autoReset) _autoPilot.start();
+
       } catch (e) {
-        setState(() {
-          _vpnState = "disconnected";
-          _logs.add("Start Failed: $e");
-        });
+        setState(() { _vpnState = "disconnected"; _logs.add("Start Failed: $e"); });
       }
     }
   }
@@ -406,30 +347,16 @@ class _HomePageState extends State<HomePage> {
   Future<void> _handleAccountSwitch(int index) async {
     final account = _accounts[index];
     final prefs = await SharedPreferences.getInstance();
-
     await prefs.setString('ip', account.ip);
     await prefs.setString('auth', account.auth);
     await prefs.setString('obfs', account.obfs);
     await prefs.setInt('active_account_index', index);
-
-    setState(() {
-      _activeAccountIndex = index;
-    });
-    
-    // Reset stats via notifier
-    _sessionRx.value = 0;
-    _sessionTx.value = 0;
-    _dlSpeed.value = "0 KB/s";
-    _ulSpeed.value = "0 KB/s";
-
+    setState(() => _activeAccountIndex = index);
+    _sessionRx.value = 0; _sessionTx.value = 0;
     if (_vpnState == "connected") {
-      await _toggleVpn(); // Stop
-      await Future.delayed(const Duration(milliseconds: 500));
-      await _toggleVpn(); // Start
+      await _toggleVpn(); await Future.delayed(const Duration(milliseconds: 500)); await _toggleVpn();
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -446,90 +373,47 @@ class _HomePageState extends State<HomePage> {
               duration: _durationNotifier,
               sessionRx: _sessionRx,
               sessionTx: _sessionTx,
+              autoPilotActive: _autoPilotActive,
+              isResetting: _autoPilotResetting,
             ),
             ProxiesTab(
               accounts: _accounts,
               activePingIndex: _activeAccountIndex,
               onActivate: _handleAccountSwitch,
-              onAdd: (acc) {
-                setState(() => _accounts.add(acc));
-                _saveAccounts();
-              },
-              onEdit: (index, newAcc) {
-                setState(() => _accounts[index] = newAcc);
-                _saveAccounts();
-              },
+              onAdd: (acc) { setState(() => _accounts.add(acc)); _saveAccounts(); },
+              onEdit: (index, newAcc) { setState(() => _accounts[index] = newAcc); _saveAccounts(); },
               onDelete: (index) {
                 setState(() {
                   _accounts.removeAt(index);
-                  if (_activeAccountIndex == index) {
-                    _activeAccountIndex = -1;
-                  } else if (_activeAccountIndex > index) {
-                    _activeAccountIndex--;
-                  }
+                  if (_activeAccountIndex == index) _activeAccountIndex = -1;
+                  else if (_activeAccountIndex > index) _activeAccountIndex--;
                 });
                 _saveAccounts();
-                SharedPreferences.getInstance().then((p) => p.setInt('active_account_index', _activeAccountIndex));
               },
             ),
             LogsTab(logs: _logs, scrollController: _logScrollCtrl),
             const AutoPilotTab(),
             SettingsTab(
               onCheckUpdate: () async {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Checking for updates...")),
-              );
-              final hasUpdate = await _updateViewModel.checkForUpdate();
-              if (!hasUpdate && mounted) {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("You are using the latest version!")),
-                );
-              }
-            },
-            onRestoreSuccess: () {
-              _loadData(); // Refresh accounts and vpn state
-            },
+                final hasUpdate = await _updateViewModel.checkForUpdate();
+                if (!hasUpdate && mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("You are using the latest version!")));
+              },
+              onRestoreSuccess: () => _loadData(),
             ),
           ],
         ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (i) {
-          setState(() {
-            _selectedIndex = i;
-          });
-        },
+        onDestinationSelected: (i) => setState(() => _selectedIndex = i),
         backgroundColor: AppColors.surface,
         indicatorColor: AppColors.primaryLow,
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.public_outlined),
-            selectedIcon: Icon(Icons.public),
-            label: 'Proxies',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.terminal_outlined),
-            selectedIcon: Icon(Icons.terminal),
-            label: 'Logs',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.radar_outlined),
-            selectedIcon: Icon(Icons.radar),
-            label: 'Auto Pilot',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
+          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Dashboard'),
+          NavigationDestination(icon: Icon(Icons.public_outlined), selectedIcon: Icon(Icons.public), label: 'Proxies'),
+          NavigationDestination(icon: Icon(Icons.terminal_outlined), selectedIcon: Icon(Icons.terminal), label: 'Logs'),
+          NavigationDestination(icon: Icon(Icons.radar_outlined), selectedIcon: Icon(Icons.radar), label: 'Auto Pilot'),
+          NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
     );

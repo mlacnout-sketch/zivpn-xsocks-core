@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../app_colors.dart';
 import '../../widgets/ping_button.dart';
+import '../../widgets/donation_widgets.dart';
 
 class DashboardTab extends StatefulWidget {
   final String vpnState;
@@ -83,6 +84,7 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
             ),
           ),
           const Text("Turbo Tunnel Engine", style: TextStyle(color: Colors.grey)),
+          const SiOrenBanner(), // Banner Si Oren
           const SizedBox(height: 20),
           Expanded(
             child: Stack(
