@@ -416,7 +416,7 @@ int main (int argc, char **argv)
 #ifdef ANDROID
     if (options.fake_proc) {
         // Fake process name to cheat on Lollipop
-        strcpy(argv[0], "io.github.xSocks");
+        strncpy(argv[0], "io.github.xSocks", strlen(argv[0]));
         prctl(PR_SET_NAME, "io.github.xSocks");
     }
 #endif
