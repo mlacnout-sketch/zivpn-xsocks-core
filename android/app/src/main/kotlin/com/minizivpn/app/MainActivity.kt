@@ -177,6 +177,10 @@ class MainActivity: FlutterActivity() {
 
                 sendToLog("Config saved. Ready to start VPN.")
                 result.success("READY")
+            } else if (call.method == "logMessage") {
+                val msg = call.argument<String>("message") ?: ""
+                sendToLog(msg)
+                result.success("Logged")
             } else if (call.method == "stopCore") {
                 stopVpn()
                 result.success("Stopped")
