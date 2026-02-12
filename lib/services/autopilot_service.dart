@@ -15,9 +15,6 @@ class AutoPilotService {
   final _httpClient = http.Client();
   static const _platform = MethodChannel('com.minizivpn.app/core');
   
-  static const _logChannel = EventChannel('com.minizivpn.app/logs');
-  StreamSubscription? _logSubscription;
-  
   Timer? _timer;
   AutoPilotConfig _config = const AutoPilotConfig();
   
@@ -25,6 +22,7 @@ class AutoPilotService {
   Stream<AutoPilotState> get stateStream => _stateController.stream;
   
   bool _isResetting = false;
+  bool _isChecking = false;
 
   AutoPilotState _currentState = const AutoPilotState(
     status: AutoPilotStatus.stopped,
@@ -97,7 +95,7 @@ class AutoPilotService {
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.monitoring,
         failCount: 0,
-        message: 'Watchdog active (Listening to Core)',
+        message: 'Watchdog active',
       ));
 
       _timer = Timer.periodic(
@@ -116,17 +114,11 @@ class AutoPilotService {
   void stop() {
     _timer?.cancel();
     _timer = null;
-    _logSubscription?.cancel();
-    _logSubscription = null;
     _updateState(_currentState.copyWith(
       status: AutoPilotStatus.stopped,
       failCount: 0,
       message: 'Stopped',
     ));
-  }
-
-  void _onLogReceived(dynamic event) {
-    // Native logs listener (Optional: can be used for double validation)
   }
 
   Future<void> _checkAndRecover() async {
