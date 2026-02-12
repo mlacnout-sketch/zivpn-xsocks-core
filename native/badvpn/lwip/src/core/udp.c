@@ -994,10 +994,8 @@ udp_connect(struct udp_pcb *pcb, ip_addr_t *ipaddr, u16_t port)
         UDP_STATS_INC(udp.rterr);
         return ERR_RTE;
       }
-      /** TODO: this will bind the udp pcb locally, to the interface which
-          is used to route output packets to the remote address. However, we
-          might want to accept incoming packets on any interface! */
-      ipX_addr_copy(0, pcb->local_ip, netif->ip_addr);
+      /** don't bind the udp pcb locally to the interface address,
+          so that we can receive packets on any interface */
     } else if (ip_addr_isany(ipX_2_ip(&pcb->remote_ip))) {
       ipX_addr_set_any(0, &pcb->local_ip);
     }
