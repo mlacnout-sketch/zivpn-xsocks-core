@@ -198,7 +198,7 @@ class MainActivity: FlutterActivity() {
                     .putString("flutter.log_level", logLevel)
                     .putInt("flutter.core_count", coreCount)
                     .putBoolean("flutter.cpu_wakelock", cpuWakelock)
-                    .apply()
+                    .commit()
 
                 sendToLog("Config saved. Ready to start VPN.")
                 result.success("READY")

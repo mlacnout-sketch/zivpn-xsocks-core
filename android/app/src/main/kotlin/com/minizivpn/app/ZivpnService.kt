@@ -149,6 +149,19 @@ class ZivpnService : VpnService() {
         }
     }
 
+    private fun getPrefString(prefs: android.content.SharedPreferences, key: String, def: String): String {
+        return prefs.getString("flutter.$key", null) ?: prefs.getString(key, def) ?: def
+    }
+
+    private fun getPrefInt(prefs: android.content.SharedPreferences, key: String, def: Int): Int {
+        if (prefs.contains("flutter.$key")) return try { prefs.getInt("flutter.$key", def) } catch(e: Exception) { (prefs.getString("flutter.$key", null))?.toIntOrNull() ?: def }
+        return prefs.getInt(key, def)
+    }
+
+    private fun getPrefBool(prefs: android.content.SharedPreferences, key: String, def: Boolean): Boolean {
+        return if (prefs.contains("flutter.$key")) prefs.getBoolean("flutter.$key", def) else prefs.getBoolean(key, def)
+    }
+
     private fun connect() {
         if (vpnInterface != null) return
 
@@ -158,15 +171,15 @@ class ZivpnService : VpnService() {
                 
                 val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
                 
-                val ip = prefs.getString("flutter.server_ip", "") ?: ""
-                val range = prefs.getString("flutter.server_range", "") ?: ""
-                val pass = prefs.getString("flutter.server_pass", "") ?: ""
-                val obfs = prefs.getString("flutter.server_obfs", "") ?: ""
-                val multiplier = prefs.getFloat("flutter.multiplier", 1.0f)
-                val mtu = prefs.getInt("flutter.mtu", 1500)
-                val logLevel = prefs.getString("flutter.log_level", "info") ?: "info"
-                val coreCount = prefs.getInt("flutter.core_count", 4)
-                val useWakelock = prefs.getBoolean("flutter.cpu_wakelock", false)
+                val ip = getPrefString(prefs, "server_ip", "")
+                val range = getPrefString(prefs, "server_range", "")
+                val pass = getPrefString(prefs, "server_pass", "")
+                val obfs = getPrefString(prefs, "server_obfs", "")
+                val multiplier = 1.0f // Fixed
+                val mtu = getPrefInt(prefs, "mtu", 1500)
+                val logLevel = getPrefString(prefs, "log_level", "info")
+                val coreCount = getPrefInt(prefs, "core_count", 4)
+                val useWakelock = getPrefBool(prefs, "cpu_wakelock", false)
 
                 if (useWakelock) {
                     val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -190,7 +203,7 @@ class ZivpnService : VpnService() {
                 builder.setMtu(mtu)
                 
                 // DYNAMIC ROUTING: Exclude Server IP
-                val serverHost = prefs.getString("flutter.server_ip", "") ?: ""
+                val serverHost = getPrefString(prefs, "server_ip", "")
                 if (serverHost.isNotEmpty()) {
                     logToApp("Resolving server: $serverHost")
                     val resolvedIp = try {
@@ -212,9 +225,9 @@ class ZivpnService : VpnService() {
                 }
                 
                 // Apps Filter
-                val filterApps = prefs.getBoolean("flutter.filter_apps", false)
-                val bypassMode = prefs.getBoolean("flutter.bypass_mode", false)
-                val appsList = prefs.getString("flutter.apps_list", "") ?: ""
+                val filterApps = getPrefBool(prefs, "filter_apps", false)
+                val bypassMode = getPrefBool(prefs, "bypass_mode", false)
+                val appsList = getPrefString(prefs, "apps_list", "")
 
                 if (filterApps && appsList.isNotEmpty()) {
                     val appPackages = appsList.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
@@ -252,7 +265,7 @@ class ZivpnService : VpnService() {
             val cacheDir = File(cacheDir, "pdnsd_cache")
             if (!cacheDir.exists()) cacheDir.mkdirs()
             
-            val upstreamDns = prefs.getString("flutter.upstream_dns", "208.67.222.222") ?: "208.67.222.222"
+            val upstreamDns = getPrefString(prefs, "upstream_dns", "208.67.222.222")
             val pdnsdConf = Pdnsd.writeConfig(this, pdnsdPort, upstreamDns)
             val pdnsdBin = Pdnsd.getExecutable(this)
             File(pdnsdBin).setExecutable(true)
@@ -266,8 +279,8 @@ class ZivpnService : VpnService() {
             val tun2socksBin = File(libDir, "libtun2socks.so").absolutePath
             val tsLogLevel = when (logLevel) { "debug" -> "debug"; "error" -> "error"; "silent" -> "none"; else -> "info" }
 
-            val useUdpgw = prefs.getBoolean("flutter.enable_udpgw", true)
-            val udpgwPort = prefs.getString("flutter.udpgw_port", "7300") ?: "7300"
+            val useUdpgw = getPrefBool(prefs, "enable_udpgw", true)
+            val udpgwPort = getPrefString(prefs, "udpgw_port", "7300")
 
             val tunCmd = arrayListOf(
                 tun2socksBin, "--netif-ipaddr", "169.254.1.2", "--netif-netmask", "255.255.255.0",
@@ -275,9 +288,9 @@ class ZivpnService : VpnService() {
                 "--loglevel", tsLogLevel, "--dnsgw", "169.254.1.1:$pdnsdPort", "--fake-proc"
             )
 
-            val tcpSndBuf = prefs.getString("flutter.tcp_snd_buf", "65535") ?: "65535"
-            val tcpWnd = prefs.getString("flutter.tcp_wnd", "65535") ?: "65535"
-            val socksBuf = prefs.getString("flutter.socks_buf", "65536") ?: "65536"
+            val tcpSndBuf = getPrefString(prefs, "tcp_snd_buf", "65535")
+            val tcpWnd = getPrefString(prefs, "tcp_wnd", "65535")
+            val socksBuf = getPrefString(prefs, "socks_buf", "65536")
 
             tunCmd.add("--tcp-snd-buf"); tunCmd.add(tcpSndBuf)
             tunCmd.add("--tcp-wnd"); tunCmd.add(tcpWnd)
@@ -288,8 +301,8 @@ class ZivpnService : VpnService() {
                 // This aligns with the removal of Android-specific "relay" mode in native code
                 tunCmd.add("--udpgw-remote-server-addr"); tunCmd.add("127.0.0.1:$udpgwPort")
                 
-                val udpgwMaxConn = prefs.getString("flutter.udpgw_max_connections", "512") ?: "512"
-                val udpgwBufSize = prefs.getString("flutter.udpgw_buffer_size", "32") ?: "32"
+                val udpgwMaxConn = getPrefString(prefs, "udpgw_max_connections", "512")
+                val udpgwBufSize = getPrefString(prefs, "udpgw_buffer_size", "32")
                 
                 tunCmd.add("--udpgw-max-connections"); tunCmd.add(udpgwMaxConn)
                 tunCmd.add("--udpgw-connection-buffer-size"); tunCmd.add(udpgwBufSize)
