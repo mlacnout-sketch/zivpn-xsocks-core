@@ -15,13 +15,16 @@ class AutoPilotService {
   final _httpClient = http.Client();
   static const _platform = MethodChannel('com.minizivpn.app/core');
   
+  static const _logChannel = EventChannel('com.minizivpn.app/logs');
+  StreamSubscription? _logSubscription;
+  
   Timer? _timer;
   AutoPilotConfig _config = const AutoPilotConfig();
   
   final _stateController = StreamController<AutoPilotState>.broadcast();
   Stream<AutoPilotState> get stateStream => _stateController.stream;
   
-  bool _isChecking = false;
+  bool _isResetting = false;
 
   AutoPilotState _currentState = const AutoPilotState(
     status: AutoPilotStatus.stopped,
@@ -61,10 +64,7 @@ class AutoPilotService {
     await prefs.setBool('enable_stabilizer_ap', newConfig.enableStabilizer);
     await prefs.setInt('stabilizer_size_ap', newConfig.stabilizerSizeMb);
     
-    if (isRunning) {
-      stop();
-      start();
-    }
+    // No restart needed, just config update
   }
 
   Future<void> _log(String message) async {
@@ -97,13 +97,12 @@ class AutoPilotService {
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.monitoring,
         failCount: 0,
-        message: 'Watchdog active',
+        message: 'Watchdog active (Listening to Core)',
       ));
 
-      _timer = Timer.periodic(
-        Duration(seconds: _config.checkIntervalSeconds),
-        (timer) async => await _checkAndRecover(),
-      );
+      // Listen to Native Logs for [CONNECTION_LOST]
+      _logSubscription = _logChannel.receiveBroadcastStream().listen(_onLogReceived);
+
     } catch (e) {
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.error,
@@ -114,8 +113,8 @@ class AutoPilotService {
   }
 
   void stop() {
-    _timer?.cancel();
-    _timer = null;
+    _logSubscription?.cancel();
+    _logSubscription = null;
     _updateState(_currentState.copyWith(
       status: AutoPilotStatus.stopped,
       failCount: 0,
@@ -123,53 +122,34 @@ class AutoPilotService {
     ));
   }
 
-  Future<void> _checkAndRecover() async {
-    if (!isRunning || _isChecking) return;
-    _isChecking = true;
-
-    try {
-      _updateState(_currentState.copyWith(
-        status: AutoPilotStatus.monitoring,
-        lastCheck: DateTime.now(),
-      ));
-
-      final hasInternet = await checkInternet();
-
-      if (hasInternet) {
-        _updateState(_currentState.copyWith(
-          failCount: 0,
-          hasInternet: true,
-          message: 'Connection stable',
-        ));
-      } else {
-        final newFailCount = _currentState.failCount + 1;
-        _updateState(_currentState.copyWith(
-          failCount: newFailCount,
-          hasInternet: false,
-          message: 'Connection lost ($newFailCount/${_config.maxFailCount})',
-        ));
-
-        if (newFailCount >= _config.maxFailCount) {
-          await _performReset();
+  void _onLogReceived(dynamic event) {
+    if (event is String) {
+        if (event.contains("[PING] Failed")) {
+             // Extract fail count if possible or just increment local visual counter
+             final newFail = _currentState.failCount + 1;
+             _updateState(_currentState.copyWith(
+                failCount: newFail,
+                hasInternet: false,
+                message: "Ping Failed (Core detected issue)",
+                lastCheck: DateTime.now()
+             ));
+        } else if (event.contains("[PING] http")) {
+             _updateState(_currentState.copyWith(
+                failCount: 0,
+                hasInternet: true,
+                message: "Connection Stable",
+                lastCheck: DateTime.now()
+             ));
+        } else if (event.contains("[CONNECTION_LOST]")) {
+             if (!_isResetting) {
+                 _performReset();
+             }
         }
-      }
-    } catch (e) {
-      _log('Check failed: $e');
-    } finally {
-      _isChecking = false;
     }
   }
 
-  Future<bool> checkInternet() async {
-    try {
-      final response = await _httpClient
-          .head(Uri.parse('http://connectivitycheck.gstatic.com/generate_204'))
-          .timeout(Duration(seconds: _config.connectionTimeoutSeconds));
-      return response.statusCode == 204 || response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
+  // Remove old timer-based checkAndRecover logic
+  // ... rest of the file ...
 
   Future<void> strengthenBackground() async {
     try {
