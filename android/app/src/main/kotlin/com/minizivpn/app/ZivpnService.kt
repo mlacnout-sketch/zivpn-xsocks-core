@@ -26,6 +26,10 @@ import java.io.InputStreamReader
 import android.os.PowerManager
 import com.minizivpn.app.NativeSystem
 
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
+
 /**
  * ZIVPN TunService
  * Handles the VpnService interface and integrates with tun2socks via JNI.
@@ -37,7 +41,6 @@ class ZivpnService : VpnService() {
         const val ACTION_CONNECT = "com.minizivpn.app.CONNECT"
         const val ACTION_DISCONNECT = "com.minizivpn.app.DISCONNECT"
         const val ACTION_LOG = "com.minizivpn.app.LOG"
-        const val ACTION_PING = "com.minizivpn.app.PING"
         const val CHANNEL_ID = "ZIVPN_SERVICE_CHANNEL"
         const val NOTIFICATION_ID = 1
     }
@@ -45,21 +48,13 @@ class ZivpnService : VpnService() {
     private var vpnInterface: ParcelFileDescriptor? = null
     private val processes = mutableListOf<Process>()
     private var wakeLock: PowerManager.WakeLock? = null
-    private var pingTimer: java.util.Timer? = null
+    private var pingExecutor: ScheduledExecutorService? = null
 
     private fun logToApp(msg: String) {
         val intent = Intent(ACTION_LOG)
         intent.putExtra("message", msg)
         sendBroadcast(intent)
         Log.d("ZIVPN-Core", msg)
-    }
-
-    private fun broadcastPing(target: String, code: Int, duration: Long) {
-        val intent = Intent(ACTION_PING)
-        intent.putExtra("target", target)
-        intent.putExtra("code", code)
-        intent.putExtra("duration", duration)
-        sendBroadcast(intent)
     }
 
     private fun captureProcessLog(process: Process, name: String) {
@@ -396,35 +391,32 @@ class ZivpnService : VpnService() {
 
     private fun startPingTimer(target: String, intervalSeconds: Int) {
         stopPingTimer()
-        pingTimer = java.util.Timer()
-        val intervalMillis = (intervalSeconds * 1000).toLong()
+        pingExecutor = Executors.newSingleThreadScheduledExecutor()
         
-        pingTimer?.schedule(object : java.util.TimerTask() {
-            override fun run() {
-                val start = System.currentTimeMillis()
-                try {
-                    val url = java.net.URL(target)
-                    val conn = url.openConnection() as java.net.HttpURLConnection
-                    conn.connectTimeout = 5000
-                    conn.readTimeout = 5000
-                    conn.requestMethod = "GET"
-                    val responseCode = conn.responseCode
-                    val duration = System.currentTimeMillis() - start
-                    broadcastPing(target, responseCode, duration)
-                    Log.d("ZIVPN-Ping", "Auto-Ping to $target: $responseCode (${duration}ms)")
-                } catch (e: Exception) {
-                    val duration = System.currentTimeMillis() - start
-                    broadcastPing(target, -1, duration)
-                    Log.e("ZIVPN-Ping", "Auto-Ping failed: ${e.message}")
-                }
+        pingExecutor?.scheduleAtFixedRate({
+            val start = System.currentTimeMillis()
+            try {
+                val url = java.net.URL(target)
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+                conn.requestMethod = "GET"
+                val responseCode = conn.responseCode
+                val duration = System.currentTimeMillis() - start
+                
+                // Log to standard log stream with [PING] tag
+                logToApp("[PING] $target: $responseCode (${duration}ms)")
+            } catch (e: Exception) {
+                logToApp("[PING] Failed: ${e.message}")
             }
-        }, intervalMillis, intervalMillis)
+        }, 0, intervalSeconds.toLong(), TimeUnit.SECONDS)
+        
         logToApp("Auto-Ping started every $intervalSeconds seconds to $target")
     }
 
     private fun stopPingTimer() {
-        pingTimer?.cancel()
-        pingTimer = null
+        pingExecutor?.shutdownNow()
+        pingExecutor = null
     }
 
     override fun onDestroy() {

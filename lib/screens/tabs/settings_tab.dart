@@ -11,13 +11,11 @@ import '../app_selector_page.dart';
 class SettingsTab extends StatefulWidget {
   final VoidCallback onCheckUpdate;
   final VoidCallback? onRestoreSuccess;
-  final List<String> pingLogs;
 
   const SettingsTab({
     super.key, 
     required this.onCheckUpdate,
     this.onRestoreSuccess,
-    required this.pingLogs,
   });
 
   @override
@@ -164,39 +162,6 @@ class _SettingsTabState extends State<SettingsTab> {
     }
   }
 
-  void _showPingLogs() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.card,
-        title: const Text("Ping History"),
-        content: Container(
-          width: double.maxFinite,
-          constraints: const BoxConstraints(maxHeight: 400),
-          child: widget.pingLogs.isEmpty
-              ? const Center(child: Text("No ping logs yet."))
-              : ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: widget.pingLogs.length,
-                  itemBuilder: (context, index) {
-                    final log = widget.pingLogs[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Text(log, style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
-                    );
-                  },
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Close"),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -266,12 +231,6 @@ class _SettingsTabState extends State<SettingsTab> {
                     "Destination Ping (URL/IP)",
                     Icons.network_check,
                   ),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.history),
-                  title: const Text("View Ping Logs"),
-                  subtitle: Text("Last ${widget.pingLogs.length} ping results"),
-                  onTap: _showPingLogs,
                 ),
                 const Divider(),
                 const ListTile(

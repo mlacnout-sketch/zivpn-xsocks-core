@@ -32,15 +32,12 @@ class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.minizivpn.app/core"
     private val LOG_CHANNEL = "com.minizivpn.app/logs"
     private val STATS_CHANNEL = "com.minizivpn.app/stats"
-    private val PING_CHANNEL = "com.minizivpn.app/ping" // New Channel
     private val ACTION_LOG = "com.minizivpn.app.LOG"
-    private val ACTION_PING = "com.minizivpn.app.PING"
     private val REQUEST_VPN_CODE = 1
     private val REQUEST_NOTIFICATION_PERMISSION_CODE = 2
     
     private var logSink: EventChannel.EventSink? = null
     private var statsSink: EventChannel.EventSink? = null
-    private var pingSink: EventChannel.EventSink? = null
     private var statsTimer: Timer? = null
     private var initialIntentData: String? = null // Store file URI
     
@@ -55,19 +52,6 @@ class MainActivity: FlutterActivity() {
         }
     }
 
-    private val pingReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            val target = intent?.getStringExtra("target")
-            val code = intent?.getIntExtra("code", -1)
-            val duration = intent?.getLongExtra("duration", 0)
-            if (target != null) {
-                uiHandler.post {
-                    pingSink?.success("$target|$code|$duration")
-                }
-            }
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleIntent(intent) // Check intent on launch
@@ -76,10 +60,8 @@ class MainActivity: FlutterActivity() {
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(logReceiver, IntentFilter(ACTION_LOG), Context.RECEIVER_NOT_EXPORTED)
-            registerReceiver(pingReceiver, IntentFilter(ACTION_PING), Context.RECEIVER_NOT_EXPORTED)
         } else {
             registerReceiver(logReceiver, IntentFilter(ACTION_LOG))
-            registerReceiver(pingReceiver, IntentFilter(ACTION_PING))
         }
         
         checkAndRequestNotificationPermission()
@@ -154,17 +136,6 @@ class MainActivity: FlutterActivity() {
                 override fun onCancel(arguments: Any?) {
                     statsSink = null
                     stopStatsTimer()
-                }
-            }
-        )
-
-        EventChannel(flutterEngine.dartExecutor.binaryMessenger, PING_CHANNEL).setStreamHandler(
-            object : EventChannel.StreamHandler {
-                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                    pingSink = events
-                }
-                override fun onCancel(arguments: Any?) {
-                    pingSink = null
                 }
             }
         )
@@ -360,7 +331,6 @@ class MainActivity: FlutterActivity() {
         stopStatsTimer() // Clean up timer
         try {
             unregisterReceiver(logReceiver)
-            unregisterReceiver(pingReceiver)
         } catch (e: Exception) {}
         super.onDestroy()
     }
