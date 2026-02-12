@@ -1328,6 +1328,40 @@ void device_read_handler_send (void *unused, uint8_t *data, int data_len)
     }
 }
 
+static int parse_ipv4_udp(uint8_t **data_ptr, int *data_len_ptr, struct ipv4_header *ipv4_header, struct udp_header *udp_header)
+{
+    uint8_t *data = *data_ptr;
+    int data_len = *data_len_ptr;
+
+    // ignore non-UDP packets
+    if (data_len < sizeof(struct ipv4_header) || data[offsetof(struct ipv4_header, protocol)] != IPV4_PROTOCOL_UDP) {
+        return 0;
+    }
+
+    // parse IPv4 header
+    if (!ipv4_check(data, data_len, ipv4_header, &data, &data_len)) {
+        return 0;
+    }
+
+    // parse UDP
+    if (!udp_check(data, data_len, udp_header, &data, &data_len)) {
+        return 0;
+    }
+
+    // verify UDP checksum
+    uint16_t checksum_in_packet = udp_header->checksum;
+    udp_header->checksum = 0;
+    uint16_t checksum_computed = udp_checksum(udp_header, data, data_len, ipv4_header->source_address, ipv4_header->destination_address);
+    if (checksum_in_packet != checksum_computed) {
+        return 0;
+    }
+
+    *data_ptr = data;
+    *data_len_ptr = data_len;
+
+    return 1;
+}
+
 #ifdef ANDROID
 int process_device_dns_packet (uint8_t *data, int data_len)
 {
@@ -1351,28 +1385,9 @@ int process_device_dns_packet (uint8_t *data, int data_len)
 
     switch (ip_version) {
         case 4: {
-            // ignore non-UDP packets
-            if (data_len < sizeof(struct ipv4_header) || data[offsetof(struct ipv4_header, protocol)] != IPV4_PROTOCOL_UDP) {
-                goto fail;
-            }
-
-            // parse IPv4 header
             struct ipv4_header ipv4_header;
-            if (!ipv4_check(data, data_len, &ipv4_header, &data, &data_len)) {
-                goto fail;
-            }
-
-            // parse UDP
             struct udp_header udp_header;
-            if (!udp_check(data, data_len, &udp_header, &data, &data_len)) {
-                goto fail;
-            }
-
-            // verify UDP checksum
-            uint16_t checksum_in_packet = udp_header.checksum;
-            udp_header.checksum = 0;
-            uint16_t checksum_computed = udp_checksum(&udp_header, data, data_len, ipv4_header.source_address, ipv4_header.destination_address);
-            if (checksum_in_packet != checksum_computed) {
+            if (!parse_ipv4_udp(&data, &data_len, &ipv4_header, &udp_header)) {
                 goto fail;
             }
 
@@ -1494,28 +1509,9 @@ int process_device_udp_packet (uint8_t *data, int data_len)
 
     switch (ip_version) {
         case 4: {
-            // ignore non-UDP packets
-            if (data_len < sizeof(struct ipv4_header) || data[offsetof(struct ipv4_header, protocol)] != IPV4_PROTOCOL_UDP) {
-                goto fail;
-            }
-
-            // parse IPv4 header
             struct ipv4_header ipv4_header;
-            if (!ipv4_check(data, data_len, &ipv4_header, &data, &data_len)) {
-                goto fail;
-            }
-
-            // parse UDP
             struct udp_header udp_header;
-            if (!udp_check(data, data_len, &udp_header, &data, &data_len)) {
-                goto fail;
-            }
-
-            // verify UDP checksum
-            uint16_t checksum_in_packet = udp_header.checksum;
-            udp_header.checksum = 0;
-            uint16_t checksum_computed = udp_checksum(&udp_header, data, data_len, ipv4_header.source_address, ipv4_header.destination_address);
-            if (checksum_in_packet != checksum_computed) {
+            if (!parse_ipv4_udp(&data, &data_len, &ipv4_header, &udp_header)) {
                 goto fail;
             }
 
