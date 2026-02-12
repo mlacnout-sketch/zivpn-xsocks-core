@@ -14,6 +14,8 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import android.content.pm.ServiceInfo
 import java.net.InetAddress
+import java.net.Proxy
+import java.net.InetSocketAddress
 import java.util.LinkedList
 import androidx.annotation.Keep
 import java.io.File
@@ -43,6 +45,7 @@ class ZivpnService : VpnService() {
         const val ACTION_LOG = "com.minizivpn.app.LOG"
         const val CHANNEL_ID = "ZIVPN_SERVICE_CHANNEL"
         const val NOTIFICATION_ID = 1
+        const val LOCAL_SOCKS_PORT = 7777
     }
 
     private var vpnInterface: ParcelFileDescriptor? = null
@@ -441,7 +444,8 @@ class ZivpnService : VpnService() {
             val start = System.currentTimeMillis()
             try {
                 val url = java.net.URL(target)
-                val conn = url.openConnection() as java.net.HttpURLConnection
+                val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", LOCAL_SOCKS_PORT))
+                val conn = url.openConnection(proxy) as java.net.HttpURLConnection
                 conn.connectTimeout = 5000
                 conn.readTimeout = 5000
                 conn.requestMethod = "GET"
