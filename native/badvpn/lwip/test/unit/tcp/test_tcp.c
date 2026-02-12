@@ -204,13 +204,27 @@ START_TEST(test_tcp_fast_retx_recover)
   err = tcp_write(pcb, data4, sizeof(data4), TCP_WRITE_FLAG_COPY);
   EXPECT_RET(err == ERR_OK);
   /* 3nd duplicate ACK for data1 (data2 and data3 are lost) -> fast retransmission */
+  txcounters.copy_tx_packets = 1;
   p = tcp_create_rx_segment(pcb, NULL, 0, 0, 0, TCP_ACK);
   EXPECT_RET(p != NULL);
   test_tcp_input(p, &netif);
-  /*EXPECT_RET(txcounters.num_tx_calls == 1);*/
+
+  EXPECT_RET(txcounters.num_tx_calls == 1);
   EXPECT_RET(pcb->dupacks == 3);
+
+  EXPECT_RET(txcounters.num_tx_bytes == sizeof(data2) + 40U);
+  EXPECT_RET(txcounters.tx_packets != NULL);
+  if (txcounters.tx_packets != NULL) {
+    char sent[sizeof(data2)];
+    u16_t ret;
+    ret = pbuf_copy_partial(txcounters.tx_packets, sent, sizeof(data2), 40U);
+    EXPECT_RET(ret == sizeof(data2));
+    EXPECT_RET(memcmp(sent, data2, sizeof(data2)) == 0);
+    pbuf_free(txcounters.tx_packets);
+    txcounters.tx_packets = NULL;
+  }
+  txcounters.copy_tx_packets = 0;
   memset(&txcounters, 0, sizeof(txcounters));
-  /* TODO: check expected data?*/
   
   /* send data5, not output yet */
   err = tcp_write(pcb, data5, sizeof(data5), TCP_WRITE_FLAG_COPY);
