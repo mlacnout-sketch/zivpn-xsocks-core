@@ -306,7 +306,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _toggleVpn() async {
     HapticFeedback.mediumImpact();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.reload(); // Force reload
+    await prefs.reload(); // Force reload to get latest settings from SettingsTab
 
     if (_vpnState == "connected") {
       try {
@@ -354,7 +354,7 @@ class _HomePageState extends State<HomePage> {
           "obfs": prefs.getString('obfs') ?? "hu``hqb`c",
           "recv_window_multiplier": 4.0,
           "udp_mode": "udp",
-          "mtu": int.tryParse(prefs.getString('mtu') ?? "1200") ?? 1200,
+          "mtu": prefs.getInt('mtu') ?? 1500,
           "enable_udpgw": prefs.getBool('enable_udpgw') ?? true,
           "udpgw_port": prefs.getString('udpgw_port') ?? "7300",
           "udpgw_max_connections": prefs.getString('udpgw_max_connections') ?? "512",

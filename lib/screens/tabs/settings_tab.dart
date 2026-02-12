@@ -121,7 +121,7 @@ class _SettingsTabState extends State<SettingsTab> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _mtuCtrl.text = prefs.getString('mtu') ?? "1200";
+      _mtuCtrl.text = (prefs.getInt('mtu') ?? 1500).toString();
       _pingTargetCtrl.text = prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204";
       _pingIntervalCtrl.text = prefs.getString('ping_interval') ?? "3";
       _udpgwPortCtrl.text = prefs.getString('udpgw_port') ?? "7300";
@@ -143,7 +143,7 @@ class _SettingsTabState extends State<SettingsTab> {
 
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('mtu', _mtuCtrl.text);
+    await prefs.setInt('mtu', int.tryParse(_mtuCtrl.text) ?? 1500);
     await prefs.setString('ping_target', _pingTargetCtrl.text);
     await prefs.setString('ping_interval', _pingIntervalCtrl.text);
     await prefs.setString('udpgw_port', _udpgwPortCtrl.text);
