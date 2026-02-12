@@ -14,19 +14,19 @@ object Pdnsd {
         
         val configFile = File(context.filesDir, "pdnsd.conf")
         
-        // Handle IP or IP:PORT format. Default to 443 if no port specified.
+        // Handle IP or IP:PORT format. Default to 53 if no port specified.
         val parts = upstreamDns.split(":")
-        val ip = parts[0].ifEmpty { "208.67.222.222" } // Default to OpenDNS
-        val port = if (parts.size > 1) parts[1] else "443" 
+        val ip = parts[0].ifEmpty { "8.8.8.8" } // Default to Google DNS
+        val port = if (parts.size > 1) parts[1] else "53" 
         
         val conf = """
             global {
                 perm_cache=2048;
                 cache_dir="${cacheDir.absolutePath}";
-                server_ip = 169.254.1.1;
+                server_ip = 0.0.0.0;
                 server_port = $listenPort;
                 status_ctl = on;
-                query_method=tcp_only; 
+                query_method=udp_tcp; 
                 min_ttl=15m;
                 max_ttl=1w;
                 timeout=10;
