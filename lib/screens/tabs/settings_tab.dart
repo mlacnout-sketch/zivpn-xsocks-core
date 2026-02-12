@@ -143,23 +143,30 @@ class _SettingsTabState extends State<SettingsTab> {
 
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('mtu', int.tryParse(_mtuCtrl.text) ?? 1500);
-    await prefs.setString('ping_target', _pingTargetCtrl.text);
-    await prefs.setString('ping_interval', _pingIntervalCtrl.text);
-    await prefs.setString('udpgw_port', _udpgwPortCtrl.text);
-    await prefs.setString('udpgw_max_connections', _udpgwMaxConnCtrl.text);
-    await prefs.setString('udpgw_buffer_size', _udpgwBufSizeCtrl.text);
-    await prefs.setString('upstream_dns', _dnsCtrl.text);
+    
+    // Helper to get value or default
+    String val(TextEditingController c, String d) => c.text.isEmpty ? d : c.text;
+
+    await prefs.setInt('mtu', int.tryParse(val(_mtuCtrl, "1500")) ?? 1500);
+    await prefs.setString('ping_target', val(_pingTargetCtrl, "http://www.gstatic.com/generate_204"));
+    await prefs.setString('ping_interval', val(_pingIntervalCtrl, "3"));
+    await prefs.setString('udpgw_port', val(_udpgwPortCtrl, "7300"));
+    await prefs.setString('udpgw_max_connections', val(_udpgwMaxConnCtrl, "512"));
+    await prefs.setString('udpgw_buffer_size', val(_udpgwBufSizeCtrl, "32"));
+    await prefs.setString('upstream_dns', val(_dnsCtrl, "208.67.222.222"));
     await prefs.setString('apps_list', _appsListCtrl.text);
-    await prefs.setString('tcp_snd_buf', _tcpSndBufCtrl.text);
-    await prefs.setString('tcp_wnd', _tcpWndCtrl.text);
-    await prefs.setString('socks_buf', _socksBufCtrl.text);
+    await prefs.setString('tcp_snd_buf', val(_tcpSndBufCtrl, "65535"));
+    await prefs.setString('tcp_wnd', val(_tcpWndCtrl, "65535"));
+    await prefs.setString('socks_buf', val(_socksBufCtrl, "65536"));
+    
     await prefs.setBool('cpu_wakelock', _cpuWakelock);
     await prefs.setBool('enable_udpgw', _enableUdpgw);
     await prefs.setBool('filter_apps', _filterApps);
     await prefs.setBool('bypass_mode', _bypassMode);
     await prefs.setString('log_level', _logLevel);
     await prefs.setInt('core_count', _coreCount.toInt());
+
+    _loadSettings(); // Reload into controllers to show defaults if input was empty
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -326,13 +333,6 @@ class _SettingsTabState extends State<SettingsTab> {
                     _dnsCtrl,
                     "Upstream DNS (IP:PORT)",
                     Icons.dns,
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    "Default: 208.67.222.222:443 (OpenDNS)",
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ),
                 const Divider(),
