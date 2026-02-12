@@ -259,6 +259,7 @@ class ZivpnService : VpnService() {
             val tcpSndBuf = prefs.getString("tcp_snd_buf", "65535") ?: "65535"
             val tcpWnd = prefs.getString("tcp_wnd", "65535") ?: "65535"
             val socksBuf = prefs.getString("socks_buf", "65536") ?: "65536"
+            val udpgwBuffer = prefs.getString("udpgw_buffer", "32") ?: "32"
 
             tunCmd.add("--tcp-snd-buf"); tunCmd.add(tcpSndBuf)
             tunCmd.add("--tcp-wnd"); tunCmd.add(tcpWnd)
@@ -269,6 +270,7 @@ class ZivpnService : VpnService() {
                 // This aligns with the removal of Android-specific "relay" mode in native code
                 tunCmd.add("--udpgw-remote-server-addr"); tunCmd.add("127.0.0.1:$udpgwPort")
                 tunCmd.add("--udpgw-max-connections"); tunCmd.add("512")
+                tunCmd.add("--udpgw-connection-buffer-size"); tunCmd.add(udpgwBuffer)
             }
 
             val tunProc = ProcessBuilder(tunCmd).directory(filesDir).start()

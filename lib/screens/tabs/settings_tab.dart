@@ -32,6 +32,7 @@ class _SettingsTabState extends State<SettingsTab> {
   final _tcpSndBufCtrl = TextEditingController();
   final _tcpWndCtrl = TextEditingController();
   final _socksBufCtrl = TextEditingController();
+  final _udpgwBufferCtrl = TextEditingController();
 
   bool _cpuWakelock = false;
   bool _enableUdpgw = true;
@@ -128,6 +129,7 @@ class _SettingsTabState extends State<SettingsTab> {
       _tcpSndBufCtrl.text = prefs.getString('tcp_snd_buf') ?? "65535";
       _tcpWndCtrl.text = prefs.getString('tcp_wnd') ?? "65535";
       _socksBufCtrl.text = prefs.getString('socks_buf') ?? "65536";
+      _udpgwBufferCtrl.text = prefs.getString('udpgw_buffer') ?? "32";
       _cpuWakelock = prefs.getBool('cpu_wakelock') ?? false;
       _enableUdpgw = prefs.getBool('enable_udpgw') ?? true;
       _filterApps = prefs.getBool('filter_apps') ?? false;
@@ -148,6 +150,7 @@ class _SettingsTabState extends State<SettingsTab> {
     await prefs.setString('tcp_snd_buf', _tcpSndBufCtrl.text);
     await prefs.setString('tcp_wnd', _tcpWndCtrl.text);
     await prefs.setString('socks_buf', _socksBufCtrl.text);
+    await prefs.setString('udpgw_buffer', _udpgwBufferCtrl.text);
     await prefs.setBool('cpu_wakelock', _cpuWakelock);
     await prefs.setBool('enable_udpgw', _enableUdpgw);
     await prefs.setBool('filter_apps', _filterApps);
@@ -199,6 +202,15 @@ class _SettingsTabState extends State<SettingsTab> {
                       _udpgwPortCtrl,
                       "Udp Gateway (Remote)",
                       Icons.door_sliding,
+                    ),
+                  ),
+                if (_enableUdpgw)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: _buildTextInput(
+                      _udpgwBufferCtrl,
+                      "UDPGW Buffer Size (Default: 32)",
+                      Icons.storage,
                     ),
                   ),
                 const Divider(),
