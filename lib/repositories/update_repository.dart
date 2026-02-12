@@ -6,13 +6,18 @@ import '../models/app_version.dart';
 class UpdateRepository {
   final String apiUrl = "https://api.github.com/repos/mlacnout-sketch/zivpn-xsocks-core/releases";
 
-  Future<AppVersion?> fetchUpdate() async {
-    // Strategy: Try SOCKS5 first (via active VPN tunnel), then DIRECT (handled by OS)
-    final strategies = [
-      "SOCKS5 127.0.0.1:7777",
-      "DIRECT"
-    ];
+  // Strategy: Try SOCKS5 first (via active VPN tunnel), then DIRECT (handled by OS)
+  static const List<String> defaultStrategies = [
+    "SOCKS5 127.0.0.1:7777",
+    "DIRECT"
+  ];
 
+  final List<String> strategies;
+
+  UpdateRepository({List<String>? strategies})
+      : strategies = strategies ?? defaultStrategies;
+
+  Future<AppVersion?> fetchUpdate() async {
     for (final proxy in strategies) {
       try {
         print("Checking update via: $proxy");
