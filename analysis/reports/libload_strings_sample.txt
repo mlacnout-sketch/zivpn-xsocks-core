@@ -1,0 +1,100 @@
+/system/bin/linker64
+Android
+r28c
+13676358
+xsl_czU2S3NYq-ajaGEC/jjbiBhQj_kuvO61HeF0f/Hp9Qi3Syxrmys9P5wHB4/9rCEW22ETGIJ5k2nDySb
+__libc_init
+__cxa_atexit
+__register_atfork
+_cgo_topofstack
+_cgo_panic
+crosscall2
+main.main
+malloc
+__errno
+getnameinfo
+getaddrinfo
+free
+freeaddrinfo
+gai_strerror
+res_search
+stderr
+fwrite
+vfprintf
+fputc
+__android_log_vprint
+abort
+dlopen
+dlsym
+dlclose
+pthread_key_create
+pthread_setspecific
+pthread_attr_init
+pthread_attr_setdetachstate
+pthread_create
+nanosleep
+strerror
+fprintf
+pthread_mutex_lock
+pthread_cond_wait
+pthread_mutex_unlock
+pthread_cond_broadcast
+sigfillset
+pthread_sigmask
+pthread_attr_getstacksize
+mmap
+munmap
+setenv
+unsetenv
+sigemptyset
+sigaddset
+sigaction
+sigismember
+pthread_self
+pthread_getattr_np
+pthread_attr_getstack
+pthread_attr_destroy
+setegid
+seteuid
+setgid
+setgroups
+setregid
+setresgid
+setresuid
+setreuid
+setuid
+libdl.so
+LIBC
+libc.so
+liblog.so
+@-=`0+)/[5M<1,{}Ly->i), )(: ip??53]:25 [("")) )
+ @s  Pn=][}
+	  +
+])idLlLtLuMn"
+osintnilEOF???cgodnstcpudpftpssh::1set125625NaNmapptr...finobjgc %: gp  *(in  n= -   P m=  MPC=],  < end > ]:
+pc=  GMayUTC): TTLaesnettcp4{%s}listtrueuinticmpigmpftpshttppop3smtp) = dial
+readfile on bindunix3125Atoi-Inf+Infopenstatsyncboolint8chanfunccallkindallgallprootitabsbrkidledead is LEAFbase of  <==GOGC] = s + ,r2= pc=: p=cas1cas2cas3cas4cas5cas6 at
+	m= sp= sp: lr: fp= gp= mp=) m=JuneJulybitsNameTypesha1sha2time%s:%dlhostlportfalsevaluefloat  -%s<nil>Errorfileshttpsimap2imap3imapspop3shostswriterouteclose1562578125int16int32int64uint8arrayslice and defersweeptestRtestWexecWhchanexecRschedsudogtimergscanmheaptracepanicsleeparm64 cnt=gcing MB,  got= ...
+ max=scav  ptr ] = (trap:init  ms, fault tab= top=[...], fp:MarchApril (at ClassGreekpmullcrc32cpuid[WARN]tunnelstring
+	StringFormat[]bytenetdnsdomaingophertelnetreturn.locallisten.onionndots:ip+netsocketspliceaccept390625errno uint16uint32uint64structchan<-<-chan Valuesysmontimersefenceselect, not object next= jobs= goid sweep  B -> % util alloc free  span= prev= list=, i =  code= addr=], sp= m->p= p->m=SCHED  curg= ctxt: min=  max= bad ts(...)
+ m=nil base SundayMondayFridayAugustheaderAnswerLengthCommonsha512cmd/go[DEBUG]Usage:
+float32float64androidrunningconnectlookup writeto19531259765625signal invaliduintptrChanDir Value>forcegcallocmWcpuprofallocmRunknowngctraceIO waitsyscallwaitingforevernetworkUNKNOWN:events, goid= s=nil
+ (scan  MB in pacer: % CPU ( zombie, j0 = head = ,errno=panic:  nmsys= locks= dying= allocsGODEBUGSignal  m->g0= pad1=  pad2=  text= minpc= 	value= (scan)	types : type TuesdayJanuaryOctobernil keyanswersaccept4atomicsos/execfips140runtimetls3desdurationGoStringnetedns0[::1]:53continue_gatewayaddress raw-readsendfilereadfromunixgram48828125strconv.parsing ParseIntnil Poolno anodescavengepollDescsynctesttraceBufdeadlockraceFinipanicnilcgocheckrunnable is not  pointer, errno= packed=BAD RANK status unknown(trigger= npages= nalloc= nfreed=) errno=[signal  newval= mcount= bytes, r0      r1      r2      r3      r4      r5      r6      r7      r8      r9      r10     r11     r12     r13     r14     r15     r16     r17     r18     r19     r20     r21     r22     r23     r24     r25     r26     r27     r28     r29     lr      sp      pc      fault
+-----
+ stack=[ minLC=  maxpc= 	stack=[ minutes status= etypes ThursdaySaturdayFebruaryNovemberDecember%!Month(ClassANYQuestionoverflowgo/typesnet/httpgo/buildtlsmlkem127.0.0.1ParseBool method: (MISSING)%!(EXTRA files,dnsdns,filesipv6-icmp_outboundlocalhostattempts:244140625ParseUintcomplex64interfaceinvalid nreflect: funcargs(bad indirInterfacetimerSendpollCacheprofBlockstackpoolhchanLeafwbufSpansGC (idle)mSpanDeadinittracescavtracepanicwaitchan sendpreemptedcoroutinesignal 32signal 33signal 34signal 35signal 36signal 37signal 38signal 39signal 40signal 41signal 42signal 43signal 44signal 45signal 46signal 47signal 48signal 49signal 50signal 51signal 52signal 53signal 54signal 55signal 56signal 57signal 58signal 59signal 60signal 61signal 62signal 63signal 64copystack -> node= ms cpu,  (forced) wbuf1.n= wbuf2.n= s.limit= s.state= B work ( B exp.)  marked   unmarked in use)
+, size = bad prune, tail = newosprocrecover:  not in [ctxt != 0, oldval=, newval= threads=: status= blocked= lockedg=atomicor8 runtime= sigcode= m->curg=(unknown)total < 0traceback} stack=[ gp.goid= lockedm=WednesdaySeptemberClassINETAuthorityquestionsrwxrwxrwxInheritedmath/randtlsrsakex(BADINDEX)%!(NOVERB)/etc/hosts  netGo = .localhostgetsockoptnetlinkribsetsockoptunixpacket12207031256103515625owner died/dev/stdinpidfd_openpidfd_waitcomplex128t.Kind == notifyListprofInsertstackLargeNot workermSpanInUseGOMAXPROCSstop tracedisablethpinvalidptrschedtracesemacquiredebug call flushGen  MB goal, s.state =  s.base()= heapGoal=GOMEMLIMIT KiB now,  pages at  sweepgen= sweepgen , bound = , limit =  returned ,errno=0}
+Bad varintGC forced
+ runqueue= stopwait= runqsize= gfreecnt= throwing= spinning=atomicand8float64nanfloat32nan ptrSize=  targetpc= until pc=active < 0unknown pcruntime: ggoroutine time.Date(time.Local%!Weekday(short readParseAddr(invalid IPClassCSNETClassCHAOSAdditionalskipping: isNeoverseexecerrdothttp2debugrsa1024mincrypto/rsacrypto/tlswinsymlinkx509rsacrtparse error%!(BADPREC)short writesubmissionsnil contexti/o timeoutraw-control30517578125bad addressfile existsbroken pipebad message/dev/stdout/dev/stderrunreachablebad argSizemethodargs(assistQueuenetpollInitreflectOffsglobalAllocmSpanManualstart traceclobberfreegccheckmarkscheddetailunspecifiedcgocall nil s.nelems=   of size  ) returned runtime: p  ms clock,  nBSSRoots=runtime: P  exp.) for minTrigger=GOMEMLIMIT=bad m value, elemsize= freeindex= span.list=, npages = , a123456=[ p->status= in status  idleprocs= gcwaiting= schedtick= timerslen= mallocing=bad timedivfloat64nan1float64nan2float64nan3float32nan2GOTRACEBACK) at entry+ (targetpc= , plugin: running < 0runtime: g : frame.sp=created by .WithCancel.WithValue(ClassHESIODauthoritiesadditionalsgocachehashgocachetesthttp2clienthttp2serverrandseednoparchive/tartls10servercrypto/x509archive/zip%!(BADWIDTH)short buffermultipathtcp127.0.0.1:53no such hostunknown portinvalid portcan't happen152587890625762939453125illegal seekinvalid slothost is downsweepWaiterstraceStringsspanSetSpinemspanSpecialtraceTypeTabgcBitsArenasmheapSpecialgcpacertraceharddecommitmadvdontneeddumping heapchan receivesynctest.RunLINUX_2.6.39lfstack.push span.limit= span.state=bad flushGen MB stacks, worker mode  nDataRoots= nSpanRoots= wbuf1=<nil> wbuf2=<nil> gcscandone runtime: gp= found at *( s.elemsize= B (
+goal , cons/mark  maxTrigger= pages/byte
+ s.sweepgen= allocCount timer_deletens} value: {}, want {r1= [recovered]bad recoveryGOTRACEBACK=bad g statusentersyscallwirep: p->m=) p->status=releasep: m= sysmonwait= preemptoff=cas64 failed m->gsignal=-byte limit
+runtime: sp=abi mismatchwrong timersRCodeSuccessRCodeRefusednot pollablegotypesaliashttpmuxgo121randautoseedtlsunsafeekmUsage of %s:
+ (default %q) (default %v)lame referral/etc/services3814697265625invalid base level 3 resetexchange fulltimer expiredsrmount errorwakeableSleepprofMemActiveprofMemFuturetraceStackTabexecRInternaltestRInternalGC sweep waitsynctest.WaitSIGQUIT: quitSIGKILL: killout of memory is nil, not value method  span.base()=bad flushGen , not pointer != sweepgen  MB globals,  work.nproc=  work.nwait=  nStackRoots= flushedWork double unlock s.spanclass= MB) workers=min too large-byte block (runtime: val=runtime: seq= failed with timer_settimefatal error:  idlethreads= syscalltick=load64 failedxadd64 failedxchg64 failedmp.g0 stack [nil stackbase}
+	sched={pc:, gp->status= pluginpath= : unknown pc  called from runtime: pid=name too longdalTLDpSugct?crypto/subtlegocacheverifyinstallgoroothtml/templatetlsmaxrsasize%d.%d.%d.%d:%dunexpected EOFinternal error/etc/protocolsunknown mode: invalid syntax1907348632812595367431640625no such deviceis a directorytext file busyfile too largetoo many linkslevel 3 haltedlevel 2 haltedprotocol errortoo many usersunsafe.Pointer on zero Valueunknown methoduserArenaStateGC (dedicated)read mem statsasynctimerchangcstoptheworldprofstackdepthtraceallocfreeGC assist waitfinalizer waitsync.Cond.WaitSIGABRT: aborts.allocCount= runtime: mmap(nil elem type! to finalizer GC worker initruntime: full=runtime: want=MB; allocated bad restart PC, called from
+-thread limit
+stopm spinning nmidlelocked= needspinning=randinit twicestore64 failedsemaRoot queuebad allocCountbad span statestack overflow untyped args  out of range no module data in goroutine runtime: seq1=runtime: goid=time.Location(.WithDeadline(RCodeNameErrorResourceHeaderunreachable:  crypto/fips140mime/multipartmissing addressunknown network/etc/mdns.allow476837158203125no such processnot a directoryadvertise errornetwork is downno medium foundkey has expiredcopy_file_rangeinvalid argSize<invalid Value>allocmRInternalGC (fractional)write heap dumpasyncpreemptoffforce gc (idle)sync.Mutex.Lockruntime.Goschedmalloc deadlockruntime error: scan missed a gmisaligned maskruntime: min = runtime: inUse=runtime: max = requested skip=bad panic stackrecovery failedmorestack on g0stopm holding pstartm: m has ppreempt SPWRITEmissing mcache?ms: gomaxprocs=randinit missed]
+	morebuf={pc:: no frame (sp=runtime: frame ts set in timertraceback stuckunexpected kind,M3.2.0,M11.1.0invalid pointerjstmpllitinterptarinsecurepathx509keypairleafx509usepolicieszipinsecurepath[+] %s, IPv4:%s
+hostLookupOrder=/etc/resolv.conf0123456789abcdefnon-IPv4 addressnon-IPv6 addressunknown network no colon on line23841857910156250123456789ABCDEFinvalid argumentinvalid exchangeobject is remotemessage too longno route to hostremote I/O errorinteger overflowgcshrinkstackofftracefpunwindoffGC scavenge waitGC worker (idle)page trace flushSIGNONE: no trap/gc/gogc:percent, not a functiongc: unswept span KiB work (bg),  mheap.sweepgen=runtime: nelems=workbuf is emptymSpanList.removemSpanList.insertbad special kindbad summary dataruntime: addr = runtime: base = runtime: head =  already; errno=
+runtime stack:
+invalid g statusGOTRACEBACK=nonecastogscanstatusbad g transitionschedule: in cgoreflect mismatch untyped locals missing stackmapbad symbol tablenon-Go function
+pointerless type not in ranges:
+sigaction failedcontext canceledinvalid dns nameRCodeFormatErrorunpacking headerGODEBUG: value "allowmultiplevcs[bisect-match 0x0123456789ABCDEFX0123456789abcdefxreflect.Value.Int1192092895507812559604644775390625invalid bit size exec format errorpermission deniedno data availablestale file handlewrong medium typepidfd_send_signalunknown type kindreflect: call of reflect.Value.Lenreflect: New(nil)goroutine profileAllThreadsSyscallGC assist markingselect (no cases)sync.RWMutex.Lockwait for GC cycletrace proc statusselect (synctest)SIGINT: interruptSIGBUS: bus errorSIGCONT: continuesync.(*Cond).Wait: missing method notetsleepg on g0bad TinySizeClassruntime: pointer g already scannedmark - bad statusscanobject n == 0swept cached spanmarkBits overflowruntime: summary[runtime: level = , p.searchAddr = futexwakeup addr=, 0, {interval: {ns}}, nil) errno=results: got {r1=runtime/internal/internal/runtime/thread exhaustionlocked m0 woke upentersyscallblock spinningthreads=gp.waiting != nilunknown caller pc, synctest group stack: frame={sp:runtime: nameOff runtime: typeOff runtime: textOff  from a write of multipartmaxpartswinreadlinkvolumevalue out of rangeflag %q contains =flag redefined: %sreflect.Value.Uintserver misbehaving/etc/nsswitch.confinvalid criteria: 298023223876953125input/output errorno child processesfile name too longno locks availableidentifier removedmultihop attemptedRFS specific errorstreams pipe errorconnection refusedoperation canceledreflect.Value.Elemreflect.Value.Typereflect: Zero(nil)adaptivestackstartdontfreezetheworldtraceadvanceperiodtracebackancestorsgarbage collectionsync.RWMutex.RLockGC worker (active)stopping the worldwait until GC ends__kernel_getrandombad lfnode addresssystem page size (  but memory size /gc/pauses:seconds because dotdotdotruntime: npages = invalid skip valueruntime: range = {index out of rangeruntime:   gp: gp=runtime: getg:  g=forEachP: not done in async preempt

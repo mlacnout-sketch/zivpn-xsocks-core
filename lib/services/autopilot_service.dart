@@ -21,7 +21,7 @@ class AutoPilotService {
   final _stateController = StreamController<AutoPilotState>.broadcast();
   Stream<AutoPilotState> get stateStream => _stateController.stream;
   
-  bool _isResetting = false;
+  final bool _isResetting = false;
   bool _isChecking = false;
 
   AutoPilotState _currentState = const AutoPilotState(
@@ -236,7 +236,7 @@ class AutoPilotService {
     final client = http.Client();
     
     // Total chunks equal to MB size (1 chunk = 1MB)
-    int totalChunks = _config.stabilizerSizeMb;
+    final int totalChunks = _config.stabilizerSizeMb;
     
     for (int i = 1; i <= totalChunks; i++) {
         try {

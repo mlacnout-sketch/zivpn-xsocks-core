@@ -33,7 +33,7 @@ class BackupRepository {
       // 4. Save ZIP to temp
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      final fileName = "minizivpn_backup_$timestamp.zip";
+      final fileName = 'minizivpn_backup_$timestamp.zip';
       final zipFile = File('${tempDir.path}/$fileName');
       
       final encoder = ZipEncoder();
@@ -43,7 +43,7 @@ class BackupRepository {
       await zipFile.writeAsBytes(zipData);
       return zipFile;
     } catch (e) {
-      print("Backup failed: $e");
+      print('Backup failed: $e');
       return null;
     }
   }
@@ -70,8 +70,9 @@ class BackupRepository {
         final key = entry.key;
         final val = entry.value;
         
-        if (val is bool) await prefs.setBool(key, val);
-        else if (val is int) await prefs.setInt(key, val);
+        if (val is bool) {
+          await prefs.setBool(key, val);
+        } else if (val is int) await prefs.setInt(key, val);
         else if (val is double) await prefs.setDouble(key, val);
         else if (val is String) await prefs.setString(key, val);
         else if (val is List) await prefs.setStringList(key, List<String>.from(val));
@@ -79,7 +80,7 @@ class BackupRepository {
       
       return true;
     } catch (e) {
-      print("Restore failed: $e");
+      print('Restore failed: $e');
       return false;
     }
   }

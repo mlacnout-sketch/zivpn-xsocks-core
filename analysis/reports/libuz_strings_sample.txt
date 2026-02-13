@@ -1,0 +1,100 @@
+/system/bin/linker64
+Android
+r28c
+13676358
+8xHoCKCnBX5mugyYFG_m/RJ7nl9P01VMxgCWWR7Q1/GgNr4RNUt861-6ALp-Zc/G-2J8liKfFKAYaLssOyS
+__libc_init
+__cxa_atexit
+__register_atfork
+_cgo_topofstack
+_cgo_panic
+crosscall2
+main.main
+malloc
+__errno
+getnameinfo
+getaddrinfo
+free
+freeaddrinfo
+gai_strerror
+res_search
+stderr
+fwrite
+vfprintf
+fputc
+__android_log_vprint
+abort
+dlopen
+dlsym
+dlclose
+pthread_key_create
+pthread_setspecific
+pthread_attr_init
+pthread_attr_setdetachstate
+pthread_create
+nanosleep
+strerror
+fprintf
+pthread_mutex_lock
+pthread_cond_wait
+pthread_mutex_unlock
+pthread_cond_broadcast
+sigfillset
+pthread_sigmask
+pthread_attr_getstacksize
+mmap
+munmap
+setenv
+unsetenv
+sigemptyset
+sigaddset
+sigaction
+sigismember
+pthread_self
+pthread_getattr_np
+pthread_attr_getstack
+pthread_attr_destroy
+setegid
+seteuid
+setgid
+setgroups
+setregid
+setresgid
+setresuid
+setreuid
+setuid
+libdl.so
+LIBC
+libc.so
+liblog.so
+-l|m`+xZI]:txupidip??53->: nsusms, 00
+i))(tvrRuUeEaAlLsS01bBoOxX+-nNiIfFpPgteq__; --[]to%v""%s..|0|125\f\n\r\tivh3 [])] ("")) )
+ @s  Pn=][}
+	  +}}LlLtLuMnCcCfCoCsLmLoMcMeNdNlNoPcPdPePfPiPoPsScSkSmSoZlZpZsYi%X+1%f%d0x%%%qjsorgeleltne
+${  {}":80:% ,h2%w 	">OK%-"
+osif{{*/\d\\\"
+$1=:
+`#; # ;\;\#:= :,
+!! `!<<<0b0o%xToA4V1V6V2V3V5A3CEv1v2<-brOUCNST=#t0GTLT\D\s\S\w\W\E:]/imsgudptcp443ymlcgodnsftpssh::1setSunMonTueWedThuFriSatJanFebMarAprMayJunJulAugSepOctNovDecUTC
+s m=nil01_")
+top  -zsh%s
+hclenvinikey'"'PWD../125625nanNaN%+v): finptrobjgc %: gp  *(in  n= -   P  MPC=],  < end > and...]:
+???pc=  GTTLEOFdupintmapHanLaoMroNkoVaiKey
+lennot"
+newACKGETGetagevia200404://1000
+,h1///%25RSADSAURIMD4MD5aesgcmexpnet =
+"""
+	inf1.1----0b-0oTAG
+  Via?*[204206304400500
+%#xackanyPUT103503*/*302403421425getSETDD;GT;Gg;Gt;Im;LT;Ll;Lt;Mu;Nu;Or;Pi;Pr;Re;Sc;Xi;ac;af;ap;dd;ee;eg;el;gE;ge;gg;gl;gt;ic;ii;in;it;lE;le;lg;ll;lt;mp;mu;ne;ni;nu;oS;or;pi;pm;pr;rx;sc;wp;wr;xi;AMPETHREGampdegethregshyumlyen: `   ADDSUB'''neg#%djeqjgtjlejgejlttxataxinfojsontimeobfsaddryaml:443downicmpigmpftpshttppop3smtp) = dial
+readfile on bindunixJuneJuly as hour in truemap[eEpPtrimrpad%s%s    	%v
+helpbool", "bashfish:%d
+tomlproppathHOMEPOSTnull'\''waitseekopenstatsynclink3125Atoi-Inf+InfwarnINFOWARNConnuserallgallprootitabsbrkidledead is LEAFbase of  <==GOGC] = s + ,r2= pc=none: p=cas1cas2cas3cas4cas5cas6 at
+	m= sp= sp: lr: fp= gp= mp=) m=quitbitsNameTypeint8uintchanfuncAhomChamKawiLisuMiaoModiNewaThaiTotocallElemCtrlkindArgsCall != --%sintshtml* %sOsFsHost&lt;&gt;1080DATAPINGHEADEtag0x%xdateetagfromhostvaryDategzip%x
+Goneauto%s()sha1sha2PWD=PATHelsewith<%s>
+nameNodeFile.exe %s ...`%TAG.inf.nanTrueTRUENullNULL.NaN.NAN.Inf.INFYAML
+--Fromxn--echopostasn1flag,#=:AMP;Acy;Afr;And;Bcy;Bfr;Cap;Cfr;Chi;Cup;Dcy;Del;Dfr;Dot;ENG;ETH;Ecy;Efr;Eta;Fcy;Ffr;Gcy;Gfr;Hat;Hfr;Icy;Ifr;Int;Jcy;Jfr;Kcy;Kfr;Lcy;Lfr;Lsh;Map;Mcy;Mfr;Ncy;Nfr;Not;Ocy;Ofr;Pcy;Pfr;Phi;Psi;Qfr;REG;Rcy;Rfr;Rho;Rsh;Scy;Sfr;Sub;Sum;Sup;Tab;Tau;Tcy;Tfr;Ucy;Ufr;Vcy;Vee;Vfr;Wfr;Xfr;Ycy;Yfr;Zcy;Zfr;acd;acy;afr;amp;and;ang;apE;ape;ast;bcy;bfr;bot;cap;cfr;chi;cir;cup;dcy;deg;dfr;die;div;dot;ecy;efr;egs;ell;els;eng;eta;eth;fcy;ffr;gEl;gap;gcy;gel;geq;ges;gfr;ggg;glE;gla;glj;gnE;gne;hfr;icy;iff;ifr;int;jcy;jfr;kcy;kfr;lEg;lap;lat;lcy;leg;leq;les;lfr;lgE;lnE;lne;loz;lrm;lsh;map;mcy;mfr;mho;mid;nap;ncy;nfr;nge;ngt;nis;niv;nle;nlt;not;npr;nsc;num;ocy;ofr;ogt;ohm;olt;ord;orv;par;pcy;pfr;phi;piv;prE;pre;psi;qfr;rcy;reg;rfr;rho;rlm;rsh;scE;sce;scy;sfr;shy;sim;smt;sol;squ;sub;sum;sup;tau;tcy;tfr;top;ucy;ufr;uml;vcy;vee;vfr;wfr;xfr;ycy;yen;yfr;zcy;zfr;zwj;AumlCOPYEumlIumlOumlQUOTUumlaumlcentcopyeumliumlmacrnbspordfordmoumlparaquotsectsup1sup2sup3uumlyumlacE;bne;nGg;nLl;ngE;nlE;cap  -> fail*%#vBOOLBooldrop[]%sor xjneq1.5.0levelerrorfileshttpsimap2imap3imapspop3shostswriteroute :
+<nil>closeMarchAprilmonthfalseErrorsvqxX  [P]  [L]%s	%sSliceArraypropsaliaspathsvalue/authCausearraychdirmkdirchmodchowngetwdpipe2lstat1562578125debugpanicfatalDEBUGERRORPANICFATALtls: Early (at no IPdefersweeptestRtestWexecWhchanexecRschedsudogtimergscanmheaptracesleeparm64 cnt=gcing MB,  got= ...
+ max=scav  ptr ] = (trap:init  ms, fault and  tab= top=[...], fp:deny
+ClassRetryfcntlint16int32int64uint8sliceInts:Ptrs:GreekAdlamBamumBatakBuhidDograKhmerLatinLimbuNushuOghamOriyaOsageRunicTakriTamilSlotskind=countfloatuintsbools[=%s]test.ValueipNetbreak.eEpPindexprintTRACE%s:%d  -%s&amp;&#34;&#39;:***@bytesRangerange:pathHTTP1HTTP2%s %q%s=%sHTTP/AllowsocksFoundparsexxxxxlocalmuxerECDSASHA-1P-224P-256P-384P-521pmullcrc32cpuidblockinputstyletitle%s.%s.test%s%s
+.%09dline !!str!!seq!!map%YAML-.infFalseFALSE+.inf+.Inf+.INF-.Inf-.INF!!intutf-8%s*%dtext/bad n0-RTT1-RTTclearAopf;Ascr;Auml;Barv;Beta;Bopf;Bscr;CHcy;COPY;Cdot;Copf;Cscr;DJcy;DScy;DZcy;Darr;Dopf;Dscr;Edot;Eopf;Escr;Esim;Euml;Fopf;Fscr;GJcy;Gdot;Gopf;Gscr;Hopf;Hscr;IEcy;IOcy;Idot;Iopf;Iota;Iscr;Iuml;Jopf;Jscr;KHcy;KJcy;Kopf;Kscr;LJcy;Lang;Larr;Lopf;Lscr;Mopf;Mscr;NJcy;Nopf;Nscr;Oopf;Oscr;Ouml;Popf;Pscr;QUOT;Qopf;Qscr;Rang;Rarr;Ropf;Rscr;SHcy;Sopf;Sqrt;Sscr;Star;TScy;Topf;Tscr;Uarr;Uopf;Upsi;Uscr;Uuml;Vbar;Vert;Vopf;Vscr;Wopf;Wscr;Xopf;Xscr;YAcy;YIcy;YUcy;Yopf;Yscr;Yuml;ZHcy;Zdot;Zeta;Zopf;Zscr;andd;andv;ange;aopf;apid;apos;ascr;auml;bNot;bbrk;beta;beth;bnot;bopf;boxH;boxV;boxh;boxv;bscr;bsim;bsol;bull;bump;cdot;cent;chcy;cirE;circ;cire;comp;cong;copf;copy;cscr;csub;csup;dArr;dHar;darr;dash;diam;djcy;dopf;dscr;dscy;dsol;dtri;dzcy;eDot;ecir;edot;emsp;ensp;eopf;epar;epsi;escr;esim;euml;euro;excl;flat;fnof;fopf;fork;fscr;gdot;geqq;gjcy;gnap;gneq;gopf;gscr;gsim;gtcc;hArr;half;harr;hbar;hopf;hscr;iecy;imof;iocy;iopf;iota;iscr;isin;iuml;jopf;jscr;khcy;kjcy;kopf;kscr;lArr;lHar;lang;larr;late;lcub;ldca;ldsh;leqq;ljcy;lnap;lneq;lopf;lozf;lpar;lscr;lsim;lsqb;ltcc;ltri;macr;male;malt;mlcp;mldr;mopf;mscr;nbsp;ncap;ncup;ngeq;ngtr;nisd;njcy;nldr;nleq;nmid;nopf;npar;nscr;nsim;nsub;nsup;ntgl;ntlg;oast;ocir;odiv;odot;ogon;oint;omid;oopf;opar;ordf;ordm;oror;oscr;osol;ouml;para;part;perp;phiv;plus;popf;prap;prec;prnE;prod;prop;pscr;qint;qopf;qscr;quot;rArr;rHar;rang;rarr;rcub;rdca;rdsh;real;rect;rhov;ring;ropf;rpar;rscr;rsqb;rtri;scap;scnE;sdot;sect;semi;sext;shcy;sime;simg;siml;smid;smte;solb;sopf;spar;squf;sscr;star;subE;sube;succ;sung;sup1;sup2;sup3;supE;supe;tbrk;tdot;tint;toea;topf;tosa;trie;tscr;tscy;uArr;uHar;uarr;uopf;upsi;uscr;utri;uuml;vArr;vBar;varr;vert;vopf;vscr;wopf;wscr;xcap;xcup;xmap;xnis;xopf;xscr;xvee;yacy;yicy;yopf;yscr;yucy;yuml;zdot;zeta;zhcy;zopf;zscr;zwnj;AEligAcircAringEcircIcircOcircTHORNUcircacircacuteaeligaringcedilecircicirciexcllaquomicroocircpoundraquoszligthorntimesucirccaps;cups;gesl;gvnE;lesg;lvnE;nGtv;nLtv;nang;napE;nges;nles;npre;nsce;nvap;nvge;nvgt;nvle;nvlt;race;matchrune IDENTFLOATCOMMA%d:%dFlushTableFloattablegob:  not add xsub xmul xdiv xmod xand xxor xlsh xrsh xja %dret aCOLONclientserverloggerUpMbpsconfiglistenstderrnetdnsdomaingophertelnetreturn.local.onionndots:sendtoip+netsocketspliceacceptSundayMondayFridayAugustminutesecondStringFormat[]byte' for string    fi%%-%dsError:  [LP]tfvarsdotenv$HOME/udphopobjectnumberreadatTMPDIRrenameremovewaitid390625CausesdpanicDPANIC0x%04XX25519%w%.0w Valueno '/'sysmontimersefenceselectscalar, not  next= jobs=status goid sweep  B -> % util alloc free  span= prev= list=, i =  code= addr=], sp= m->p= p->m=SCHED  curg= ctxt: min=  max= bad ts(...)

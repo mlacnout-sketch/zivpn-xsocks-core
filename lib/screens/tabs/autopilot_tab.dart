@@ -32,7 +32,7 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
-                  "lexpesawat (Watchdog)",
+                  'lexpesawat (Watchdog)',
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 1),
                 ),
                 const SizedBox(height: 16),
@@ -40,7 +40,7 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
                 const SizedBox(height: 16),
                 _buildControlCard(isRunning),
                 const SizedBox(height: 24),
-                const Text("Settings", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                const Text('Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary)),
                 const SizedBox(height: 12),
                 _buildMonitoringSettings(),
                 const SizedBox(height: 16),
@@ -62,12 +62,12 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
     String label;
 
     switch (state.status) {
-      case AutoPilotStatus.stopped: color = Colors.grey; icon = Icons.stop_circle_outlined; label = "STOPPED"; break;
-      case AutoPilotStatus.monitoring: color = Colors.green; icon = Icons.radar; label = "MONITORING"; break;
-      case AutoPilotStatus.checking: color = Colors.blue; icon = Icons.sync; label = "CHECKING..."; break;
-      case AutoPilotStatus.resetting: color = Colors.orange; icon = Icons.airplane_ticket; label = "RESETTING NET"; break;
-      case AutoPilotStatus.stabilizing: color = Colors.purple; icon = Icons.bolt; label = "STABILIZING"; break;
-      case AutoPilotStatus.error: color = Colors.red; icon = Icons.error_outline; label = "ERROR"; break;
+      case AutoPilotStatus.stopped: color = Colors.grey; icon = Icons.stop_circle_outlined; label = 'STOPPED'; break;
+      case AutoPilotStatus.monitoring: color = Colors.green; icon = Icons.radar; label = 'MONITORING'; break;
+      case AutoPilotStatus.checking: color = Colors.blue; icon = Icons.sync; label = 'CHECKING...'; break;
+      case AutoPilotStatus.resetting: color = Colors.orange; icon = Icons.airplane_ticket; label = 'RESETTING NET'; break;
+      case AutoPilotStatus.stabilizing: color = Colors.purple; icon = Icons.bolt; label = 'STABILIZING'; break;
+      case AutoPilotStatus.error: color = Colors.red; icon = Icons.error_outline; label = 'ERROR'; break;
     }
 
     return Card(
@@ -97,7 +97,7 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
           child: ElevatedButton.icon(
             onPressed: _isStarting ? null : (isRunning ? _stop : _start),
             icon: Icon(isRunning ? Icons.stop : Icons.play_arrow, size: 28),
-            label: Text(isRunning ? "STOP WATCHDOG" : "START WATCHDOG", style: const TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(isRunning ? 'STOP WATCHDOG' : 'START WATCHDOG', style: const TextStyle(fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
               backgroundColor: isRunning ? Colors.redAccent : AppColors.primary,
               foregroundColor: Colors.white,
@@ -119,18 +119,18 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _sliderSetting(
-              title: "Check Interval",
-              desc: "Time between internet checks",
+              title: 'Check Interval',
+              desc: 'Time between internet checks',
               val: cfg.checkIntervalSeconds.toDouble(),
-              min: 5, max: 60, div: 11, unit: "s",
+              min: 5, max: 60, div: 11, unit: 's',
               onChanged: (v) => _updateCfg(cfg.copyWith(checkIntervalSeconds: v.toInt())),
             ),
             const Divider(height: 32),
             _sliderSetting(
-              title: "Ping Timeout",
-              desc: "Max wait for each check",
+              title: 'Ping Timeout',
+              desc: 'Max wait for each check',
               val: cfg.connectionTimeoutSeconds.toDouble(),
-              min: 2, max: 15, div: 13, unit: "s",
+              min: 2, max: 15, div: 13, unit: 's',
               onChanged: (v) => _updateCfg(cfg.copyWith(connectionTimeoutSeconds: v.toInt())),
             ),
           ],
@@ -148,42 +148,42 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _sliderSetting(
-              title: "Max Fail Count",
-              desc: "Fails before triggering reset",
+              title: 'Max Fail Count',
+              desc: 'Fails before triggering reset',
               val: cfg.maxFailCount.toDouble(),
-              min: 1, max: 10, div: 9, unit: "x",
+              min: 1, max: 10, div: 9, unit: 'x',
               onChanged: (v) => _updateCfg(cfg.copyWith(maxFailCount: v.toInt())),
             ),
             const Divider(height: 32),
             _sliderSetting(
-              title: "Reset Duration",
-              desc: "Time to stay in Airplane Mode",
+              title: 'Reset Duration',
+              desc: 'Time to stay in Airplane Mode',
               val: cfg.airplaneModeDelaySeconds.toDouble(),
-              min: 1, max: 10, div: 9, unit: "s",
+              min: 1, max: 10, div: 9, unit: 's',
               onChanged: (v) => _updateCfg(cfg.copyWith(airplaneModeDelaySeconds: v.toInt())),
             ),
             const Divider(height: 32),
             _sliderSetting(
-              title: "Recovery Wait",
-              desc: "Time to wait for signal latch",
+              title: 'Recovery Wait',
+              desc: 'Time to wait for signal latch',
               val: cfg.recoveryWaitSeconds.toDouble(),
-              min: 5, max: 30, div: 5, unit: "s",
+              min: 5, max: 30, div: 5, unit: 's',
               onChanged: (v) => _updateCfg(cfg.copyWith(recoveryWaitSeconds: v.toInt())),
             ),
             const Divider(height: 32),
             SwitchListTile(
-              title: const Text("Ping Stabilizer", style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text("Downloads data to wake up connection"),
+              title: const Text('Ping Stabilizer', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Downloads data to wake up connection'),
               value: cfg.enableStabilizer,
               activeThumbColor: AppColors.primary,
               onChanged: (v) => _updateCfg(cfg.copyWith(enableStabilizer: v)),
             ),
             if (cfg.enableStabilizer)
               _sliderSetting(
-                title: "Stabilizer Size",
-                desc: "Total dummy data to download",
+                title: 'Stabilizer Size',
+                desc: 'Total dummy data to download',
                 val: cfg.stabilizerSizeMb.toDouble(),
-                min: 1, max: 10, div: 9, unit: "MB",
+                min: 1, max: 10, div: 9, unit: 'MB',
                 onChanged: (v) => _updateCfg(cfg.copyWith(stabilizerSizeMb: v.toInt())),
               ),
           ],
@@ -211,7 +211,7 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-              child: Text("${val.toInt()}$unit", style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+              child: Text('${val.toInt()}$unit', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
             )
           ],
         ),
@@ -236,8 +236,8 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(state.hasInternet ? "CONNECTED" : "OFFLINE", style: const TextStyle(fontWeight: FontWeight.bold)),
-                if (state.failCount > 0) Text("Attempts: ${state.failCount}/${_service.config.maxFailCount}", style: const TextStyle(fontSize: 12, color: Colors.redAccent)),
+                Text(state.hasInternet ? 'CONNECTED' : 'OFFLINE', style: const TextStyle(fontWeight: FontWeight.bold)),
+                if (state.failCount > 0) Text('Attempts: ${state.failCount}/${_service.config.maxFailCount}', style: const TextStyle(fontSize: 12, color: Colors.redAccent)),
               ],
             )
           ],
@@ -251,8 +251,11 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
     try {
       await _service.start();
     } catch (e) {
-      if (e.toString().contains("Shizuku")) _showShizukuTutorial();
-      else ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (e.toString().contains('Shizuku')) {
+        _showShizukuTutorial();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     } finally {
       if (mounted) setState(() => _isStarting = false);
     }
@@ -269,11 +272,11 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text("Shizuku Required"),
-        content: const Text("Shizuku service is not running or authorized. Please open Shizuku app and start it."),
+        title: const Text('Shizuku Required'),
+        content: const Text('Shizuku service is not running or authorized. Please open Shizuku app and start it.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text("OK")),
-          ElevatedButton(onPressed: () => launchUrl(Uri.parse("https://shizuku.rikka.app/")), child: const Text("GET SHIZUKU")),
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('OK')),
+          ElevatedButton(onPressed: () => launchUrl(Uri.parse('https://shizuku.rikka.app/')), child: const Text('GET SHIZUKU')),
         ],
       ),
     );

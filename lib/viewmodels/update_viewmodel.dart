@@ -34,8 +34,8 @@ class UpdateViewModel {
 
     try {
       final dir = await getTemporaryDirectory();
-      final fileName = "update_${version.name}.apk";
-      final targetFile = File("${dir.path}/$fileName");
+      final fileName = 'update_${version.name}.apk';
+      final targetFile = File('${dir.path}/$fileName');
 
       final file = await _repository.downloadUpdate(
         version,
@@ -47,8 +47,8 @@ class UpdateViewModel {
               100, 
               (progress * 100).toInt(), 
               100, 
-              "Downloading Update", 
-              "v${version.name}"
+              'Downloading Update',
+              'v${version.name}'
             );
           }
         }
@@ -57,11 +57,11 @@ class UpdateViewModel {
       if (file != null) {
         if (!_isDownloading.isClosed) _isDownloading.add(false);
         if (!_downloadProgress.isClosed) _downloadProgress.add(1.0);
-        await _notificationService.showComplete(100, "Download Complete", "Tap to install");
+        await _notificationService.showComplete(100, 'Download Complete', 'Tap to install');
         return file;
       }
     } catch (e) {
-      print("Download failed: $e");
+      print('Download failed: $e');
       await _notificationService.cancel(100);
     }
     

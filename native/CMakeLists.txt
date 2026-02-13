@@ -102,11 +102,18 @@ target_include_directories(tun2socks PRIVATE
 target_link_libraries(tun2socks ancillary log dl)
 target_compile_options(tun2socks PRIVATE 
     -O3
+    -Wall
+    -Wextra
+    -Werror
+    -std=gnu11
+    -Wno-unused-parameter
+    -Wno-sign-compare
     -Wno-parentheses
-    -Wno-pointer-sign
+    -Wno-address-of-packed-member
     -Wno-unused-value
-    -Wno-unused-label
-    -Wno-unused-variable
+    -Wno-unused-but-set-variable
+    -Wno-unused-result
+    -Wno-aggressive-loop-optimizations
 )
 
 if(NOT SKIP_JNI_CHECK)
@@ -139,11 +146,17 @@ set_target_properties(pdnsd PROPERTIES OUTPUT_NAME "pdnsd")
 set_target_properties(pdnsd PROPERTIES SUFFIX ".so")
 set_target_properties(pdnsd PROPERTIES PREFIX "lib")
 target_compile_options(pdnsd PRIVATE 
-    -Wall -O3 
+    -Wall -Wextra -Werror -O3
     -Wno-deprecated-declarations 
     -Wno-unused-variable 
     -Wno-string-plus-int
     -Wno-gnu-designator
+    -Wno-sign-compare
+    -Wno-old-style-declaration
+    -Wno-unused-label
+    -Wno-unused-but-set-variable
+    -Wno-implicit-fallthrough
+    -Wno-type-limits
 )
 target_include_directories(pdnsd PRIVATE pdnsd pdnsd/src)
 target_link_libraries(pdnsd log)

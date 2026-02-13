@@ -6,7 +6,7 @@ import '../models/app_version.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UpdateRepository {
-  final String apiUrl = "https://api.github.com/repos/mlacnout-sketch/zivpn-xsocks-core/releases";
+  final String apiUrl = 'https://api.github.com/repos/mlacnout-sketch/zivpn-xsocks-core/releases';
 
   Future<List<String>> _getStrategies() async {
     final prefs = await SharedPreferences.getInstance();
@@ -17,11 +17,11 @@ class UpdateRepository {
     if (running) {
       // If VPN is on, DIRECT connection will likely fail (no quota) or cause issues.
       // Force SOCKS only.
-      return ["SOCKS 127.0.0.1:7777"];
+      return ['SOCKS 127.0.0.1:7777'];
     } else {
       // If VPN is off, try SOCKS (maybe left over?) then DIRECT.
       // Actually if VPN is off, SOCKS won't work. So DIRECT first.
-      return ["DIRECT", "SOCKS 127.0.0.1:7777"];
+      return ['DIRECT', 'SOCKS 127.0.0.1:7777'];
     }
   }
 
@@ -29,14 +29,14 @@ class UpdateRepository {
     final strategies = await _getStrategies();
     for (final proxy in strategies) {
       try {
-        print("Checking update via: $proxy");
+        print('Checking update via: $proxy');
         final responseBody = await _executeCheck(proxy);
         return await _processResponse(responseBody);
       } catch (e) {
-        print("Update check failed via $proxy: $e");
+        print('Update check failed via $proxy: $e');
       }
     }
-    print("All update check strategies failed.");
+    print('All update check strategies failed.');
     return null;
   }
 
@@ -44,11 +44,11 @@ class UpdateRepository {
     final strategies = await _getStrategies();
     for (final proxy in strategies) {
       try {
-        print("Downloading update via: $proxy");
+        print('Downloading update via: $proxy');
         await _executeDownload(version.apkUrl, targetFile, proxy, onProgress);
         return targetFile;
       } catch (e) {
-        print("Download failed via $proxy: $e");
+        print('Download failed via $proxy: $e');
         if (await targetFile.exists()) {
           try {
              await targetFile.delete();
@@ -56,7 +56,7 @@ class UpdateRepository {
         }
       }
     }
-    print("All download strategies failed.");
+    print('All download strategies failed.');
     return null;
   }
 
@@ -64,18 +64,18 @@ class UpdateRepository {
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 15);
     
-    if (proxyConf != "DIRECT") {
+    if (proxyConf != 'DIRECT') {
       client.findProxy = (uri) => proxyConf;
     }
     // GitHub API requires User-Agent
-    client.userAgent = "MiniZivpn-Updater"; 
+    client.userAgent = 'MiniZivpn-Updater';
 
     try {
       final request = await client.getUrl(Uri.parse(apiUrl));
       final response = await request.close();
       
       if (response.statusCode != 200) {
-        throw Exception("HTTP ${response.statusCode}");
+        throw Exception('HTTP ${response.statusCode}');
       }
       
       return await response.transform(utf8.decoder).join();
@@ -88,17 +88,17 @@ class UpdateRepository {
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 30); // Longer timeout for downloads
 
-    if (proxyConf != "DIRECT") {
+    if (proxyConf != 'DIRECT') {
       client.findProxy = (uri) => proxyConf;
     }
-    client.userAgent = "MiniZivpn-Updater";
+    client.userAgent = 'MiniZivpn-Updater';
 
     try {
       final request = await client.getUrl(Uri.parse(url));
       final response = await request.close();
 
       if (response.statusCode != 200) {
-        throw Exception("HTTP ${response.statusCode}");
+        throw Exception('HTTP ${response.statusCode}');
       }
 
       final contentLength = response.contentLength;
@@ -124,7 +124,7 @@ class UpdateRepository {
       }
 
       if (contentLength > 0 && targetFile.lengthSync() != contentLength) {
-          throw Exception("Incomplete download");
+          throw Exception('Incomplete download');
       }
     } finally {
       client.close();
@@ -132,12 +132,12 @@ class UpdateRepository {
   }
 
   Future<AppVersion?> _processResponse(String jsonStr) async {
-      final List releases = json.decode(jsonStr);
+      final List releases = json.decode(jsonStr) as List;
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
       final currentBuildNumber = packageInfo.buildNumber;
       
-      print("Current App: $currentVersion ($currentBuildNumber)");
+      print('Current App: $currentVersion ($currentBuildNumber)');
       
       for (var release in releases) {
         final tagName = release['tag_name'].toString();
@@ -153,9 +153,9 @@ class UpdateRepository {
           if (asset != null) {
             return AppVersion(
               name: tagName,
-              apkUrl: asset['browser_download_url'],
-              apkSize: asset['size'],
-              description: release['body'] ?? "",
+              apkUrl: asset['browser_download_url'] as String,
+              apkSize: asset['size'] as int,
+              description: (release['body'] as String?) ?? '',
             );
           }
         }
@@ -191,7 +191,7 @@ class UpdateRepository {
       
       // If versions are equal, check Build Number
       int buildRemote = 0;
-      int buildLocal = int.tryParse(currentBuildNumber) ?? 0;
+      final int buildLocal = int.tryParse(currentBuildNumber) ?? 0;
 
       // Extract Remote Build Number (-bXX)
       final RegExp regBuildRemote = RegExp(r'-b(\d+)');
@@ -200,11 +200,11 @@ class UpdateRepository {
         buildRemote = int.parse(matchBuildRemote.group(1)!);
       }
 
-      print("Ver Check: Remote=$v1 ($buildRemote) vs Local=$v2 ($buildLocal)");
+      print('Ver Check: Remote=$v1 ($buildRemote) vs Local=$v2 ($buildLocal)');
 
       return buildRemote > buildLocal;
     } catch (e) {
-      print("Version check error: $e");
+      print('Version check error: $e');
       return false;
     }
   }

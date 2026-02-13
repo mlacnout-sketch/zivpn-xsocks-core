@@ -44,7 +44,7 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOutSine),
     );
     
-    if (widget.vpnState == "connecting") {
+    if (widget.vpnState == 'connecting') {
       _pulseController.repeat(reverse: true);
     }
   }
@@ -53,7 +53,7 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
   void didUpdateWidget(DashboardTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.vpnState != oldWidget.vpnState) {
-      if (widget.vpnState == "connecting") {
+      if (widget.vpnState == 'connecting') {
         _pulseController.repeat(reverse: true);
       } else {
         _pulseController.stop();
@@ -70,9 +70,9 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    bool isConnected = widget.vpnState == "connected";
-    bool isConnecting = widget.vpnState == "connecting";
-    Color statusColor = isConnected ? AppColors.primary : (isConnecting ? Colors.orange : AppColors.card);
+    final bool isConnected = widget.vpnState == 'connected';
+    final bool isConnecting = widget.vpnState == 'connecting';
+    final Color statusColor = isConnected ? AppColors.primary : (isConnecting ? Colors.orange : AppColors.card);
 
     return Padding(
       padding: const EdgeInsets.all(20.0),
@@ -80,14 +80,14 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            "ZIVPN",
+            'ZIVPN',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.5,
             ),
           ),
-          const Text("Turbo Tunnel Engine", style: TextStyle(color: Colors.grey)),
+          const Text('Turbo Tunnel Engine', style: TextStyle(color: Colors.grey)),
           const SiOrenBanner(), // Banner Si Oren
           const SizedBox(height: 20),
           Expanded(
@@ -136,7 +136,7 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                               ),
                             const SizedBox(height: 15),
                             Text(
-                              isConnecting ? "CONNECTING..." : (isConnected ? "CONNECTED" : "TAP TO CONNECT"),
+                              isConnecting ? 'CONNECTING...' : (isConnected ? 'CONNECTED' : 'TAP TO CONNECT'),
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -188,7 +188,7 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        widget.isResetting ? "RESETTING" : "MONITORING",
+                                        widget.isResetting ? 'RESETTING' : 'MONITORING',
                                         style: const TextStyle(
                                           fontSize: 9,
                                           fontWeight: FontWeight.bold,
@@ -234,17 +234,17 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         Text(
-                          "Session: ${_formatTotalBytes(rx + tx)}",
+                          'Session: ${_formatTotalBytes(rx + tx)}',
                           style: const TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                         Container(width: 1, height: 12, color: Colors.white10),
                         Text(
-                          "Rx: ${_formatTotalBytes(rx)}",
+                          'Rx: ${_formatTotalBytes(rx)}',
                           style: const TextStyle(color: Colors.greenAccent, fontSize: 12),
                         ),
                         Container(width: 1, height: 12, color: Colors.white10),
                         Text(
-                          "Tx: ${_formatTotalBytes(tx)}",
+                          'Tx: ${_formatTotalBytes(tx)}',
                           style: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
                         ),
                       ],
@@ -260,7 +260,7 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                 child: ValueListenableBuilder<String>(
                   valueListenable: widget.dl,
                   builder: (context, val, _) => StatCard(
-                    label: "Download",
+                    label: 'Download',
                     value: val,
                     icon: Icons.download,
                     color: Colors.green,
@@ -272,7 +272,7 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                 child: ValueListenableBuilder<String>(
                   valueListenable: widget.ul,
                   builder: (context, val, _) => StatCard(
-                    label: "Upload",
+                    label: 'Upload',
                     value: val,
                     icon: Icons.upload,
                     color: Colors.orange,
@@ -288,12 +288,12 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
   }
 
   String _formatTotalBytes(int bytes) {
-    if (bytes < 1024) return "$bytes B";
-    if (bytes < 1024 * 1024) return "${(bytes / 1024).toStringAsFixed(1)} KB";
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     if (bytes < 1024 * 1024 * 1024) {
-      return "${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB";
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
     }
-    return "${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB";
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 }
 
