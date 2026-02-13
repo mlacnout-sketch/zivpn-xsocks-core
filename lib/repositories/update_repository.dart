@@ -15,13 +15,12 @@ class UpdateRepository {
     final running = (prefs.getBool('vpn_running') ?? false) || (prefs.getBool('flutter.vpn_running') ?? false);
 
     if (running) {
-      // If VPN is on, DIRECT connection will likely fail (no quota) or cause issues.
-      // Force SOCKS only.
-      return ["SOCKS 127.0.0.1:7777"];
+      // If VPN is on, force SOCKS only.
+      // Use port 20080 (First Hysteria Core) instead of 7777 (LB) for better SOCKS5 compatibility
+      return ["SOCKS 127.0.0.1:20080"];
     } else {
-      // If VPN is off, try SOCKS (maybe left over?) then DIRECT.
-      // Actually if VPN is off, SOCKS won't work. So DIRECT first.
-      return ["DIRECT", "SOCKS 127.0.0.1:7777"];
+      // If VPN is off, try DIRECT first.
+      return ["DIRECT", "SOCKS 127.0.0.1:20080"];
     }
   }
 
