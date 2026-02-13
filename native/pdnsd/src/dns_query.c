@@ -920,6 +920,9 @@ static int p_query_sm(query_stat_t *st)
 		st->state=QS_TCPWRITE;
 		/* st->event=QEV_WRITE; */
 		/* fall through in case of not EINPROGRESS */
+#if defined(__GNUC__) && __GNUC__ >= 7
+	__attribute__((fallthrough));
+#endif
 	case QS_TCPWRITE:
 		{
 			int rem= dnsmsghdroffset + st->transl - st->iolen;
@@ -950,6 +953,9 @@ static int p_query_sm(query_stat_t *st)
 		st->iolen=0;
 		/* st->event=QEV_READ; */
 		/* fall through */
+#if defined(__GNUC__) && __GNUC__ >= 7
+	__attribute__((fallthrough));
+#endif
 	case QS_TCPREAD:
 	        if(st->iolen==0) {
 			uint16_t recvl_net;
@@ -1194,6 +1200,9 @@ static int p_exec_query(dns_cent_t **entp, const unsigned char *name, int thint,
 		st->state=(USE_UDP(st)?QS_UDPINITIAL:QS_TCPINITIAL);
 		/* fall through */
 	}
+#if defined(__GNUC__) && __GNUC__ >= 7
+	__attribute__((fallthrough));
+#endif
 	QS_QUERY_CASES:
 	tryagain:
 		rv=p_query_sm(st);
@@ -1932,6 +1941,9 @@ static void p_cancel_query(query_stat_t *st)
 	QS_READ_CASES:
 		close(st->sock);
 		/* fall through */
+#if defined(__GNUC__) && __GNUC__ >= 7
+	__attribute__((fallthrough));
+#endif
 	case QS_TCPINITIAL:
 	case QS_UDPINITIAL:
 		pdnsd_free(st->recvbuf);
