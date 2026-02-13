@@ -473,6 +473,11 @@ int BListener_Init (BListener *o, BAddr addr, BReactor *reactor, void *user,
         BLog(BLOG_ERROR, "badvpn_set_nonblocking failed");
         goto fail1;
     }
+
+    // set TCP_NODELAY
+    if (!badvpn_set_nodelay(o->fd)) {
+        BLog(BLOG_DEBUG, "badvpn_set_nodelay failed");
+    }
     
     // set SO_REUSEADDR
     int optval = 1;
@@ -660,6 +665,11 @@ int BConnector_Init (BConnector *o, BAddr addr, BReactor *reactor, void *user,
     if (!badvpn_set_nonblocking(o->fd)) {
         BLog(BLOG_ERROR, "badvpn_set_nonblocking failed");
         goto fail2;
+    }
+
+    // set TCP_NODELAY
+    if (!badvpn_set_nodelay(o->fd)) {
+        BLog(BLOG_DEBUG, "badvpn_set_nodelay failed");
     }
     
     // connect fd
@@ -856,6 +866,11 @@ int BConnection_Init (BConnection *o, struct BConnection_source source, BReactor
             if (!badvpn_set_nonblocking(o->fd)) {
                 BLog(BLOG_ERROR, "badvpn_set_nonblocking failed");
                 goto fail1;
+            }
+
+            // set TCP_NODELAY
+            if (!badvpn_set_nodelay(o->fd)) {
+                BLog(BLOG_DEBUG, "badvpn_set_nodelay failed");
             }
             
             // return address

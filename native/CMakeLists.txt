@@ -101,7 +101,7 @@ target_include_directories(tun2socks PRIVATE
 
 target_link_libraries(tun2socks ancillary log dl)
 target_compile_options(tun2socks PRIVATE 
-    -O3
+    -O3 -flto -funroll-loops
     -Wno-parentheses
     -Wno-pointer-sign
     -Wno-unused-value
@@ -139,7 +139,7 @@ set_target_properties(pdnsd PROPERTIES OUTPUT_NAME "pdnsd")
 set_target_properties(pdnsd PROPERTIES SUFFIX ".so")
 set_target_properties(pdnsd PROPERTIES PREFIX "lib")
 target_compile_options(pdnsd PRIVATE 
-    -Wall -O3 
+    -Wall -O3 -flto -funroll-loops
     -Wno-deprecated-declarations 
     -Wno-unused-variable 
     -Wno-string-plus-int

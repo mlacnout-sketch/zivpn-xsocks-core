@@ -37,7 +37,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#ifndef BADVPN_USE_WINAPI
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sys/socket.h>
+#endif
+
 static int badvpn_set_nonblocking (int fd);
+static int badvpn_set_nodelay (int fd);
 
 int badvpn_set_nonblocking (int fd)
 {
@@ -46,6 +53,19 @@ int badvpn_set_nonblocking (int fd)
     }
     
     return 1;
+}
+
+int badvpn_set_nodelay (int fd)
+{
+#ifndef BADVPN_USE_WINAPI
+    int flag = 1;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int)) < 0) {
+        return 0;
+    }
+    return 1;
+#else
+    return 1; // Not implemented for WinAPI yet
+#endif
 }
 
 #endif
