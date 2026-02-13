@@ -113,6 +113,7 @@ target_compile_options(tun2socks PRIVATE
     -Wno-unused-value
     -Wno-unused-but-set-variable
     -Wno-unused-result
+    -Wno-unused-function
 )
 
 if(NOT SKIP_JNI_CHECK)
