@@ -10,7 +10,6 @@ class UpdateRepository {
 
   Future<List<String>> _getStrategies() async {
     final prefs = await SharedPreferences.getInstance();
-    final isVpnRunning = prefs.getBool('flutter.vpn_running') ?? false; // Note: Native saves as flutter.vpn_running or vpn_running depending on logic, check both.
     
     // Check both potential keys just to be safe (migration consistency)
     final running = (prefs.getBool('vpn_running') ?? false) || (prefs.getBool('flutter.vpn_running') ?? false);
