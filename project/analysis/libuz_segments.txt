@@ -1,0 +1,48 @@
+
+Elf file type is DYN (Position-Independent Executable file)
+Entry point 0x251f60
+There are 12 program headers, starting at offset 64
+
+Program Headers:
+  Type           Offset             VirtAddr           PhysAddr
+                 FileSiz            MemSiz              Flags  Align
+  PHDR           0x0000000000000040 0x0000000000000040 0x0000000000000040
+                 0x00000000000002a0 0x00000000000002a0  R      0x8
+  INTERP         0x00000000000002e0 0x00000000000002e0 0x00000000000002e0
+                 0x0000000000000015 0x0000000000000015  R      0x1
+      [Requesting program interpreter: /system/bin/linker64]
+  LOAD           0x0000000000000000 0x0000000000000000 0x0000000000000000
+                 0x000000000024df5c 0x000000000024df5c  R      0x4000
+  LOAD           0x000000000024df60 0x0000000000251f60 0x0000000000251f60
+                 0x0000000000504240 0x0000000000504240  R E    0x4000
+  LOAD           0x00000000007521c0 0x000000000075a1c0 0x000000000075a1c0
+                 0x00000000004f7790 0x00000000004f7e40  RW     0x4000
+  LOAD           0x0000000000c49960 0x0000000000c55960 0x0000000000c55960
+                 0x0000000000070021 0x00000000000a8770  RW     0x4000
+  TLS            0x00000000007521c0 0x000000000075a1c0 0x000000000075a1c0
+                 0x0000000000000000 0x0000000000000000  R      0x40
+  DYNAMIC        0x0000000000c495d8 0x0000000000c515d8 0x0000000000c515d8
+                 0x0000000000000170 0x0000000000000170  RW     0x8
+  GNU_RELRO      0x00000000007521c0 0x000000000075a1c0 0x000000000075a1c0
+                 0x00000000004f7790 0x00000000004f7e40  R      0x1
+  GNU_EH_FRAME   0x000000000024d620 0x000000000024d620 0x000000000024d620
+                 0x0000000000000184 0x0000000000000184  R      0x4
+  GNU_STACK      0x0000000000000000 0x0000000000000000 0x0000000000000000
+                 0x0000000000000000 0x0000000000000000  RW     0x0
+  NOTE           0x00000000000002f8 0x00000000000002f8 0x00000000000002f8
+                 0x0000000000000120 0x0000000000000120  R      0x4
+
+ Section to Segment mapping:
+  Segment Sections...
+   00
+   01     .interp
+   02     .interp .note.android.ident .note.go.buildid .note.gnu.build-id .dynsym .gnu.version .gnu.version_r .gnu.hash .dynstr .rela.dyn .rela.plt .rodata .eh_frame_hdr .eh_frame
+   03     .text .plt
+   04     .tdata .data.rel.ro .dynamic .got .got.plt .relro_padding
+   05     .data .go.buildinfo .go.fipsinfo .noptrdata .bss .noptrbss
+   06     .tdata
+   07     .dynamic
+   08     .tdata .data.rel.ro .dynamic .got .got.plt .relro_padding
+   09     .eh_frame_hdr
+   10
+   11     .note.android.ident .note.go.buildid .note.gnu.build-id

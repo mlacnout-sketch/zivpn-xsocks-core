@@ -1,0 +1,45 @@
+
+Elf file type is DYN (Position-Independent Executable file)
+Entry point 0x7c3a0
+There are 11 program headers, starting at offset 64
+
+Program Headers:
+  Type           Offset             VirtAddr           PhysAddr
+                 FileSiz            MemSiz              Flags  Align
+  PHDR           0x0000000000000040 0x0000000000000040 0x0000000000000040
+                 0x0000000000000268 0x0000000000000268  R      0x8
+  INTERP         0x00000000000002a8 0x00000000000002a8 0x00000000000002a8
+                 0x0000000000000015 0x0000000000000015  R      0x1
+      [Requesting program interpreter: /system/bin/linker64]
+  LOAD           0x0000000000000000 0x0000000000000000 0x0000000000000000
+                 0x0000000000078394 0x0000000000078394  R      0x4000
+  LOAD           0x00000000000783a0 0x000000000007c3a0 0x000000000007c3a0
+                 0x00000000000ec250 0x00000000000ec250  R E    0x4000
+  LOAD           0x0000000000164600 0x000000000016c600 0x000000000016c600
+                 0x00000000000f4c28 0x00000000000f5a00  RW     0x4000
+  LOAD           0x0000000000259240 0x0000000000265240 0x0000000000265240
+                 0x000000000000b3c2 0x0000000000035f40  RW     0x4000
+  DYNAMIC        0x0000000000258eb0 0x0000000000260eb0 0x0000000000260eb0
+                 0x0000000000000170 0x0000000000000170  RW     0x8
+  GNU_RELRO      0x0000000000164600 0x000000000016c600 0x000000000016c600
+                 0x00000000000f4c28 0x00000000000f5a00  R      0x1
+  GNU_EH_FRAME   0x0000000000077a58 0x0000000000077a58 0x0000000000077a58
+                 0x0000000000000184 0x0000000000000184  R      0x4
+  GNU_STACK      0x0000000000000000 0x0000000000000000 0x0000000000000000
+                 0x0000000000000000 0x0000000000000000  RW     0x0
+  NOTE           0x00000000000002c0 0x00000000000002c0 0x00000000000002c0
+                 0x0000000000000120 0x0000000000000120  R      0x4
+
+ Section to Segment mapping:
+  Segment Sections...
+   00
+   01     .interp
+   02     .interp .note.android.ident .note.go.buildid .note.gnu.build-id .dynsym .gnu.version .gnu.version_r .gnu.hash .dynstr .rela.dyn .rela.plt .rodata .eh_frame_hdr .eh_frame
+   03     .text .plt
+   04     .data.rel.ro .dynamic .got .got.plt .relro_padding
+   05     .data .go.buildinfo .go.fipsinfo .noptrdata .bss .noptrbss
+   06     .dynamic
+   07     .data.rel.ro .dynamic .got .got.plt .relro_padding
+   08     .eh_frame_hdr
+   09
+   10     .note.android.ident .note.go.buildid .note.gnu.build-id
