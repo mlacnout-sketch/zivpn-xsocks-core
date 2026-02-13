@@ -72,6 +72,7 @@
 #include "lwip/netif.h"
 #include "lwip/autoip.h"
 #include "netif/etharp.h"
+#include "lwip/tcp_impl.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -106,6 +107,7 @@
 
 /* static functions */
 static void autoip_handle_arp_conflict(struct netif *netif);
+static void autoip_clear_tcp(struct netif *netif);
 
 /* creates a pseudo random LL IP-Address for a network interface */
 static void autoip_create_addr(struct netif *netif, ip_addr_t *ipaddr);
@@ -153,6 +155,44 @@ autoip_restart(struct netif *netif)
   autoip_start(netif);
 }
 
+static void
+autoip_clear_tcp(struct netif *netif)
+{
+#if LWIP_TCP
+  struct tcp_pcb *pcb, *pcb_next;
+
+  /* active pcbs */
+  pcb = tcp_active_pcbs;
+  while (pcb != NULL) {
+    pcb_next = pcb->next;
+    /* Check if PCB is bound to the interface address */
+    /* Note: autoip works on IPv4 */
+    if (!PCB_ISIPV6(pcb) && ip_addr_cmp(ipX_2_ip(&pcb->local_ip), &netif->autoip->llipaddr)) {
+       LWIP_DEBUGF(AUTOIP_DEBUG | LWIP_DBG_TRACE, ("autoip_clear_tcp: aborting active pcb %p\n", (void*)pcb));
+       tcp_abort(pcb);
+       /* restart scan as list changed */
+       pcb = tcp_active_pcbs;
+    } else {
+       pcb = pcb_next;
+    }
+  }
+
+  /* time-wait pcbs */
+  pcb = tcp_tw_pcbs;
+  while (pcb != NULL) {
+    pcb_next = pcb->next;
+    if (!PCB_ISIPV6(pcb) && ip_addr_cmp(ipX_2_ip(&pcb->local_ip), &netif->autoip->llipaddr)) {
+       LWIP_DEBUGF(AUTOIP_DEBUG | LWIP_DBG_TRACE, ("autoip_clear_tcp: aborting time-wait pcb %p\n", (void*)pcb));
+       tcp_abort(pcb);
+       /* restart scan as list changed */
+       pcb = tcp_tw_pcbs;
+    } else {
+       pcb = pcb_next;
+    }
+  }
+#endif /* LWIP_TCP */
+}
+
 /**
  * Handle a IP address conflict after an ARP conflict detection
  */
@@ -171,6 +211,7 @@ autoip_handle_arp_conflict(struct netif *netif)
         ("autoip_handle_arp_conflict(): we are defending, but in DEFEND_INTERVAL, retreating\n"));
 
       /* TODO: close all TCP sessions */
+      autoip_clear_tcp(netif);
       autoip_restart(netif);
     } else {
       LWIP_DEBUGF(AUTOIP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE,
@@ -182,6 +223,7 @@ autoip_handle_arp_conflict(struct netif *netif)
     LWIP_DEBUGF(AUTOIP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE,
       ("autoip_handle_arp_conflict(): we do not defend, retreating\n"));
     /* TODO: close all TCP sessions */
+    autoip_clear_tcp(netif);
     autoip_restart(netif);
   }
 }
