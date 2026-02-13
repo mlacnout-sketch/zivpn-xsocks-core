@@ -927,7 +927,7 @@ netif_create_ip6_linklocal_address(struct netif * netif, u8_t from_mac_48bit)
     netif->ip6_addr[0].addr[3] = 0;
 
     addr_index = 3;
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 8 && i < netif->hwaddr_len; i++) {
       if (i == 4) {
         addr_index--;
       }

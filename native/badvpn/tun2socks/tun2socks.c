@@ -1916,7 +1916,7 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
             goto fail1;
         }
         // Modify the local copy, assuming the password auth is at index 1
-        if (local_num_auth_info > 1 && local_auth_info[1].type == BSOCKSCLIENT_AUTH_PASSWORD) {
+        if (local_num_auth_info > 1 && local_auth_info[1].auth_type == SOCKS_METHOD_USERNAME_PASSWORD) {
             local_auth_info[1].password.username = client->socks_username;
             local_auth_info[1].password.username_len = strlen(client->socks_username);
         }

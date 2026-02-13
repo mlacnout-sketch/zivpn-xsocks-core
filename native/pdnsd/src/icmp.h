@@ -27,8 +27,8 @@
 #include <config.h>
 #include "ipvers.h"
 
-volatile extern int ping_isocket;
-volatile extern int ping6_isocket;
+extern volatile int ping_isocket;
+extern volatile int ping6_isocket;
 
 /* initialize a socket for pinging */
 void init_ping_socket(void);

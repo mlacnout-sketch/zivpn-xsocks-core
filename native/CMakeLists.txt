@@ -113,7 +113,6 @@ target_compile_options(tun2socks PRIVATE
     -Wno-unused-value
     -Wno-unused-but-set-variable
     -Wno-unused-result
-    -Wno-aggressive-loop-optimizations
 )
 
 if(NOT SKIP_JNI_CHECK)
@@ -152,7 +151,6 @@ target_compile_options(pdnsd PRIVATE
     -Wno-string-plus-int
     -Wno-gnu-designator
     -Wno-sign-compare
-    -Wno-old-style-declaration
     -Wno-unused-label
     -Wno-unused-but-set-variable
     -Wno-implicit-fallthrough
