@@ -23,9 +23,6 @@ dependencies:
   shizuku_api: 1.2.1
   url_launcher: ^6.2.6
   provider: ^6.1.2
-  lottie: ^3.1.0
-  animate_do: ^3.3.4
-  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -34,5 +31,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/animations/
