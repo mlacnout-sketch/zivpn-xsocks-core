@@ -92,14 +92,6 @@ class MainActivity: FlutterActivity() {
     }
 
     private fun applyPreferredRefreshRate(display: Display, targetRate: Float) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.setFrameRate(
-                targetRate,
-                android.view.Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
-                android.view.Surface.CHANGE_FRAME_RATE_ALWAYS
-            )
-        }
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val bestMode = display.supportedModes.minByOrNull { mode ->
                 abs(mode.refreshRate - targetRate)
