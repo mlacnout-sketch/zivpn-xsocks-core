@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <cmath>
 
 #ifdef HAVE_CPU_FEATURES
 #include <cpu-features.h>
@@ -102,6 +103,42 @@ sendfd(JNIEnv *env, jobject thiz, jint tun_fd) {
     return 0;
 }
 
+
+
+static jfloat
+pickBestRefreshRate(JNIEnv *env, jobject thiz, jfloatArray supported_rates) {
+    if (supported_rates == nullptr) {
+        return 60.0f;
+    }
+
+    jsize len = env->GetArrayLength(supported_rates);
+    if (len <= 0) {
+        return 60.0f;
+    }
+
+    jfloat *rates = env->GetFloatArrayElements(supported_rates, nullptr);
+    if (rates == nullptr) {
+        return 60.0f;
+    }
+
+    float best = rates[0];
+    float bestScore = fabsf(120.0f - rates[0]);
+
+    for (jsize i = 1; i < len; ++i) {
+        float rate = rates[i];
+        float score = fabsf(120.0f - rate);
+
+        // Prefer the closest refresh rate to 120Hz, but break ties by choosing higher rate.
+        if (score < bestScore || (score == bestScore && rate > best)) {
+            best = rate;
+            bestScore = score;
+        }
+    }
+
+    env->ReleaseFloatArrayElements(supported_rates, rates, JNI_ABORT);
+    return best;
+}
+
 static const char *classPathName = "com/minizivpn/app/NativeSystem";
 static JNINativeMethod method_table[] = {
     { "jniclose", "(I)V",
@@ -111,7 +148,9 @@ static JNINativeMethod method_table[] = {
     { "exec", "(Ljava/lang/String;)V",
         (void*) exec },
     { "getABI", "()Ljava/lang/String;",
-        (void*) getABI }
+        (void*) getABI },
+    { "pickBestRefreshRate", "([F)F",
+        (void*) pickBestRefreshRate }
 };
 
 static int

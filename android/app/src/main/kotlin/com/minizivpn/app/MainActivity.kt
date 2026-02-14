@@ -11,6 +11,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Bundle
 import android.os.Build
+import android.view.Display
+import kotlin.math.abs
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -63,6 +65,51 @@ class MainActivity: FlutterActivity() {
         }
         
         checkAndRequestNotificationPermission()
+        optimizeUiRendering()
+    }
+
+    private fun optimizeUiRendering() {
+        try {
+            val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                this.display
+            } else {
+                @Suppress("DEPRECATION")
+                windowManager.defaultDisplay
+            } ?: return
+
+            val supportedRates = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                display.supportedModes.map { it.refreshRate }.toFloatArray()
+            } else {
+                floatArrayOf(display.refreshRate)
+            }
+
+            val targetRate = NativeSystem.pickBestRefreshRate(supportedRates)
+            applyPreferredRefreshRate(display, targetRate)
+            sendToLog("UI render hint applied: ${targetRate}Hz (Skia/Vulkan pipeline)")
+        } catch (e: Exception) {
+            Log.w("ZIVPN-Render", "Unable to optimize render path: ${e.message}")
+        }
+    }
+
+    private fun applyPreferredRefreshRate(display: Display, targetRate: Float) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setFrameRate(
+                targetRate,
+                android.view.Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
+                android.view.Surface.CHANGE_FRAME_RATE_ALWAYS
+            )
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val bestMode = display.supportedModes.minByOrNull { mode ->
+                abs(mode.refreshRate - targetRate)
+            }
+            if (bestMode != null) {
+                val params = window.attributes
+                params.preferredDisplayModeId = bestMode.modeId
+                window.attributes = params
+            }
+        }
     }
 
     override fun onBackPressed() {

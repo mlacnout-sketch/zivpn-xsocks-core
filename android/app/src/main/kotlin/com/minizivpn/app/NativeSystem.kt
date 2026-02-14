@@ -20,5 +20,8 @@ class NativeSystem {
 
         @JvmStatic
         external fun getABI(): String
+
+        @JvmStatic
+        external fun pickBestRefreshRate(supportedRates: FloatArray): Float
     }
 }
