@@ -61,7 +61,7 @@ class UpdateViewModel {
         return file;
       }
     } catch (e) {
-      print('Download failed: $e');
+      // Download failed
       await _notificationService.cancel(100);
     }
     

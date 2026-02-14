@@ -172,8 +172,12 @@ class _HomePageState extends State<HomePage> {
     final prefs = await SharedPreferences.getInstance();
     
     // Set Defaults
-    if (!prefs.containsKey('mtu')) await prefs.setInt('mtu', 1500);
-    if (!prefs.containsKey('ping_interval')) await prefs.setInt('ping_interval', 3);
+    if (!prefs.containsKey('mtu')) {
+      await prefs.setInt('mtu', 1500);
+    }
+    if (!prefs.containsKey('ping_interval')) {
+      await prefs.setInt('ping_interval', 3);
+    }
     
     final String? jsonStr = prefs.getString('saved_accounts');
     if (jsonStr != null) {
@@ -236,7 +240,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _flushLogs() {
-    if (!mounted || _logBuffer.isEmpty) return;
+    if (!mounted || _logBuffer.isEmpty) {
+      return;
+    }
     setState(() {
       _logs.addAll(_logBuffer);
       _logBuffer.clear();
@@ -244,7 +250,9 @@ class _HomePageState extends State<HomePage> {
     });
     if (_selectedIndex == 2 && _logScrollCtrl.hasClients) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_logScrollCtrl.hasClients) _logScrollCtrl.jumpTo(_logScrollCtrl.position.maxScrollExtent);
+        if (_logScrollCtrl.hasClients) {
+          _logScrollCtrl.jumpTo(_logScrollCtrl.position.maxScrollExtent);
+        }
       });
     }
   }
@@ -305,8 +313,12 @@ class _HomePageState extends State<HomePage> {
       }
 
     } else {
+      if (!mounted) return;
       final ip = prefs.getString('ip') ?? '';
-      if (ip.isEmpty) { setState(() => _selectedIndex = 4); return; }
+      if (ip.isEmpty) {
+        setState(() => _selectedIndex = 4);
+        return;
+      }
 
       setState(() => _vpnState = 'connecting');
 
@@ -387,7 +399,7 @@ class _HomePageState extends State<HomePage> {
           children: [
             DashboardTab(
               vpnState: _vpnState,
-              onToggle: _toggleVpn,
+              onToggle: () => unawaited(_toggleVpn()),
               dl: _dlSpeed,
               ul: _ulSpeed,
               duration: _durationNotifier,
@@ -399,7 +411,7 @@ class _HomePageState extends State<HomePage> {
             ProxiesTab(
               accounts: _accounts,
               activePingIndex: _activeAccountIndex,
-              onActivate: _handleAccountSwitch,
+              onActivate: (i) => unawaited(_handleAccountSwitch(i)),
               onAdd: (acc) { setState(() => _accounts.add(acc)); _saveAccounts(); },
               onEdit: (index, newAcc) { setState(() => _accounts[index] = newAcc); _saveAccounts(); },
               onDelete: (index) {

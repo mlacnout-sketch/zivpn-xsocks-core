@@ -28,8 +28,15 @@ static hysteria_connect_t orig_hysteria_connect = NULL;
 static hysteria_send_t orig_hysteria_send = NULL;
 static hysteria_recv_t orig_hysteria_recv = NULL;
 
-// ═══ OPTIMIZATION: CONNECTION POOL ═══
+// ═══ OPTIMIZATION CONFIG ═══
 #define MAX_CONNECTIONS 8
+#define BATCH_SIZE 16
+#define BATCH_TIMEOUT_MS 10
+
+typedef struct {
+    unsigned char data[8192];
+    size_t len;
+} packet_buffer_t;
 
 typedef struct {
     int handle;
@@ -37,17 +44,76 @@ typedef struct {
     int port;
     int in_use;
     time_t last_used;
+
+    // Per-connection Batching
+    packet_buffer_t batch[BATCH_SIZE];
+    int batch_count;
+    struct timespec last_flush;
+    pthread_mutex_t lock;
 } connection_t;
 
 static connection_t connection_pool[MAX_CONNECTIONS];
 static pthread_mutex_t pool_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static void init_connection_pool(void) {
-    memset(connection_pool, 0, sizeof(connection_pool));
     for (int i = 0; i < MAX_CONNECTIONS; i++) {
         connection_pool[i].handle = -1;
+        connection_pool[i].in_use = 0;
+        connection_pool[i].batch_count = 0;
+        pthread_mutex_init(&connection_pool[i].lock, NULL);
+        clock_gettime(CLOCK_MONOTONIC, &connection_pool[i].last_flush);
     }
 }
+
+// Unused but kept for future use
+static void release_connection(int handle) __attribute__((unused));
+static void release_connection(int handle) {
+    pthread_mutex_lock(&pool_lock);
+
+    for (int i = 0; i < MAX_CONNECTIONS; i++) {
+        if (connection_pool[i].handle == handle) {
+            connection_pool[i].in_use = 0;
+            connection_pool[i].last_used = time(NULL);
+            // We should arguably flush here, but if released, maybe handle is closed?
+            break;
+        }
+    }
+
+    pthread_mutex_unlock(&pool_lock);
+}
+
+static void flush_connection_batch(connection_t *conn) {
+    if (conn->batch_count == 0) return;
+
+    // Calculate size
+    size_t total_len = 0;
+    for (int i = 0; i < conn->batch_count; i++) {
+        total_len += conn->batch[i].len;
+    }
+
+    unsigned char *combined = malloc(total_len);
+    if (!combined) {
+         LOGE("Failed to allocate memory for batch flush");
+         conn->batch_count = 0;
+         return;
+    }
+
+    size_t offset = 0;
+    for (int i = 0; i < conn->batch_count; i++) {
+        memcpy(combined + offset, conn->batch[i].data, conn->batch[i].len);
+        offset += conn->batch[i].len;
+    }
+
+    if (orig_hysteria_send) {
+        orig_hysteria_send(conn->handle, combined, total_len);
+    }
+
+    free(combined);
+    conn->batch_count = 0;
+    clock_gettime(CLOCK_MONOTONIC, &conn->last_flush);
+}
+
+// ═══ WRAPPED FUNCTIONS ═══
 
 static int get_pooled_connection(const char *server, int port) {
     pthread_mutex_lock(&pool_lock);
@@ -71,73 +137,6 @@ static int get_pooled_connection(const char *server, int port) {
     pthread_mutex_unlock(&pool_lock);
     return -1;  // Not found
 }
-
-// Unused but kept for future use
-static void release_connection(int handle) __attribute__((unused));
-static void release_connection(int handle) {
-    pthread_mutex_lock(&pool_lock);
-
-    for (int i = 0; i < MAX_CONNECTIONS; i++) {
-        if (connection_pool[i].handle == handle) {
-            connection_pool[i].in_use = 0;
-            connection_pool[i].last_used = time(NULL);
-            break;
-        }
-    }
-
-    pthread_mutex_unlock(&pool_lock);
-}
-
-// ═══ OPTIMIZATION: SEND BATCHING ═══
-#define BATCH_SIZE 16
-#define BATCH_TIMEOUT_MS 10
-
-typedef struct {
-    unsigned char data[8192];
-    size_t len;
-} batch_buffer_t;
-
-static batch_buffer_t send_batch[BATCH_SIZE];
-static int batch_count = 0;
-static pthread_mutex_t batch_lock = PTHREAD_MUTEX_INITIALIZER;
-static struct timespec last_flush;
-
-static void flush_send_batch(int handle) {
-    if (batch_count == 0) return;
-
-    LOGD("Flushing batch: %d packets", batch_count);
-
-    // Combine all batched data
-    size_t total_len = 0;
-    for (int i = 0; i < batch_count; i++) {
-        total_len += send_batch[i].len;
-    }
-
-    unsigned char *combined = malloc(total_len);
-    if (!combined) {
-        LOGE("Failed to allocate memory for batch flush");
-        batch_count = 0;
-        return;
-    }
-
-    size_t offset = 0;
-
-    for (int i = 0; i < batch_count; i++) {
-        memcpy(combined + offset, send_batch[i].data, send_batch[i].len);
-        offset += send_batch[i].len;
-    }
-
-    // Single send call instead of multiple
-    if (orig_hysteria_send) {
-        orig_hysteria_send(handle, combined, total_len);
-    }
-
-    free(combined);
-    batch_count = 0;
-    clock_gettime(CLOCK_MONOTONIC, &last_flush);
-}
-
-// ═══ WRAPPED FUNCTIONS ═══
 
 int hysteria_connect(const char *server, int port, const char *auth) {
     LOGD("hysteria_connect(%s, %d)", server, port);
@@ -164,6 +163,7 @@ int hysteria_connect(const char *server, int port, const char *auth) {
                 connection_pool[i].port = port;
                 connection_pool[i].in_use = 1;
                 connection_pool[i].last_used = time(NULL);
+                connection_pool[i].batch_count = 0; // Reset batch
                 break;
             }
         }
@@ -176,34 +176,47 @@ int hysteria_connect(const char *server, int port, const char *auth) {
 int hysteria_send(int handle, const void *data, size_t len) {
     if (!orig_hysteria_send) return -1;
 
-    pthread_mutex_lock(&batch_lock);
+    connection_t *conn = NULL;
+
+    // Find connection in pool
+    pthread_mutex_lock(&pool_lock);
+    for (int i = 0; i < MAX_CONNECTIONS; i++) {
+        if (connection_pool[i].in_use && connection_pool[i].handle == handle) {
+            conn = &connection_pool[i];
+            break;
+        }
+    }
+    pthread_mutex_unlock(&pool_lock);
+
+    if (!conn) {
+        // Not pooled, just send
+        return orig_hysteria_send(handle, data, len);
+    }
+
+    pthread_mutex_lock(&conn->lock);
 
     // Check if we should flush (batch full or timeout)
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
-    long elapsed_ms = (now.tv_sec - last_flush.tv_sec) * 1000 +
-                     (now.tv_nsec - last_flush.tv_nsec) / 1000000;
+    long elapsed_ms = (now.tv_sec - conn->last_flush.tv_sec) * 1000 +
+                     (now.tv_nsec - conn->last_flush.tv_nsec) / 1000000;
 
-    if (batch_count >= BATCH_SIZE || elapsed_ms >= BATCH_TIMEOUT_MS) {
-        flush_send_batch(handle);
+    if (conn->batch_count >= BATCH_SIZE || elapsed_ms >= BATCH_TIMEOUT_MS) {
+        flush_connection_batch(conn);
     }
 
     // Add to batch
-    if (len <= sizeof(send_batch[0].data)) {
-        memcpy(send_batch[batch_count].data, data, len);
-        send_batch[batch_count].len = len;
-        batch_count++;
+    if (len <= sizeof(conn->batch[0].data)) {
+        memcpy(conn->batch[conn->batch_count].data, data, len);
+        conn->batch[conn->batch_count].len = len;
+        conn->batch_count++;
     } else {
         // Too large for batching, send immediately
-        // Flush existing batch first to maintain order
-        if (batch_count > 0) {
-            flush_send_batch(handle);
-        }
-        pthread_mutex_unlock(&batch_lock);
-        return orig_hysteria_send(handle, data, len);
+        if (conn->batch_count > 0) flush_connection_batch(conn);
+        orig_hysteria_send(handle, data, len);
     }
 
-    pthread_mutex_unlock(&batch_lock);
+    pthread_mutex_unlock(&conn->lock);
     return len;
 }
 
@@ -220,13 +233,9 @@ static void init_wrapper(void) {
     LOGD("Initializing LibUZ wrapper");
 
     // Load original library
-    // The path here assumes the library is in the library path
-    // In Android, it might be loaded automatically or we might need the full path
     libuz_handle = dlopen("libuz.so", RTLD_NOW);
     if (!libuz_handle) {
-        // Fallback or log error
-        // LOGE("Failed to load libuz.so: %s", dlerror());
-        // For testing purposes, we might just return if not found
+        // Just return if not found, avoids crashing if lib is missing during dev
         return;
     }
 
@@ -242,7 +251,6 @@ static void init_wrapper(void) {
 
     // Initialize optimizations
     init_connection_pool();
-    clock_gettime(CLOCK_MONOTONIC, &last_flush);
 
     LOGD("LibUZ wrapper initialized successfully");
 }

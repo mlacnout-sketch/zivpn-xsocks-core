@@ -48,7 +48,7 @@ class AutoPilotService {
         stabilizerSizeMb: prefs.getInt('stabilizer_size_ap') ?? 1,
       );
     } catch (e) {
-      _log('Failed to load config: $e');
+      await _log('Failed to load config: $e');
     }
   }
 
@@ -154,7 +154,7 @@ class AutoPilotService {
         }
       }
     } catch (e) {
-      _log('Check failed: $e');
+      await _log('Check failed: $e');
     } finally {
       _isChecking = false;
     }
@@ -179,7 +179,9 @@ class AutoPilotService {
       await _shizuku.runCommand('cmd activity set-inactive $pkg false');
       await _shizuku.runCommand('cmd activity set-standby-bucket $pkg active');
       await _shizuku.runCommand('pidof $pkg | xargs -n 1 -I {} sh -c "echo -900 > /proc/{}/oom_score_adj"');
-    } catch (e) {}
+    } catch (e) {
+      // Ignore errors during strengthening
+    }
   }
 
   Future<void> _performReset() async {
@@ -240,7 +242,7 @@ class AutoPilotService {
     
     for (int i = 1; i <= totalChunks; i++) {
         try {
-            _log('Stabilizer: Chunk $i/$totalChunks (1MB)...');
+            await _log('Stabilizer: Chunk $i/$totalChunks (1MB)...');
             final request = http.Request('GET', Uri.parse('http://speedtest.tele2.net/1MB.zip'));
             request.headers['Connection'] = 'close'; // Force new connection
             
@@ -250,10 +252,10 @@ class AutoPilotService {
                 // Drain stream to actually download bytes
                 await response.stream.drain<void>();
             } else {
-                _log('Stabilizer: Chunk $i failed (HTTP ${response.statusCode})');
+                await _log('Stabilizer: Chunk $i failed (HTTP ${response.statusCode})');
             }
         } catch (e) {
-            _log('Stabilizer: Chunk $i error: $e');
+            await _log('Stabilizer: Chunk $i error: $e');
             // Wait a bit before next chunk if failed
             await Future<void>.delayed(const Duration(seconds: 1));
         }
