@@ -340,6 +340,8 @@ static err_t client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len);
 static void udpgw_client_handler_received (void *unused, BAddr local_addr, BAddr remote_addr, const uint8_t *data, int data_len);
 
 #ifdef ANDROID
+static int dns_init = 0;
+
 static void daemonize(const char* path) {
 
     /* Our process ID and Session ID */
@@ -390,11 +392,15 @@ static void daemonize(const char* path) {
 }
 #endif
 
-int main (int argc, char **argv)
+int tun2socks_main (int argc, char **argv)
 {
     if (argc <= 0) {
         return 1;
     }
+
+#ifdef ANDROID
+    dns_init = 0;
+#endif
 
     // open standard streams
     open_standard_streams();
@@ -493,50 +499,56 @@ int main (int argc, char **argv)
 
 #ifdef ANDROID
     // use supplied file descriptor
-    int sock, fd;
-    struct sockaddr_un addr;
+    int fd = -1;
 
-    if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-        BLog(BLOG_ERROR, "socket() failed: %s (socket sock = %d)\n", strerror(errno), sock);
-        goto fail2;
-    }
+    if (options.tun_fd > 0) {
+        fd = options.tun_fd;
+    } else {
+        int sock;
+        struct sockaddr_un addr;
 
-    char *path = "/data/data/io.github.xSocks/sock_path";
-    unlink(path);
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, path, sizeof(addr.sun_path)-1);
-
-    if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-        BLog(BLOG_ERROR, "bind() failed: %s (sock = %d)\n", strerror(errno), sock);
-        close(sock);
-        goto fail2;
-    }
-
-    if (listen(sock, 5) == -1) {
-        BLog(BLOG_ERROR, "listen() failed: %s (sock = %d)\n", strerror(errno), sock);
-        close(sock);
-        goto fail2;
-    }
-
-    for (;;) {
-        int sock2;
-        struct sockaddr_un remote;
-        int t = sizeof(remote);
-        if ((sock2 = accept(sock, (struct sockaddr *)&remote, &t)) == -1) { 
-            BLog(BLOG_ERROR, "accept() failed: %s (sock = %d)\n", strerror(errno), sock);
-            continue;
+        if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+            BLog(BLOG_ERROR, "socket() failed: %s (socket sock = %d)\n", strerror(errno), sock);
+            goto fail2;
         }
-        if (ancil_recv_fd(sock2, &fd)) {
-            BLog(BLOG_ERROR, "ancil_recv_fd: %s (sock = %d)\n", strerror(errno), sock2);
-            close(sock2);
-        } else {
-            close(sock2);
-            BLog(BLOG_INFO, "received fd = %d", fd);
-            break;
+
+        char *path = "/data/data/io.github.xSocks/sock_path";
+        unlink(path);
+        memset(&addr, 0, sizeof(addr));
+        addr.sun_family = AF_UNIX;
+        strncpy(addr.sun_path, path, sizeof(addr.sun_path)-1);
+
+        if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
+            BLog(BLOG_ERROR, "bind() failed: %s (sock = %d)\n", strerror(errno), sock);
+            close(sock);
+            goto fail2;
         }
+
+        if (listen(sock, 5) == -1) {
+            BLog(BLOG_ERROR, "listen() failed: %s (sock = %d)\n", strerror(errno), sock);
+            close(sock);
+            goto fail2;
+        }
+
+        for (;;) {
+            int sock2;
+            struct sockaddr_un remote;
+            int t = sizeof(remote);
+            if ((sock2 = accept(sock, (struct sockaddr *)&remote, &t)) == -1) {
+                BLog(BLOG_ERROR, "accept() failed: %s (sock = %d)\n", strerror(errno), sock);
+                continue;
+            }
+            if (ancil_recv_fd(sock2, &fd)) {
+                BLog(BLOG_ERROR, "ancil_recv_fd: %s (sock = %d)\n", strerror(errno), sock2);
+                close(sock2);
+            } else {
+                close(sock2);
+                BLog(BLOG_INFO, "received fd = %d", fd);
+                break;
+            }
+        }
+        close(sock);
     }
-    close(sock);
 
     struct BTap_init_data init_data;
     init_data.dev_type = BTAP_DEV_TUN;
@@ -1338,8 +1350,6 @@ int process_device_dns_packet (uint8_t *data, int data_len)
         goto fail;
     }
 
-    static int init = 0;
-
     int to_dns;
     int from_dns;
     int packet_length = 0;
@@ -1392,8 +1402,8 @@ int process_device_dns_packet (uint8_t *data, int data_len)
                 BLog(BLOG_INFO, "UDP: to DNS %d bytes", data_len);
 
                 // construct addresses
-                if (!init) {
-                    init = 1;
+                if (!dns_init) {
+                    dns_init = 1;
                     BAVL_Init(&connections_tree, OFFSET_DIFF(Connection, port, connections_tree_node), (BAVL_comparator)conaddr_comparator, NULL);
                 }
                 BAddr local_addr;
@@ -1412,7 +1422,7 @@ int process_device_dns_packet (uint8_t *data, int data_len)
             } else if (from_dns) {
 
                 // if not initialized
-                if (!init) {
+                if (!dns_init) {
                     goto fail;
                 }
 

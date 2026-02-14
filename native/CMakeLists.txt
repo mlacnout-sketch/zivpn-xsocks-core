@@ -76,7 +76,7 @@ set(BADVPN_SOURCES
     badvpn/tun2socks/MemoryPool.c
 )
 
-add_executable(tun2socks ${BADVPN_SOURCES})
+add_executable(tun2socks ${BADVPN_SOURCES} tun2socks/tun2socks_main_wrapper.c)
 set_target_properties(tun2socks PROPERTIES OUTPUT_NAME "tun2socks")
 set_target_properties(tun2socks PROPERTIES SUFFIX ".so")
 set_target_properties(tun2socks PROPERTIES PREFIX "lib")
@@ -180,3 +180,63 @@ target_compile_options(pdnsd PRIVATE
 )
 target_include_directories(pdnsd PRIVATE pdnsd pdnsd/src)
 target_link_libraries(pdnsd log)
+
+# --- zivpn-core (Shared Library for JNI) ---
+add_library(zivpn-core SHARED
+    ${BADVPN_SOURCES}
+    jni/jni_bridge.c
+    crypto/crypto.c
+)
+
+target_compile_definitions(zivpn-core PRIVATE
+    BADVPN_THREADWORK_USE_PTHREAD
+    BADVPN_LINUX
+    BADVPN_BREACTOR_BADVPN
+    _GNU_SOURCE
+    BADVPN_USE_SELFPIPE
+    BADVPN_USE_EPOLL
+    BADVPN_LITTLE_ENDIAN
+    BADVPN_THREAD_SAFE
+    NDEBUG
+    ANDROID
+)
+
+target_include_directories(zivpn-core PRIVATE
+    libancillary
+    badvpn/lwip/src/include/ipv4
+    badvpn/lwip/src/include/ipv6
+    badvpn/lwip/src/include
+    badvpn/lwip/custom
+    badvpn
+    crypto
+    jni
+)
+
+find_library(sodium-lib sodium)
+if(sodium-lib)
+    target_link_libraries(zivpn-core ${sodium-lib})
+    target_compile_definitions(zivpn-core PRIVATE HAVE_SODIUM)
+else()
+    target_link_libraries(zivpn-core sodium) # Try linking anyway if find_library fails (e.g. static)
+    target_compile_definitions(zivpn-core PRIVATE HAVE_SODIUM)
+endif()
+
+target_link_libraries(zivpn-core ancillary log dl)
+
+if(ANDROID)
+    target_compile_options(zivpn-core PRIVATE
+        -O3
+        -DNDEBUG
+        -fno-plt
+        -fvisibility=hidden
+        -fomit-frame-pointer
+        -flto
+    )
+    target_link_options(zivpn-core PRIVATE -flto -Wl,--strip-all)
+
+    if(ANDROID_ABI STREQUAL "arm64-v8a")
+        target_compile_options(zivpn-core PRIVATE -march=armv8-a+crypto)
+    elseif(ANDROID_ABI STREQUAL "armeabi-v7a")
+        target_compile_options(zivpn-core PRIVATE -mfpu=neon -mfloat-abi=softfp)
+    endif()
+endif()
