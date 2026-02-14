@@ -52,6 +52,7 @@ class ZivpnService : VpnService() {
     private val processes = mutableListOf<Process>()
     private var wakeLock: PowerManager.WakeLock? = null
     private var pingExecutor: ScheduledExecutorService? = null
+    private var isReconnecting = false
     
     // Class-level properties to be accessible within inner classes/lambdas
     private var consecutiveFailures = 0
@@ -135,25 +136,40 @@ class ZivpnService : VpnService() {
             manager?.createNotificationChannel(channel)
         }
 
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("MiniZIVPN Running")
-            .setContentText("VPN Service is active")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+        val notification = buildStatusNotification("MiniZIVPN Running", "Preparing VPN tunnel...")
 
         if (Build.VERSION.SDK_INT >= 34) {
              startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
              startForeground(NOTIFICATION_ID, notification)
         }
+    }
+
+
+
+    private fun buildStatusNotification(title: String, body: String): Notification {
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+    }
+
+    private fun updateServiceNotification(status: String) {
+        val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+        val userLabel = getPrefString(prefs, "server_ip", "Unknown server")
+        val body = "User: $userLabel • $status"
+        val manager = getSystemService(NotificationManager::class.java)
+        manager?.notify(NOTIFICATION_ID, buildStatusNotification("MiniZIVPN Running", body))
     }
 
     private fun getPrefString(prefs: android.content.SharedPreferences, key: String, def: String): String {
@@ -214,9 +230,14 @@ class ZivpnService : VpnService() {
 
                 if (useWakelock) {
                     val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MiniZivpn::CoreWakelock")
-                    wakeLock?.acquire()
-                    logToApp("CPU Wakelock acquired")
+                    if (wakeLock == null) {
+                        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MiniZivpn::CoreWakelock")
+                        wakeLock?.setReferenceCounted(false)
+                    }
+                    if (wakeLock?.isHeld != true) {
+                        wakeLock?.acquire()
+                        logToApp("CPU Wakelock acquired")
+                    }
                 }
 
                 // 1. START HYSTERIA & LOAD BALANCER
@@ -400,6 +421,12 @@ class ZivpnService : VpnService() {
                 val finalTarget = if (rawTarget.startsWith("http")) rawTarget else "http://$rawTarget"
                 
                 if (pingInterval > 0) startPingTimer(finalTarget, pingInterval)
+                updateServiceNotification("Connected")
+
+                val shizukuKeepAlive = getPrefBool(prefs, "shizuku_keepalive", false)
+                if (shizukuKeepAlive) {
+                    applyKeepAliveCmdHints()
+                }
             }
         } catch (e: Exception) {
             logToApp("Native Engine Error: ${e.message}")
@@ -471,45 +498,75 @@ class ZivpnService : VpnService() {
         logToApp("Load Balancer active on port 7777")
     }
 
+
+
+    private fun applyKeepAliveCmdHints() {
+        try {
+            val pkg = packageName
+            NativeSystem.exec("cmd appops set $pkg RUN_IN_BACKGROUND allow")
+            NativeSystem.exec("cmd appops set $pkg RUN_ANY_IN_BACKGROUND allow")
+            NativeSystem.exec("dumpsys deviceidle whitelist +$pkg")
+            logToApp("Keep-alive CMD hints applied (Shizuku/root environment expected).")
+        } catch (e: Exception) {
+            logToApp("Keep-alive CMD hints failed: ${e.message}")
+        }
+    }
+
+    private fun reconnectFromWatchdog() {
+        if (isReconnecting) return
+        isReconnecting = true
+        Thread {
+            try {
+                logToApp("[WATCHDOG] Reconnecting tunnel...")
+                updateServiceNotification("Reconnecting...")
+                stopCoreProcesses(markStopped = false)
+                connect()
+            } finally {
+                isReconnecting = false
+            }
+        }.start()
+    }
+
+    private fun stopCoreProcesses(markStopped: Boolean) {
+        stopPingTimer()
+
+        processes.forEach {
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) it.destroyForcibly() else it.destroy()
+            } catch (_: Exception) {}
+        }
+        processes.clear()
+
+        Thread {
+            try {
+                val cleanupCmd = arrayOf("sh", "-c", "pkill -9 libuz; pkill -9 libload; pkill -9 libuz.so; pkill -9 libload.so; pkill -9 libtun2socks.so; pkill -9 libpdnsd.so")
+                Runtime.getRuntime().exec(cleanupCmd).waitFor()
+            } catch (_: Exception) {}
+        }.start()
+
+        try {
+            vpnInterface?.close()
+        } catch (_: Exception) {}
+        vpnInterface = null
+
+        if (markStopped) {
+            val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+            prefs.edit().putBoolean("flutter.vpn_running", false).apply()
+        }
+    }
+
     private fun disconnect() {
         Log.i("ZIVPN-Tun", "Stopping VPN and cores...")
-        
-        stopPingTimer()
 
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
             logToApp("CPU Wakelock released")
         }
         wakeLock = null
-        
-        // Stop tun2socks process explicitly if it's in the list (it is)
-        
-        processes.forEach { 
-            try {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    it.destroyForcibly()
-                } else {
-                    it.destroy()
-                }
-            } catch(e: Exception){} 
-        }
-        processes.clear()
 
-        // Optimized: Run cleanup in background to prevent ANR
-        // Added libtun2socks.so and libpdnsd.so to cleanup
-        Thread {
-            try {
-                val cleanupCmd = arrayOf("sh", "-c", "pkill -9 libuz; pkill -9 libload; pkill -9 libuz.so; pkill -9 libload.so; pkill -9 libtun2socks.so; pkill -9 libpdnsd.so")
-                Runtime.getRuntime().exec(cleanupCmd).waitFor()
-            } catch (e: Exception) {}
-        }.start()
+        stopCoreProcesses(markStopped = true)
+        updateServiceNotification("Disconnected")
 
-        vpnInterface?.close()
-        vpnInterface = null
-        
-        val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
-        prefs.edit().putBoolean("flutter.vpn_running", false).apply()
-        
         stopForeground(true)
         stopSelf()
     }
@@ -552,10 +609,12 @@ class ZivpnService : VpnService() {
                 
                 if (autoReset && consecutiveFailures >= maxFail) {
                     if (sessionResetCount < 5) {
-                        logToApp("[CONNECTION_LOST] Max failures reached. Triggering Auto Reset (#${sessionResetCount + 1})...")
+                        logToApp("[CONNECTION_LOST] Max failures reached. Triggering Auto Reconnect (#${sessionResetCount + 1})...")
                         sessionResetCount++
+                        reconnectFromWatchdog()
                     } else {
-                        logToApp("[AutoPilot] ⛔ Gave up after 5 resets. Internet seems permanently dead.")
+                        logToApp("[AutoPilot] ⛔ Gave up after 5 reconnect attempts.")
+                        updateServiceNotification("Connection unstable")
                     }
                     consecutiveFailures = 0
                 }

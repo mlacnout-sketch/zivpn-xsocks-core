@@ -216,6 +216,7 @@ class MainActivity: FlutterActivity() {
                 prefs.putBoolean("flutter.bypass_mode", call.argument<Boolean>("bypass_mode") ?: false)
                 prefs.putBoolean("flutter.cpu_wakelock", call.argument<Boolean>("cpu_wakelock") ?: false)
                 prefs.putBoolean("flutter.udpgw_transparent_dns", call.argument<Boolean>("udpgw_transparent_dns") ?: false)
+                prefs.putBoolean("flutter.shizuku_keepalive", call.argument<Boolean>("shizuku_keepalive") ?: false)
 
                 // Integers
                 prefs.putInt("flutter.mtu", call.argument<Int>("mtu") ?: 1500)
