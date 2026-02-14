@@ -4,8 +4,36 @@ import android.content.Context
 import java.io.File
 
 object Pdnsd {
+    private const val DEFAULT_UPSTREAM_DNS_IP = "208.67.222.222"
+    private const val DEFAULT_UPSTREAM_DNS_PORT = "53"
+
     fun getExecutable(context: Context): String {
         return File(context.applicationInfo.nativeLibraryDir, "libpdnsd.so").absolutePath
+    }
+
+    private fun parseUpstreamDns(upstreamDns: String): Pair<String, String> {
+        val value = upstreamDns.trim()
+        if (value.isEmpty()) {
+            return DEFAULT_UPSTREAM_DNS_IP to DEFAULT_UPSTREAM_DNS_PORT
+        }
+
+        // IPv6 format: [ip]:port
+        if (value.startsWith("[") && value.contains("]")) {
+            val endBracket = value.indexOf(']')
+            val ip = value.substring(1, endBracket).ifEmpty { DEFAULT_UPSTREAM_DNS_IP }
+            val port = value.substring(endBracket + 1).removePrefix(":").ifEmpty { DEFAULT_UPSTREAM_DNS_PORT }
+            return ip to port
+        }
+
+        // IPv4/hostname with optional :port
+        val lastColon = value.lastIndexOf(':')
+        if (lastColon > 0 && value.indexOf(':') == lastColon) {
+            val ip = value.substring(0, lastColon).ifEmpty { DEFAULT_UPSTREAM_DNS_IP }
+            val port = value.substring(lastColon + 1).ifEmpty { DEFAULT_UPSTREAM_DNS_PORT }
+            return ip to port
+        }
+
+        return value to DEFAULT_UPSTREAM_DNS_PORT
     }
 
     fun writeConfig(context: Context, listenPort: Int, upstreamDns: String): String {
@@ -14,10 +42,7 @@ object Pdnsd {
         
         val configFile = File(context.filesDir, "pdnsd.conf")
         
-        // Handle IP or IP:PORT format. Default to 443 if no port specified.
-        val parts = upstreamDns.split(":")
-        val ip = parts[0].ifEmpty { "208.67.222.222" } // Default to OpenDNS
-        val port = if (parts.size > 1) parts[1] else "443" 
+        val (ip, port) = parseUpstreamDns(upstreamDns)
         
         val conf = """
             global {

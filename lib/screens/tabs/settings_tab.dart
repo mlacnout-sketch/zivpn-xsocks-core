@@ -44,6 +44,14 @@ class _SettingsTabState extends State<SettingsTab> {
   String _appVersion = "Unknown";
   
   final _backupRepo = BackupRepository();
+
+  static const List<MapEntry<String, String>> _dnsPresets = [
+    MapEntry("Google DNS", "8.8.8.8"),
+    MapEntry("Cloudflare DNS", "1.1.1.1"),
+    MapEntry("Quad9 DNS", "9.9.9.9"),
+    MapEntry("OpenDNS", "208.67.222.222"),
+    MapEntry("AdGuard DNS", "94.140.14.14"),
+  ];
   // Using a shared viewmodel logic or passing it would be ideal, but for now we rely on the parent's action or listen to a shared stream.
   // Actually, since the update logic is triggered by the parent (onCheckUpdate), the progress should ideally be shown by the parent dialog.
   // BUT, the user requested it HERE. 
@@ -236,7 +244,8 @@ class _SettingsTabState extends State<SettingsTab> {
                 Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: _buildTextInput(_tcpSndBufCtrl, "TCP Send Buffer", Icons.upload_file)),
                 Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: _buildTextInput(_tcpWndCtrl, "TCP Window Size", Icons.download_for_offline)),
                 Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: _buildTextInput(_socksBufCtrl, "SOCKS Buffer", Icons.memory)),
-                Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: _buildTextInput(_dnsCtrl, "Upstream DNS", Icons.dns)),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: _buildDnsInput()),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _buildDnsPresets()),
                 _buildDropdownTile("Log Level", "Verbosity", _logLevel, ["debug", "info", "error", "silent"], (val) => setState(() => _logLevel = val!)),
                 const Divider(),
                 ListTile(leading: const Icon(Icons.cloud_download_outlined), title: const Text("Backup Configuration"), onTap: _handleBackup),
@@ -273,6 +282,43 @@ class _SettingsTabState extends State<SettingsTab> {
         filled: true,
         fillColor: AppColors.card,
       ),
+    );
+  }
+
+
+  Widget _buildDnsInput() {
+    return TextField(
+      controller: _dnsCtrl,
+      keyboardType: TextInputType.text,
+      decoration: InputDecoration(
+        labelText: "Upstream DNS (IP atau IP:PORT)",
+        prefixIcon: const Icon(Icons.dns),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: AppColors.card,
+      ),
+    );
+  }
+
+  Widget _buildDnsPresets() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("DNS Preset", style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _dnsPresets
+              .map(
+                (preset) => ActionChip(
+                  label: Text(preset.key),
+                  onPressed: () => setState(() => _dnsCtrl.text = preset.value),
+                ),
+              )
+              .toList(),
+        ),
+      ],
     );
   }
 
