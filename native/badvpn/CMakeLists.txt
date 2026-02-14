@@ -99,14 +99,17 @@ endif ()
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${LIBCRYPTO_INCLUDE_DIRS}
-    ${NSPR_INCLUDE_DIRS}
-    ${NSS_INCLUDE_DIRS}
-    ${GLIB2_INCLUDE_DIR}
     lwip/custom
     lwip/src/include
     lwip/src/include/ipv4
     lwip/src/include/ipv6
+)
+
+include_directories(SYSTEM
+    ${LIBCRYPTO_INCLUDE_DIRS}
+    ${NSPR_INCLUDE_DIRS}
+    ${NSS_INCLUDE_DIRS}
+    ${GLIB2_INCLUDE_DIR}
 )
 
 link_directories(
@@ -130,7 +133,7 @@ endif ()
 if (MSVC)
     add_definitions(/TP -D_CRT_SECURE_NO_WARNINGS /wd4065 /wd4018 /wd4533 /wd4244 /wd4102)
 else ()
-    add_definitions(-std=gnu99 -Wall -Wno-unused-value -Wno-parentheses -Wno-switch -Wredundant-decls)
+    add_definitions(-std=gnu99 -Wall -Wno-unused-value -Wno-parentheses -Wno-switch -Wredundant-decls -Wno-unused-variable -Wno-address-of-packed-member -Wno-use-after-free -Wno-deprecated-declarations)
 
     if (NOT CMAKE_C_COMPILER_ID STREQUAL "PathScale")
         add_definitions(-Werror=implicit-function-declaration -Wno-switch-enum -Wno-unused-function

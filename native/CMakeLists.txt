@@ -102,6 +102,15 @@ target_include_directories(tun2socks PRIVATE
 
 target_link_libraries(tun2socks ancillary log dl)
 
+set(ANDROID_WARNING_CLEAN_FLAGS
+    -Wno-unused-variable
+    -Wno-unused-but-set-variable
+    -Wno-unused-result
+    -Wno-address-of-packed-member
+    -Wno-aggressive-loop-optimizations
+    -Wno-stringop-overflow
+)
+
 # Optimization flags
 if(ANDROID)
     target_compile_options(tun2socks PRIVATE
@@ -111,6 +120,7 @@ if(ANDROID)
         -funroll-loops
         -fvisibility=hidden
         -fomit-frame-pointer
+        ${ANDROID_WARNING_CLEAN_FLAGS}
     )
 
     # Link-time optimization
@@ -140,7 +150,7 @@ if(NOT SKIP_JNI_CHECK)
     )
 
     target_include_directories(system PRIVATE libancillary)
-    target_compile_options(system PRIVATE -O3)
+    target_compile_options(system PRIVATE -O3 ${ANDROID_WARNING_CLEAN_FLAGS})
 
     # For android_getCpuFamily - Only include if running within NDK context
     if(ANDROID_NDK_REVISION OR ANDROID_PLATFORM)
@@ -168,6 +178,11 @@ target_compile_options(pdnsd PRIVATE
     -Wno-unused-variable 
     -Wno-string-plus-int
     -Wno-gnu-designator
+    -Wno-unused-but-set-variable
+    -Wno-unused-result
 )
+if(ANDROID)
+    target_compile_options(pdnsd PRIVATE ${ANDROID_WARNING_CLEAN_FLAGS})
+endif()
 target_include_directories(pdnsd PRIVATE pdnsd pdnsd/src)
 target_link_libraries(pdnsd log)

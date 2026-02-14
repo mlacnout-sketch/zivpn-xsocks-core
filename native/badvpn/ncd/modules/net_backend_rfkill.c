@@ -66,7 +66,9 @@ struct instance {
 static int find_wlan_rfill (const char *ifname, uint32_t *out_index)
 {
     char ieee_path[100];
-    snprintf(ieee_path, sizeof(ieee_path), "/sys/class/net/%s/../../ieee80211", ifname);
+    if (snprintf(ieee_path, sizeof(ieee_path), "/sys/class/net/%s/../../ieee80211", ifname) >= sizeof(ieee_path)) {
+        goto fail0;
+    }
     
     int res = 0;
     
@@ -82,7 +84,9 @@ static int find_wlan_rfill (const char *ifname, uint32_t *out_index)
         }
         
         char phy_path[150];
-        snprintf(phy_path, sizeof(phy_path), "%s/%s", ieee_path, e->d_name);
+        if (snprintf(phy_path, sizeof(phy_path), "%s/%s", ieee_path, e->d_name) >= sizeof(phy_path)) {
+            continue;
+        }
         
         DIR *d2 = opendir(phy_path);
         if (!d2) {

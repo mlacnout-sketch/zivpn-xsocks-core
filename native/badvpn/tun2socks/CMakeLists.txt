@@ -1,6 +1,7 @@
 add_executable(badvpn-tun2socks
     tun2socks.c
     SocksUdpGwClient.c
+    MemoryPool.c
 )
 target_link_libraries(badvpn-tun2socks system flow tuntap lwip socksclient udpgw_client)
 
