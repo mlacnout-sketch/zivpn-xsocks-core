@@ -251,6 +251,7 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
     try {
       await _service.start();
     } catch (e) {
+      if (!mounted) return;
       if (e.toString().contains('Shizuku')) {
         _showShizukuTutorial();
       } else {
@@ -269,7 +270,7 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
   }
 
   void _showShizukuTutorial() {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Shizuku Required'),

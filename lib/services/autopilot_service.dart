@@ -71,7 +71,7 @@ class AutoPilotService {
     try {
       await _platform.invokeMethod('logMessage', {'message': '[AUTOPILOT] $message'});
     } catch (e) {
-      print('AP Log error: $e');
+      // debugPrint('AP Log error: $e');
     }
   }
 
@@ -102,7 +102,7 @@ class AutoPilotService {
 
       _timer = Timer.periodic(
         Duration(seconds: _config.checkIntervalSeconds),
-        (timer) async => await _checkAndRecover(),
+        (timer) { unawaited(_checkAndRecover()); },
       );
     } catch (e) {
       _updateState(_currentState.copyWith(
@@ -197,7 +197,7 @@ class AutoPilotService {
       await _shizuku.runCommand('settings put global airplane_mode_on 1');
       await _shizuku.runCommand('am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true');
       
-      await Future.delayed(Duration(seconds: _config.airplaneModeDelaySeconds));
+      await Future<void>.delayed(Duration(seconds: _config.airplaneModeDelaySeconds));
       
       // 3. Airplane Mode OFF
       await _shizuku.runCommand('settings put global airplane_mode_on 0');
@@ -208,7 +208,7 @@ class AutoPilotService {
         message: 'Waiting for recovery...',
       ));
       
-      await Future.delayed(Duration(seconds: _config.recoveryWaitSeconds));
+      await Future<void>.delayed(Duration(seconds: _config.recoveryWaitSeconds));
 
       if (_config.enableStabilizer) {
         await _runStabilizer();
@@ -248,14 +248,14 @@ class AutoPilotService {
             
             if (response.statusCode == 200) {
                 // Drain stream to actually download bytes
-                await response.stream.drain();
+                await response.stream.drain<void>();
             } else {
                 _log('Stabilizer: Chunk $i failed (HTTP ${response.statusCode})');
             }
         } catch (e) {
             _log('Stabilizer: Chunk $i error: $e');
             // Wait a bit before next chunk if failed
-            await Future.delayed(const Duration(seconds: 1)); 
+            await Future<void>.delayed(const Duration(seconds: 1));
         }
     }
     client.close();

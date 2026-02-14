@@ -141,7 +141,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showUpdateDialog(AppVersion update) {
-    showDialog(
+    showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
@@ -204,7 +204,7 @@ class _HomePageState extends State<HomePage> {
 
     await _autoPilot.init();
     if (isRunning && _autoPilot.config.autoReset) {
-      _autoPilot.start();
+      await _autoPilot.start();
     }
   }
 
@@ -278,7 +278,7 @@ class _HomePageState extends State<HomePage> {
     await prefs.reload();
 
     if (_vpnState == 'connected') {
-      void performStop() async {
+      Future<void> performStop() async {
         try {
           await platform.invokeMethod('stopCore');
           _autoPilot.stop();
@@ -298,10 +298,10 @@ class _HomePageState extends State<HomePage> {
       }
 
       if (mounted) {
-        final bool shown = showSarcasticDialog(context, onProceed: performStop);
-        if (!shown) performStop();
+        final bool shown = showSarcasticDialog(context, onProceed: () { unawaited(performStop()); });
+        if (!shown) await performStop();
       } else {
-        performStop();
+        await performStop();
       }
 
     } else {
@@ -352,10 +352,12 @@ class _HomePageState extends State<HomePage> {
         setState(() => _vpnState = 'connected');
 
         await _autoPilot.init();
-        if (_autoPilot.config.autoReset) _autoPilot.start();
+        if (_autoPilot.config.autoReset) await _autoPilot.start();
 
       } catch (e) {
-        setState(() { _vpnState = 'disconnected'; _logs.add('Start Failed: $e'); });
+        if (mounted) {
+          setState(() { _vpnState = 'disconnected'; _logs.add('Start Failed: $e'); });
+        }
       }
     }
   }

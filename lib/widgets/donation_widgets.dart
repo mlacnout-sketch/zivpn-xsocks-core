@@ -156,7 +156,7 @@ bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}
     return false; // Skip dialog, langsung proceed di logic pemanggil
   }
 
-  showDialog(
+  showDialog<void>(
     context: context,
     barrierDismissible: false,
     builder: (BuildContext context) {

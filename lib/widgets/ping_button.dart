@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,7 +38,7 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
 
     _isPinging = true;
     _result.value = 'Pinging...';
-    _animController.repeat();
+    unawaited(_animController.repeat());
 
     try {
       final res = await _performPing().timeout(
@@ -74,7 +75,7 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
       final request = await client.getUrl(Uri.parse(target));
       final response = await request.close();
       stopwatch.stop();
-      await response.drain();
+      await response.drain<void>();
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         return '${stopwatch.elapsedMilliseconds} ms';
@@ -85,7 +86,7 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
       try {
         final request = await client.getUrl(Uri.parse('http://www.gstatic.com/generate_204'));
         final response = await request.close();
-        await response.drain();
+        await response.drain<void>();
         if (response.statusCode == 204) return 'Gstatic OK';
       } catch (_) {}
 

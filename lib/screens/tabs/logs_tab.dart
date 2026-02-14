@@ -108,8 +108,11 @@ class _LogsTabState extends State<LogsTab> {
                      // Keep errors, simplify text if possible
                      if (log.contains('handshake')) {
                        message = 'Connection Handshake Failed';
-                     } else if (log.contains('timeout')) message = 'Connection Timeout';
-                     else if (log.contains('refused')) message = 'Server Refused Connection';
+                     } else if (log.contains('timeout')) {
+                       message = 'Connection Timeout';
+                     } else if (log.contains('refused')) {
+                       message = 'Server Refused Connection';
+                     }
                   } else {
                      // Non-error logs
                      if (log.contains('[Tun2Socks]')) {

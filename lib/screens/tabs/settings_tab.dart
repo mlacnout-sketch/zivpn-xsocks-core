@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -59,8 +60,8 @@ class _SettingsTabState extends State<SettingsTab> {
   @override
   void initState() {
     super.initState();
-    _loadSettings();
-    _loadVersion();
+    unawaited(_loadSettings());
+    unawaited(_loadVersion());
   }
 
   @override
@@ -129,7 +130,7 @@ class _SettingsTabState extends State<SettingsTab> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Restore successful.')),
         );
-        _loadSettings();
+        await _loadSettings();
         widget.onRestoreSuccess?.call();
       }
     }
@@ -205,7 +206,7 @@ class _SettingsTabState extends State<SettingsTab> {
     await prefs.setString('pdnsd_query_method', _pdnsdQueryMethod);
     await prefs.setInt('core_count', _coreCount.toInt());
 
-    _loadSettings();
+    await _loadSettings();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Settings Saved')),
