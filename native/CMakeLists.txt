@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.10...3.31)
 
 project(minizivpn_native)
 
+option(TUN2SOCKS_ENABLE_LTO "Enable link-time optimization for tun2socks" ON)
+option(TUN2SOCKS_ENABLE_CPU_TUNING "Enable ABI-specific CPU tuning flags" OFF)
+
 # --- libancillary ---
 add_library(ancillary STATIC
     libancillary/fd_recv.c
@@ -106,21 +109,27 @@ target_link_libraries(tun2socks ancillary log dl)
 if(ANDROID)
     target_compile_options(tun2socks PRIVATE
         -O3
-        -flto
-        -ffast-math
-        -funroll-loops
+        -DNDEBUG
+        -fno-plt
         -fvisibility=hidden
         -fomit-frame-pointer
     )
 
-    # Link-time optimization
-    target_link_options(tun2socks PRIVATE -flto -Wl,--strip-all)
+    if(TUN2SOCKS_ENABLE_LTO)
+        target_compile_options(tun2socks PRIVATE -flto)
+        target_link_options(tun2socks PRIVATE -flto)
+    endif()
 
-    # Architecture specific optimizations
-    if(ANDROID_ABI STREQUAL "arm64-v8a")
-        target_compile_options(tun2socks PRIVATE -march=armv8-a+crypto)
-    elseif(ANDROID_ABI STREQUAL "armeabi-v7a")
-        target_compile_options(tun2socks PRIVATE -mfpu=neon -mfloat-abi=softfp)
+    target_link_options(tun2socks PRIVATE -Wl,--strip-all)
+
+    # Architecture specific optimizations are disabled by default because some
+    # devices/NDK combinations may not support the same tuning options.
+    if(TUN2SOCKS_ENABLE_CPU_TUNING)
+        if(ANDROID_ABI STREQUAL "arm64-v8a")
+            target_compile_options(tun2socks PRIVATE -march=armv8-a+crypto)
+        elseif(ANDROID_ABI STREQUAL "armeabi-v7a")
+            target_compile_options(tun2socks PRIVATE -mfpu=neon -mfloat-abi=softfp)
+        endif()
     endif()
 else()
     target_compile_options(tun2socks PRIVATE

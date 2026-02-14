@@ -161,17 +161,26 @@ class MainActivity: FlutterActivity() {
                 prefs.putString("flutter.ping_target", call.argument<String>("ping_target") ?: "http://www.gstatic.com/generate_204")
                 prefs.putString("flutter.apps_list", call.argument<String>("apps_list") ?: "")
                 prefs.putString("flutter.upstream_dns", call.argument<String>("upstream_dns") ?: "208.67.222.222")
+                prefs.putString("flutter.native_perf_profile", call.argument<String>("native_perf_profile") ?: "balanced")
+                prefs.putString("flutter.pdnsd_min_ttl", call.argument<String>("pdnsd_min_ttl") ?: "15m")
+                prefs.putString("flutter.pdnsd_max_ttl", call.argument<String>("pdnsd_max_ttl") ?: "1w")
+                prefs.putString("flutter.pdnsd_query_method", call.argument<String>("pdnsd_query_method") ?: "tcp_only")
 
                 // Booleans
                 prefs.putBoolean("flutter.enable_udpgw", call.argument<Boolean>("enable_udpgw") ?: true)
                 prefs.putBoolean("flutter.filter_apps", call.argument<Boolean>("filter_apps") ?: false)
                 prefs.putBoolean("flutter.bypass_mode", call.argument<Boolean>("bypass_mode") ?: false)
                 prefs.putBoolean("flutter.cpu_wakelock", call.argument<Boolean>("cpu_wakelock") ?: false)
+                prefs.putBoolean("flutter.udpgw_transparent_dns", call.argument<Boolean>("udpgw_transparent_dns") ?: false)
 
                 // Integers
                 prefs.putInt("flutter.mtu", call.argument<Int>("mtu") ?: 1500)
                 prefs.putInt("flutter.ping_interval", call.argument<Int>("ping_interval") ?: 3)
                 prefs.putInt("flutter.core_count", call.argument<Int>("core_count") ?: 4)
+                prefs.putInt("flutter.pdnsd_port", call.argument<Int>("pdnsd_port") ?: 8091)
+                prefs.putInt("flutter.pdnsd_cache_entries", call.argument<Int>("pdnsd_cache_entries") ?: 2048)
+                prefs.putInt("flutter.pdnsd_timeout_sec", call.argument<Int>("pdnsd_timeout_sec") ?: 10)
+                prefs.putInt("flutter.pdnsd_verbosity", call.argument<Int>("pdnsd_verbosity") ?: 2)
                 
                 prefs.apply()
 

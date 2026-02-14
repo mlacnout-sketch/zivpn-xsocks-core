@@ -169,6 +169,30 @@ class ZivpnService : VpnService() {
         return if (prefs.contains("flutter.$key")) prefs.getBoolean("flutter.$key", def) else prefs.getBoolean(key, def)
     }
 
+
+    private fun getPrefIntFlexible(prefs: android.content.SharedPreferences, key: String, def: Int): Int {
+        if (prefs.contains("flutter.$key")) {
+            return try {
+                prefs.getInt("flutter.$key", def)
+            } catch (e: Exception) {
+                prefs.getString("flutter.$key", null)?.toIntOrNull() ?: def
+            }
+        }
+        return try {
+            prefs.getInt(key, def)
+        } catch (e: Exception) {
+            prefs.getString(key, null)?.toIntOrNull() ?: def
+        }
+    }
+
+    private fun clamp(value: Int, min: Int, max: Int): Int {
+        return when {
+            value < min -> min
+            value > max -> max
+            else -> value
+        }
+    }
+
     private fun connect() {
         if (vpnInterface != null) return
 
@@ -256,7 +280,8 @@ class ZivpnService : VpnService() {
                 val fd = vpnInterface?.fd ?: return@Thread
 
                 // 3. Start Pdnsd & tun2socks
-                startNativeEngines(fd, mtu, logLevel, prefs, 8091)
+                val pdnsdPort = getPrefIntFlexible(prefs, "pdnsd_port", 8091)
+                startNativeEngines(fd, mtu, logLevel, prefs, pdnsdPort)
 
             } catch (e: Exception) {
                 logToApp("Connect Error: ${e.message}")
@@ -273,7 +298,59 @@ class ZivpnService : VpnService() {
             if (!cacheDir.exists()) cacheDir.mkdirs()
             
             val upstreamDns = getPrefString(prefs, "upstream_dns", "208.67.222.222")
-            val pdnsdConf = Pdnsd.writeConfig(this, pdnsdPort, upstreamDns)
+            val profile = getPrefString(prefs, "native_perf_profile", "balanced")
+
+            var tcpSndBuf = getPrefIntFlexible(prefs, "tcp_snd_buf", 65535)
+            var tcpWnd = getPrefIntFlexible(prefs, "tcp_wnd", 65535)
+            var socksBuf = getPrefIntFlexible(prefs, "socks_buf", 65536)
+            var udpgwMaxConn = getPrefIntFlexible(prefs, "udpgw_max_connections", 512)
+            var udpgwBufSize = getPrefIntFlexible(prefs, "udpgw_buffer_size", 32)
+            var pdnsdPermCache = getPrefIntFlexible(prefs, "pdnsd_cache_entries", 2048)
+            var pdnsdTimeout = getPrefIntFlexible(prefs, "pdnsd_timeout_sec", 10)
+            var pdnsdVerbosity = getPrefIntFlexible(prefs, "pdnsd_verbosity", 2)
+
+            if (profile == "throughput") {
+                tcpSndBuf = 65535
+                tcpWnd = 65535
+                socksBuf = 131072
+                udpgwMaxConn = 1024
+                udpgwBufSize = 64
+                pdnsdPermCache = 4096
+                pdnsdTimeout = 8
+                pdnsdVerbosity = 1
+            } else if (profile == "latency") {
+                tcpSndBuf = 32768
+                tcpWnd = 32768
+                socksBuf = 65536
+                udpgwMaxConn = 256
+                udpgwBufSize = 16
+                pdnsdPermCache = 2048
+                pdnsdTimeout = 5
+                pdnsdVerbosity = 1
+            }
+
+            tcpSndBuf = clamp(tcpSndBuf, 4096, 65535)
+            tcpWnd = clamp(tcpWnd, 4096, 65535)
+            socksBuf = clamp(socksBuf, 4096, 524288)
+            udpgwMaxConn = clamp(udpgwMaxConn, 16, 4096)
+            udpgwBufSize = clamp(udpgwBufSize, 4, 256)
+            pdnsdPermCache = clamp(pdnsdPermCache, 256, 32768)
+            pdnsdTimeout = clamp(pdnsdTimeout, 3, 30)
+            pdnsdVerbosity = clamp(pdnsdVerbosity, 0, 3)
+
+            val pdnsdConf = Pdnsd.writeConfig(
+                context = this,
+                listenPort = pdnsdPort,
+                upstreamDns = upstreamDns,
+                tuning = PdnsdTuning(
+                    permCache = pdnsdPermCache,
+                    timeout = pdnsdTimeout,
+                    minTtl = getPrefString(prefs, "pdnsd_min_ttl", "15m"),
+                    maxTtl = getPrefString(prefs, "pdnsd_max_ttl", "1w"),
+                    queryMethod = getPrefString(prefs, "pdnsd_query_method", "tcp_only"),
+                    verbosity = pdnsdVerbosity
+                )
+            )
             val pdnsdBin = Pdnsd.getExecutable(this)
             File(pdnsdBin).setExecutable(true)
 
@@ -295,25 +372,20 @@ class ZivpnService : VpnService() {
                 "--loglevel", tsLogLevel, "--dnsgw", "169.254.1.1:$pdnsdPort", "--fake-proc"
             )
 
-            val tcpSndBuf = getPrefString(prefs, "tcp_snd_buf", "65535")
-            val tcpWnd = getPrefString(prefs, "tcp_wnd", "65535")
-            val socksBuf = getPrefString(prefs, "socks_buf", "65536")
+            tunCmd.add("--tcp-snd-buf"); tunCmd.add(tcpSndBuf.toString())
+            tunCmd.add("--tcp-wnd"); tunCmd.add(tcpWnd.toString())
+            tunCmd.add("--socks-buf"); tunCmd.add(socksBuf.toString())
 
-            tunCmd.add("--tcp-snd-buf"); tunCmd.add(tcpSndBuf)
-            tunCmd.add("--tcp-wnd"); tunCmd.add(tcpWnd)
-            tunCmd.add("--socks-buf"); tunCmd.add(socksBuf)
-            
             if (useUdpgw) {
-                // Enforce standard UDPGW mode for all configurations
-                // This aligns with the removal of Android-specific "relay" mode in native code
                 tunCmd.add("--udpgw-remote-server-addr"); tunCmd.add("127.0.0.1:$udpgwPort")
-                
-                val udpgwMaxConn = getPrefString(prefs, "udpgw_max_connections", "512")
-                val udpgwBufSize = getPrefString(prefs, "udpgw_buffer_size", "32")
-                
-                tunCmd.add("--udpgw-max-connections"); tunCmd.add(udpgwMaxConn)
-                tunCmd.add("--udpgw-connection-buffer-size"); tunCmd.add(udpgwBufSize)
+                tunCmd.add("--udpgw-max-connections"); tunCmd.add(udpgwMaxConn.toString())
+                tunCmd.add("--udpgw-connection-buffer-size"); tunCmd.add(udpgwBufSize.toString())
+                if (getPrefBool(prefs, "udpgw_transparent_dns", false)) {
+                    tunCmd.add("--udpgw-transparent-dns")
+                }
             }
+
+            logToApp("Native profile=$profile tcpWnd=$tcpWnd socksBuf=$socksBuf udpgwMax=$udpgwMaxConn pdnsdCache=$pdnsdPermCache")
 
             val tunProc = ProcessBuilder(tunCmd).directory(filesDir).start()
             processes.add(tunProc)

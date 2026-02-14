@@ -324,7 +324,16 @@ class _HomePageState extends State<HomePage> {
           "apps_list": prefs.getString('apps_list') ?? "",
           "log_level": prefs.getString('log_level') ?? "info",
           "core_count": (prefs.getInt('core_count') ?? 4),
-          "cpu_wakelock": prefs.getBool('cpu_wakelock') ?? false
+          "cpu_wakelock": prefs.getBool('cpu_wakelock') ?? false,
+          "udpgw_transparent_dns": prefs.getBool('udpgw_transparent_dns') ?? false,
+          "native_perf_profile": prefs.getString('native_perf_profile') ?? "balanced",
+          "pdnsd_port": prefs.getInt('pdnsd_port') ?? 8091,
+          "pdnsd_cache_entries": prefs.getInt('pdnsd_cache_entries') ?? 2048,
+          "pdnsd_timeout_sec": prefs.getInt('pdnsd_timeout_sec') ?? 10,
+          "pdnsd_min_ttl": prefs.getString('pdnsd_min_ttl') ?? "15m",
+          "pdnsd_max_ttl": prefs.getString('pdnsd_max_ttl') ?? "1w",
+          "pdnsd_query_method": prefs.getString('pdnsd_query_method') ?? "tcp_only",
+          "pdnsd_verbosity": prefs.getInt('pdnsd_verbosity') ?? 2
         });
         await platform.invokeMethod('startVpn');
 
