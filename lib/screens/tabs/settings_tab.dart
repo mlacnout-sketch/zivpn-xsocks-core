@@ -215,173 +215,161 @@ class _SettingsTabState extends State<SettingsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        const Text('Core Settings', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        Text('Core Settings', style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Text(
+          'Sesuaikan konfigurasi core agar stabil dengan sistem perangkat.',
+          style: textTheme.bodyMedium?.copyWith(color: Colors.grey.shade400),
+        ),
         const SizedBox(height: 20),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                _buildTextInput(_mtuCtrl, 'MTU (Default: 1500)', Icons.settings_ethernet),
-                const Divider(),
-                const ListTile(title: Text('UDP Forwarding', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary))),
-                SwitchListTile(
-                  title: const Text('Forward UDP'),
-                  value: _enableUdpgw,
-                  onChanged: (val) => setState(() => _enableUdpgw = val),
-                ),
-                SwitchListTile(
-                  title: const Text('UDPGW Transparent DNS'),
-                  subtitle: const Text('Tambahkan --udpgw-transparent-dns di tun2socks'),
-                  value: _udpgwTransparentDns,
-                  onChanged: (val) => setState(() => _udpgwTransparentDns = val),
-                ),
-                if (_enableUdpgw) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: _buildTextInput(_udpgwPortCtrl, 'Udp Gateway Port', Icons.door_sliding),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: _buildTextInput(_udpgwMaxConnCtrl, 'Max UDP Connections', Icons.connect_without_contact),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: _buildTextInput(_udpgwBufSizeCtrl, 'UDP Buffer (Packets)', Icons.shopping_bag),
-                  ),
-                ],
-                const Divider(),
-                const ListTile(title: Text('Ping Config', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary))),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: _buildTextInput(_pingIntervalCtrl, 'Check Interval (sec)', Icons.timer),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: _buildTextInput(
-                    _pingTargetCtrl,
-                    'Target Ping (URL/IP)',
-                    Icons.network_check,
-                    isNumber: false,
-                  ),
-                ),
-                const Divider(),
-                const ListTile(title: Text('Apps Filter', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary))),
-                SwitchListTile(
-                  title: const Text('Filter Apps'),
-                  value: _filterApps,
-                  onChanged: (val) => setState(() => _filterApps = val),
-                ),
-                SwitchListTile(
-                  title: const Text('Bypass Mode'),
-                  value: _bypassMode,
-                  onChanged: (val) => setState(() => _bypassMode = val),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.apps),
-                  title: const Text('Select Apps'),
-                  onTap: _openAppSelector,
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: TextField(
-                    controller: _appsListCtrl,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: 'Apps List (Package names)',
-                      prefixIcon: const Icon(Icons.list),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      filled: true,
-                      fillColor: AppColors.card,
-                    ),
-                  ),
-                ),
-                const Divider(),
-                const ListTile(title: Text('Advanced', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary))),
-                _buildSliderSection(),
-                SwitchListTile(
-                  title: const Text('CPU Wakelock'),
-                  value: _cpuWakelock,
-                  onChanged: (val) => setState(() => _cpuWakelock = val),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: _buildTextInput(_tcpSndBufCtrl, 'TCP Send Buffer', Icons.upload_file),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: _buildTextInput(_tcpWndCtrl, 'TCP Window Size', Icons.download_for_offline),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: _buildTextInput(_socksBufCtrl, 'SOCKS Buffer', Icons.memory),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: _buildTextInput(_dnsCtrl, 'Upstream DNS', Icons.dns, isNumber: false),
-                ),
-                _buildDropdownTile(
-                  'Native Performance Profile',
-                  'Preset tuning tun2socks + pdnsd',
-                  _nativePerfProfile,
-                  const ['balanced', 'throughput', 'latency', 'custom'],
-                  (val) => setState(() => _nativePerfProfile = val!),
-                ),
-                _buildDropdownTile(
-                  'Log Level',
-                  'Verbosity',
-                  _logLevel,
-                  const ['debug', 'info', 'error', 'silent'],
-                  (val) => setState(() => _logLevel = val!),
-                ),
-                const Divider(),
-                const ListTile(title: Text('PDNSD Tuning', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary))),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: _buildTextInput(_pdnsdPortCtrl, 'PDNSD Listen Port', Icons.numbers),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: _buildTextInput(_pdnsdCacheCtrl, 'PDNSD Cache Entries', Icons.storage),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: _buildTextInput(_pdnsdTimeoutCtrl, 'PDNSD Timeout (sec)', Icons.timer_outlined),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: _buildTextInput(_pdnsdMinTtlCtrl, 'PDNSD Min TTL (contoh: 15m)', Icons.hourglass_top, isNumber: false),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: _buildTextInput(_pdnsdMaxTtlCtrl, 'PDNSD Max TTL (contoh: 1w)', Icons.hourglass_bottom, isNumber: false),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: _buildTextInput(_pdnsdVerbosityCtrl, 'PDNSD Verbosity (0-3)', Icons.tune),
-                ),
-                _buildDropdownTile(
-                  'PDNSD Query Method',
-                  'tcp_only biasanya paling aman untuk tunnel',
-                  _pdnsdQueryMethod,
-                  const ['tcp_only', 'udp_only', 'udp_tcp'],
-                  (val) => setState(() => _pdnsdQueryMethod = val!),
-                ),
-                const Divider(),
-                ListTile(leading: const Icon(Icons.cloud_download_outlined), title: const Text('Backup Configuration'), onTap: _handleBackup),
-                ListTile(leading: const Icon(Icons.restore_page_outlined), title: const Text('Restore Configuration'), onTap: _handleRestore),
-                ListTile(
-                  leading: const Icon(Icons.system_update),
-                  title: const Text('Check for Updates'),
-                  subtitle: Text('Current: $_appVersion'),
-                  onTap: widget.onCheckUpdate,
-                ),
-              ],
+        _buildSectionCard(
+          title: 'Network',
+          icon: Icons.network_check,
+          children: [
+            _buildTextInput(_mtuCtrl, 'MTU (Default: 1500)', Icons.settings_ethernet),
+            _buildTextInput(_pingIntervalCtrl, 'Check Interval (sec)', Icons.timer),
+            _buildTextInput(
+              _pingTargetCtrl,
+              'Target Ping (URL/IP)',
+              Icons.network_ping,
+              isNumber: false,
             ),
-          ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Forward UDP'),
+              value: _enableUdpgw,
+              onChanged: (val) => setState(() => _enableUdpgw = val),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('UDPGW Transparent DNS'),
+              subtitle: const Text('Tambahkan --udpgw-transparent-dns di tun2socks'),
+              value: _udpgwTransparentDns,
+              onChanged: (val) => setState(() => _udpgwTransparentDns = val),
+            ),
+            if (_enableUdpgw) ...[
+              _buildTextInput(_udpgwPortCtrl, 'Udp Gateway Port', Icons.door_sliding),
+              _buildTextInput(_udpgwMaxConnCtrl, 'Max UDP Connections', Icons.connect_without_contact),
+              _buildTextInput(_udpgwBufSizeCtrl, 'UDP Buffer (Packets)', Icons.shopping_bag),
+            ],
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildSectionCard(
+          title: 'App Filter',
+          icon: Icons.apps,
+          children: [
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Filter Apps'),
+              value: _filterApps,
+              onChanged: (val) => setState(() => _filterApps = val),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Bypass Mode'),
+              value: _bypassMode,
+              onChanged: (val) => setState(() => _bypassMode = val),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.checklist),
+              title: const Text('Pilih Aplikasi'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _openAppSelector,
+            ),
+            TextField(
+              controller: _appsListCtrl,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'Apps List (Package names)',
+                prefixIcon: const Icon(Icons.list),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                filled: true,
+                fillColor: AppColors.card,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildSectionCard(
+          title: 'Advanced',
+          icon: Icons.tune,
+          children: [
+            _buildSliderSection(),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('CPU Wakelock'),
+              value: _cpuWakelock,
+              onChanged: (val) => setState(() => _cpuWakelock = val),
+            ),
+            _buildTextInput(_tcpSndBufCtrl, 'TCP Send Buffer', Icons.upload_file),
+            _buildTextInput(_tcpWndCtrl, 'TCP Window Size', Icons.download_for_offline),
+            _buildTextInput(_socksBufCtrl, 'SOCKS Buffer', Icons.memory),
+            _buildTextInput(_dnsCtrl, 'Upstream DNS', Icons.dns, isNumber: false),
+            _buildDropdownTile(
+              'Native Performance Profile',
+              'Preset tuning tun2socks + pdnsd',
+              _nativePerfProfile,
+              const ['balanced', 'throughput', 'latency', 'custom'],
+              (val) => setState(() => _nativePerfProfile = val!),
+            ),
+            _buildDropdownTile(
+              'Log Level',
+              'Verbosity',
+              _logLevel,
+              const ['debug', 'info', 'error', 'silent'],
+              (val) => setState(() => _logLevel = val!),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildSectionCard(
+          title: 'PDNSD Tuning',
+          icon: Icons.storage,
+          children: [
+            _buildTextInput(_pdnsdPortCtrl, 'PDNSD Listen Port', Icons.numbers),
+            _buildTextInput(_pdnsdCacheCtrl, 'PDNSD Cache Entries', Icons.storage),
+            _buildTextInput(_pdnsdTimeoutCtrl, 'PDNSD Timeout (sec)', Icons.timer_outlined),
+            _buildTextInput(_pdnsdMinTtlCtrl, 'PDNSD Min TTL (contoh: 15m)', Icons.hourglass_top, isNumber: false),
+            _buildTextInput(_pdnsdMaxTtlCtrl, 'PDNSD Max TTL (contoh: 1w)', Icons.hourglass_bottom, isNumber: false),
+            _buildTextInput(_pdnsdVerbosityCtrl, 'PDNSD Verbosity (0-3)', Icons.tune),
+            _buildDropdownTile(
+              'PDNSD Query Method',
+              'tcp_only biasanya paling aman untuk tunnel',
+              _pdnsdQueryMethod,
+              const ['tcp_only', 'udp_only', 'udp_tcp'],
+              (val) => setState(() => _pdnsdQueryMethod = val!),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildSectionCard(
+          title: 'System',
+          icon: Icons.settings_suggest,
+          children: [
+            _buildActionTile(
+              icon: Icons.cloud_download_outlined,
+              title: 'Backup Configuration',
+              onTap: _handleBackup,
+            ),
+            _buildActionTile(
+              icon: Icons.restore_page_outlined,
+              title: 'Restore Configuration',
+              onTap: _handleRestore,
+            ),
+            _buildActionTile(
+              icon: Icons.system_update,
+              title: 'Check for Updates',
+              subtitle: 'Current: $_appVersion',
+              onTap: widget.onCheckUpdate,
+            ),
+          ],
         ),
         const SizedBox(height: 30),
         ElevatedButton.icon(
@@ -404,15 +392,51 @@ class _SettingsTabState extends State<SettingsTab> {
     IconData icon, {
     bool isNumber = true,
   }) {
-    return TextField(
-      controller: ctrl,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        filled: true,
-        fillColor: AppColors.card,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: TextField(
+        controller: ctrl,
+        keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          filled: true,
+          fillColor: AppColors.card,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...children,
+          ],
+        ),
       ),
     );
   }
@@ -448,6 +472,7 @@ class _SettingsTabState extends State<SettingsTab> {
     ValueChanged<String?> onChanged,
   ) {
     return ListTile(
+      contentPadding: EdgeInsets.zero,
       title: Text(title),
       subtitle: Text(subtitle),
       trailing: DropdownButton<String>(
@@ -457,6 +482,22 @@ class _SettingsTabState extends State<SettingsTab> {
             .toList(),
         onChanged: onChanged,
       ),
+    );
+  }
+
+  Widget _buildActionTile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: subtitle != null ? Text(subtitle) : null,
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
     );
   }
 }
