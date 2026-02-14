@@ -175,7 +175,7 @@ inline static ssize_t write_all(int fd,const void *data,size_t n)
 {
   ssize_t written=0;
 
-  while(written<n) {
+  while((size_t)written<n) {
       ssize_t m=write(fd,(const void*)(((const char*)data)+written),n-written);
 
       if(m<0)

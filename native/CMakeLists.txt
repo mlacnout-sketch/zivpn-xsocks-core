@@ -113,6 +113,8 @@ if(ANDROID)
         -fno-plt
         -fvisibility=hidden
         -fomit-frame-pointer
+        -Wall
+        -Wextra
     )
 
     if(TUN2SOCKS_ENABLE_LTO)
@@ -171,8 +173,10 @@ set_target_properties(pdnsd PROPERTIES SUFFIX ".so")
 set_target_properties(pdnsd PROPERTIES PREFIX "lib")
 target_compile_options(pdnsd PRIVATE 
     -Wall -O3
-    -Wextra
-    -Werror
+    -Wno-deprecated-declarations
+    -Wno-unused-variable
+    -Wno-string-plus-int
+    -Wno-gnu-designator
 )
 target_include_directories(pdnsd PRIVATE pdnsd pdnsd/src)
 target_link_libraries(pdnsd log)
