@@ -236,19 +236,40 @@ class ZivpnService : VpnService() {
                 val bypassMode = getPrefBool(prefs, "bypass_mode", false)
                 val appsList = getPrefString(prefs, "apps_list", "")
 
+                var usingAllowedList = false
                 if (filterApps && appsList.isNotEmpty()) {
-                    val appPackages = appsList.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                    val appPackages = appsList
+                        .split("\n")
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                        .toSet()
+
+                    usingAllowedList = !bypassMode
+
                     for (pkg in appPackages) {
+                        // Avoid duplicate self-package addDisallowed call below.
+                        if (bypassMode && pkg == packageName) continue
+
                         try {
                             if (bypassMode) builder.addDisallowedApplication(pkg)
                             else builder.addAllowedApplication(pkg)
-                        } catch (e: Exception) {}
+                        } catch (e: Exception) {
+                            logToApp("App filter skipped for $pkg: ${e.message}")
+                        }
                     }
                 }
 
                 builder.addRoute("169.254.1.0", 24)
                 builder.addRoute("198.18.0.0", 15)
-                builder.addDisallowedApplication(packageName)
+
+                // addDisallowedApplication cannot be mixed after addAllowedApplication.
+                if (!usingAllowedList) {
+                    try {
+                        builder.addDisallowedApplication(packageName)
+                    } catch (e: Exception) {
+                        logToApp("Self disallow skipped: ${e.message}")
+                    }
+                }
                 builder.addDnsServer("169.254.1.2")
                 builder.addAddress("169.254.1.1", 24)
 

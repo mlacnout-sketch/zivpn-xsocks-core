@@ -7,22 +7,88 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class UpdateRepository {
   final String apiUrl = "https://api.github.com/repos/mlacnout-sketch/zivpn-xsocks-core/releases";
+  static const String _directStrategy = "DIRECT";
+  static const String _socksStrategy = "SOCKS 127.0.0.1:7777";
+
+  static const String _rrEnabledKey = 'update_strategy_round_robin';
+  static const String _preferSocksKey = 'update_strategy_prefer_socks';
+  static const String _downloadForceSocksKey = 'update_download_force_socks5';
+  static const String _allowDirectFallbackKey = 'update_allow_direct_fallback';
+  static const String _forceSocksForAllUpdateTrafficKey = 'update_force_socks5_all_traffic';
+
+  int _strategyCursor = 0;
 
   Future<List<String>> _getStrategies() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     // Check both potential keys just to be safe (migration consistency)
     final running = (prefs.getBool('vpn_running') ?? false) || (prefs.getBool('flutter.vpn_running') ?? false);
 
     if (running) {
       // If VPN is on, DIRECT connection will likely fail (no quota) or cause issues.
       // Force SOCKS only.
-      return ["SOCKS 127.0.0.1:7777"];
-    } else {
-      // If VPN is off, try SOCKS (maybe left over?) then DIRECT.
-      // Actually if VPN is off, SOCKS won't work. So DIRECT first.
-      return ["DIRECT", "SOCKS 127.0.0.1:7777"];
+      return const [_socksStrategy];
     }
+
+    // Optional hard lock: force all update traffic (check + download) through MiniZIVPN SOCKS5.
+    // Default true to avoid accidental DIRECT usage when quota policy disallows it.
+    final forceAllUpdateTrafficViaSocks =
+        prefs.getBool(_forceSocksForAllUpdateTrafficKey) ?? true;
+    if (forceAllUpdateTrafficViaSocks) {
+      return const [_socksStrategy];
+    }
+
+    // Keep behavior adjustable from prefs without code changes:
+    // - update_strategy_prefer_socks=true  => SOCKS first
+    // - update_strategy_round_robin=false => keep fixed order
+    final preferSocks = prefs.getBool(_preferSocksKey) ?? false;
+    final roundRobinEnabled = prefs.getBool(_rrEnabledKey) ?? true;
+
+    final baseStrategies = preferSocks
+        ? const [_socksStrategy, _directStrategy]
+        : const [_directStrategy, _socksStrategy];
+
+    if (!roundRobinEnabled) {
+      return baseStrategies;
+    }
+
+    return _roundRobinStrategies(baseStrategies);
+  }
+
+  List<String> _roundRobinStrategies(List<String> candidates) {
+    final candidateCount = candidates.length;
+    if (candidateCount <= 1) {
+      return candidates;
+    }
+
+    final startIndex = _strategyCursor % candidateCount;
+    final rotated = List<String>.filled(candidateCount, '', growable: false);
+
+    for (int i = 0; i < candidateCount; i++) {
+      rotated[i] = candidates[(startIndex + i) % candidateCount];
+    }
+
+    _strategyCursor = (startIndex + 1) % candidateCount;
+    return rotated;
+  }
+
+  Future<List<String>> _getDownloadStrategies() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Default behavior: force update APK download through MiniZIVPN SOCKS5,
+    // because DIRECT traffic may not have usable main quota.
+    final forceSocks = prefs.getBool(_downloadForceSocksKey) ?? true;
+    if (forceSocks) {
+      return const [_socksStrategy];
+    }
+
+    // Optional fallback for operators who explicitly allow DIRECT as backup.
+    final allowDirectFallback = prefs.getBool(_allowDirectFallbackKey) ?? false;
+    if (!allowDirectFallback) {
+      return const [_socksStrategy];
+    }
+
+    return const [_socksStrategy, _directStrategy];
   }
 
   Future<AppVersion?> fetchUpdate() async {
@@ -41,7 +107,7 @@ class UpdateRepository {
   }
 
   Future<File?> downloadUpdate(AppVersion version, File targetFile, Function(double) onProgress) async {
-    final strategies = await _getStrategies();
+    final strategies = await _getDownloadStrategies();
     for (final proxy in strategies) {
       try {
         print("Downloading update via: $proxy");
@@ -64,7 +130,7 @@ class UpdateRepository {
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 15);
     
-    if (proxyConf != "DIRECT") {
+    if (proxyConf != _directStrategy) {
       client.findProxy = (uri) => proxyConf;
     }
     // GitHub API requires User-Agent
@@ -88,7 +154,7 @@ class UpdateRepository {
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 30); // Longer timeout for downloads
 
-    if (proxyConf != "DIRECT") {
+    if (proxyConf != _directStrategy) {
       client.findProxy = (uri) => proxyConf;
     }
     client.userAgent = "MiniZivpn-Updater";
