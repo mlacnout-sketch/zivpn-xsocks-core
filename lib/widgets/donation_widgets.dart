@@ -3,13 +3,13 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:math';
 
 // --- KONFIGURASI SAWERIA ---
-const String _kSaweriaUrl = "https://saweria.co/Damnwhoknows";
+const String _kSaweriaUrl = 'https://saweria.co/Damnwhoknows';
 
 Future<void> _launchSaweria() async {
   try {
     await launchUrl(Uri.parse(_kSaweriaUrl), mode: LaunchMode.externalApplication);
   } catch (e) {
-    debugPrint("Gagal buka saweria: $e");
+    debugPrint('Gagal buka saweria: $e');
   }
 }
 
@@ -73,7 +73,7 @@ class _SiOrenBannerState extends State<SiOrenBanner> {
                   const Row(
                     children: [
                       Text(
-                        "🐈 CAPEK SAMA SI OREN?", 
+                        '🐈 CAPEK SAMA SI OREN?',
                         style: TextStyle(
                           color: Colors.orangeAccent, 
                           fontWeight: FontWeight.w900, 
@@ -82,14 +82,14 @@ class _SiOrenBannerState extends State<SiOrenBanner> {
                         )
                       ),
                       Spacer(),
-                      Text("✖️", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text('✖️', style: TextStyle(fontSize: 12, color: Colors.grey)),
                     ],
                   ),
                   const SizedBox(height: 8),
                   
                   // Body Text
                   const Text(
-                    "Daripada buang waktu nonton iklan judi slot 30 detik, mending traktir dev kopi sachet biar update lancar.",
+                    'Daripada buang waktu nonton iklan judi slot 30 detik, mending traktir dev kopi sachet biar update lancar.',
                     style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
                   ),
                   const SizedBox(height: 16),
@@ -104,7 +104,7 @@ class _SiOrenBannerState extends State<SiOrenBanner> {
                           foregroundColor: Colors.grey,
                           textStyle: const TextStyle(fontSize: 11),
                         ),
-                        child: const Text("🤡 Skip, gw suka iklan"), 
+                        child: const Text('🤡 Skip, gw suka iklan'),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
@@ -116,8 +116,8 @@ class _SiOrenBannerState extends State<SiOrenBanner> {
                           elevation: 4,
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         ),
-                        icon: const Text("☕", style: TextStyle(fontSize: 18)),
-                        label: const Text("Traktir Kopi", style: TextStyle(fontWeight: FontWeight.bold)),
+                        icon: const Text('☕', style: TextStyle(fontSize: 18)),
+                        label: const Text('Traktir Kopi', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ],
                   )
@@ -136,7 +136,7 @@ class _SiOrenBannerState extends State<SiOrenBanner> {
                   shape: BoxShape.circle,
                   color: Colors.orange.withValues(alpha: 0.1),
                 ),
-                child: const Center(child: Text("🍊", style: TextStyle(fontSize: 24))),
+                child: const Center(child: Text('🍊', style: TextStyle(fontSize: 24))),
               ),
             ),
           ],
@@ -180,7 +180,7 @@ bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}
                   color: Colors.purpleAccent.withValues(alpha: 0.1),
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                 ),
-                child: const Text("🤑", textAlign: TextAlign.center, style: TextStyle(fontSize: 56)),
+                child: const Text('🤑', textAlign: TextAlign.center, style: TextStyle(fontSize: 56)),
               ),
               
               Padding(
@@ -188,7 +188,7 @@ bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}
                 child: Column(
                   children: [
                     const Text(
-                      "Wait, Mau Cabut?",
+                      'Wait, Mau Cabut?',
                       style: TextStyle(
                         fontSize: 20, 
                         fontWeight: FontWeight.bold, 
@@ -197,7 +197,7 @@ bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      "Koneksi lancar? Hemat waktu tanpa iklan? \nItu semua murni hasil begadang dev.\n\nMau support biar admin gak tipes ngoding fitur baru?",
+                      'Koneksi lancar? Hemat waktu tanpa iklan? \nItu semua murni hasil begadang dev.\n\nMau support biar admin gak tipes ngoding fitur baru?',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white60, 
@@ -227,8 +227,8 @@ bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text("Support Dev ", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                            Text("💖", style: TextStyle(fontSize: 18)),
+                            Text('Support Dev ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            Text('💖', style: TextStyle(fontSize: 18)),
                           ],
                         ),
                       ),
@@ -246,7 +246,7 @@ bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}
                         foregroundColor: Colors.grey,
                       ),
                       child: const Text(
-                        "🗿 Skip, saya tim gratisan sejati",
+                        '🗿 Skip, saya tim gratisan sejati',
                         style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
                       ),
                     ),

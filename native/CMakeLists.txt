@@ -134,11 +134,9 @@ if(ANDROID)
 else()
     target_compile_options(tun2socks PRIVATE
         -O3
-        -Wno-parentheses
-        -Wno-pointer-sign
-        -Wno-unused-value
-        -Wno-unused-label
-        -Wno-unused-variable
+        -Wall
+        -Wextra
+        -Werror
     )
 endif()
 
@@ -172,11 +170,9 @@ set_target_properties(pdnsd PROPERTIES OUTPUT_NAME "pdnsd")
 set_target_properties(pdnsd PROPERTIES SUFFIX ".so")
 set_target_properties(pdnsd PROPERTIES PREFIX "lib")
 target_compile_options(pdnsd PRIVATE 
-    -Wall -O3 
-    -Wno-deprecated-declarations 
-    -Wno-unused-variable 
-    -Wno-string-plus-int
-    -Wno-gnu-designator
+    -Wall -O3
+    -Wextra
+    -Werror
 )
 target_include_directories(pdnsd PRIVATE pdnsd pdnsd/src)
 target_link_libraries(pdnsd log)

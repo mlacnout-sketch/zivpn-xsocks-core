@@ -13,7 +13,7 @@ class PingButton extends StatefulWidget {
 
 class _PingButtonState extends State<PingButton> with SingleTickerProviderStateMixin {
   late AnimationController _animController;
-  final ValueNotifier<String> _result = ValueNotifier("");
+  final ValueNotifier<String> _result = ValueNotifier('');
   bool _isPinging = false;
 
   @override
@@ -36,17 +36,17 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
     if (_isPinging) return;
 
     _isPinging = true;
-    _result.value = "Pinging...";
+    _result.value = 'Pinging...';
     _animController.repeat();
 
     try {
       final res = await _performPing().timeout(
         const Duration(seconds: 15), 
-        onTimeout: () => "Timeout"
+        onTimeout: () => 'Timeout'
       );
       if (mounted) _result.value = res;
     } catch (e) {
-      if (mounted) _result.value = "Error";
+      if (mounted) _result.value = 'Error';
     } finally {
       if (mounted) {
         _isPinging = false;
@@ -58,15 +58,15 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
 
   Future<String> _performPing() async {
     final prefs = await SharedPreferences.getInstance();
-    String target = (prefs.getString('ping_target') ?? "http://clients3.google.com/generate_204").trim();
+    String target = (prefs.getString('ping_target') ?? 'http://clients3.google.com/generate_204').trim();
     
-    if (target.isEmpty) target = "http://clients3.google.com/generate_204";
-    if (!target.startsWith("http")) target = "http://$target";
+    if (target.isEmpty) target = 'http://clients3.google.com/generate_204';
+    if (!target.startsWith('http')) target = 'http://$target';
 
     final stopwatch = Stopwatch()..start();
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 10);
-    client.userAgent = "Mozilla/5.0 (Android) MiniZivpn/1.0";
+    client.userAgent = 'Mozilla/5.0 (Android) MiniZivpn/1.0';
     client.badCertificateCallback = (cert, host, port) => true;
 
     try {
@@ -77,16 +77,16 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
       await response.drain();
 
       if (response.statusCode == 200 || response.statusCode == 204) {
-        return "${stopwatch.elapsedMilliseconds} ms";
+        return '${stopwatch.elapsedMilliseconds} ms';
       }
-      return "HTTP ${response.statusCode}";
+      return 'HTTP ${response.statusCode}';
     } catch (e) {
       // 1.5. Fallback: Gstatic Ping (Alternative Endpoint)
       try {
-        final request = await client.getUrl(Uri.parse("http://www.gstatic.com/generate_204"));
+        final request = await client.getUrl(Uri.parse('http://www.gstatic.com/generate_204'));
         final response = await request.close();
         await response.drain();
-        if (response.statusCode == 204) return "Gstatic OK";
+        if (response.statusCode == 204) return 'Gstatic OK';
       } catch (_) {}
 
       // 2. Fallback: TCP Handshake (Layer 4)
@@ -95,15 +95,15 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
         final socket = await Socket.connect('1.1.1.1', 80, timeout: const Duration(seconds: 3));
         sw.stop();
         socket.destroy();
-        return "TCP ${sw.elapsedMilliseconds} ms";
+        return 'TCP ${sw.elapsedMilliseconds} ms';
       } catch (_) {
         // 3. Last Resort: Package HTTP (High Level)
         try {
-           final response = await http.get(Uri.parse("http://1.1.1.1")).timeout(const Duration(seconds: 5));
-           if (response.statusCode == 200) return "HTTP OK";
+           final response = await http.get(Uri.parse('http://1.1.1.1')).timeout(const Duration(seconds: 5));
+           if (response.statusCode == 200) return 'HTTP OK';
         } catch(_) {}
         
-        return "Timeout";
+        return 'Timeout';
       }
     } finally {
       client.close();
@@ -111,17 +111,17 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
   }
 
   Color _getColor(String res) {
-    if (res == "Pinging...") return Colors.white;
-    if (res.contains("ms")) {
-      final msStr = res.split(' ')[0] == "TCP" ? res.split(' ')[1] : res.split(' ')[0];
+    if (res == 'Pinging...') return Colors.white;
+    if (res.contains('ms')) {
+      final msStr = res.split(' ')[0] == 'TCP' ? res.split(' ')[1] : res.split(' ')[0];
       final ms = int.tryParse(msStr) ?? 999;
       
-      if (res.startsWith("TCP")) return Colors.cyanAccent; // Always cyan for TCP to distinguish
+      if (res.startsWith('TCP')) return Colors.cyanAccent; // Always cyan for TCP to distinguish
       if (ms < 150) return Colors.greenAccent;
       if (ms < 300) return Colors.yellow;
     }
-    if (res == "Gstatic OK") return Colors.lightGreenAccent;
-    if (res == "HTTP OK") return Colors.lightBlueAccent;
+    if (res == 'Gstatic OK') return Colors.lightGreenAccent;
+    if (res == 'HTTP OK') return Colors.lightBlueAccent;
     return Colors.redAccent;
   }
 
@@ -133,7 +133,7 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
         return Column(
           children: [
             FloatingActionButton.small(
-              heroTag: "ping_btn",
+              heroTag: 'ping_btn',
               onPressed: _doPing,
               backgroundColor: AppColors.card,
               elevation: 4,

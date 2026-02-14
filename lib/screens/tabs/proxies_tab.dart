@@ -5,10 +5,10 @@ import '../../models/account.dart';
 class ProxiesTab extends StatefulWidget {
   final List<Account> accounts;
   final int activePingIndex;
-  final Function(int) onActivate;
-  final Function(Account) onAdd;
-  final Function(int, Account) onEdit;
-  final Function(int) onDelete;
+  final void Function(int) onActivate;
+  final void Function(Account) onAdd;
+  final void Function(int, Account) onEdit;
+  final void Function(int) onDelete;
 
   const ProxiesTab({
     super.key,
@@ -26,20 +26,20 @@ class ProxiesTab extends StatefulWidget {
 
 class _ProxiesTabState extends State<ProxiesTab> {
   String _formatTotalBytes(int bytes) {
-    if (bytes < 1024) return "$bytes B";
-    if (bytes < 1024 * 1024) return "${(bytes / 1024).toStringAsFixed(1)} KB";
-    return "${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB";
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
   }
 
   void _showAccountDialog(BuildContext context, {int? index}) {
     final isEditing = index != null;
     final Account? existingData = isEditing ? widget.accounts[index] : null;
 
-    final nameCtrl = TextEditingController(text: existingData?.name ?? "");
-    final ipCtrl = TextEditingController(text: existingData?.ip ?? "");
-    final authCtrl = TextEditingController(text: existingData?.auth ?? "");
+    final nameCtrl = TextEditingController(text: existingData?.name ?? '');
+    final ipCtrl = TextEditingController(text: existingData?.ip ?? '');
+    final authCtrl = TextEditingController(text: existingData?.auth ?? '');
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.card,
@@ -48,7 +48,7 @@ class _ProxiesTabState extends State<ProxiesTab> {
           children: [
             Icon(isEditing ? Icons.edit_note : Icons.add_circle_outline, color: AppColors.primary),
             const SizedBox(width: 12),
-            Text(isEditing ? "Edit Account" : "Add Account", style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(isEditing ? 'Edit Account' : 'Add Account', style: const TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
         content: SingleChildScrollView(
@@ -56,11 +56,11 @@ class _ProxiesTabState extends State<ProxiesTab> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(height: 8),
-              _buildModernInput(nameCtrl, "Account Name", Icons.label_outline),
+              _buildModernInput(nameCtrl, 'Account Name', Icons.label_outline),
               const SizedBox(height: 16),
-              _buildModernInput(ipCtrl, "Server IP / Domain", Icons.dns_outlined),
+              _buildModernInput(ipCtrl, 'Server IP / Domain', Icons.dns_outlined),
               const SizedBox(height: 16),
-              _buildModernInput(authCtrl, "Password", Icons.vpn_key_outlined),
+              _buildModernInput(authCtrl, 'Password', Icons.vpn_key_outlined),
             ],
           ),
         ),
@@ -69,7 +69,7 @@ class _ProxiesTabState extends State<ProxiesTab> {
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             style: TextButton.styleFrom(foregroundColor: Colors.grey),
-            child: const Text("Cancel"),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -86,7 +86,7 @@ class _ProxiesTabState extends State<ProxiesTab> {
 
               if (name.isEmpty || ip.isEmpty || pass.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("All fields are required!")),
+                  const SnackBar(content: Text('All fields are required!')),
                 );
                 return;
               }
@@ -95,7 +95,7 @@ class _ProxiesTabState extends State<ProxiesTab> {
                 name: name,
                 ip: ip,
                 auth: pass,
-                obfs: existingData?.obfs ?? "hu``hqb`c",
+                obfs: existingData?.obfs ?? 'hu``hqb`c',
                 usage: existingData?.usage ?? 0,
               );
 
@@ -106,7 +106,7 @@ class _ProxiesTabState extends State<ProxiesTab> {
               }
               Navigator.pop(ctx);
             },
-            child: const Text("Save"),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -141,7 +141,7 @@ class _ProxiesTabState extends State<ProxiesTab> {
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: widget.accounts.isEmpty
-          ? const Center(child: Text("No accounts saved", style: TextStyle(color: Colors.grey)))
+          ? const Center(child: Text('No accounts saved', style: TextStyle(color: Colors.grey)))
           : ListView.builder(
               padding: const EdgeInsets.all(20),
               itemCount: widget.accounts.length,
@@ -170,7 +170,7 @@ class _ProxiesTabState extends State<ProxiesTab> {
                       ),
                     ),
                     title: Text(
-                      acc.name.isEmpty ? "Unknown" : acc.name,
+                      acc.name.isEmpty ? 'Unknown' : acc.name,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Column(
@@ -188,7 +188,7 @@ class _ProxiesTabState extends State<ProxiesTab> {
                             borderRadius: BorderRadius.circular(4)
                           ),
                           child: Text(
-                            "Used: ${_formatTotalBytes(usage)}",
+                            'Used: ${_formatTotalBytes(usage)}',
                             style: const TextStyle(fontSize: 10, color: Colors.grey),
                           ),
                         ),
@@ -196,8 +196,8 @@ class _ProxiesTabState extends State<ProxiesTab> {
                     ),
                     trailing: PopupMenuButton(
                       itemBuilder: (ctx) => [
-                        const PopupMenuItem(value: 'edit', child: Text("Edit")),
-                        const PopupMenuItem(value: 'del', child: Text("Delete")),
+                        const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                        const PopupMenuItem(value: 'del', child: Text('Delete')),
                       ],
                       onSelected: (val) {
                         if (val == 'edit') {

@@ -30,10 +30,11 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
 
   Future<void> _loadApps() async {
     try {
-      final List<dynamic> apps = await platform.invokeMethod('getInstalledApps');
+      final List<dynamic> apps =
+          await platform.invokeMethod('getInstalledApps') as List<dynamic>;
       if (mounted) {
         setState(() {
-          _allApps = apps.map((e) => Map<String, String>.from(e)).toList();
+          _allApps = apps.map((e) => Map<String, String>.from(e as Map)).toList();
           _filteredApps = _allApps;
           _isLoading = false;
         });
@@ -42,7 +43,7 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to load apps: $e")),
+          SnackBar(content: Text('Failed to load apps: $e')),
         );
       }
     }
@@ -62,7 +63,7 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Select Apps"),
+        title: const Text('Select Apps'),
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
@@ -76,7 +77,7 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
             child: TextField(
               controller: _searchCtrl,
               decoration: InputDecoration(
-                hintText: "Search apps...",
+                hintText: 'Search apps...',
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,

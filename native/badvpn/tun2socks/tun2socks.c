@@ -231,6 +231,7 @@ struct tcp_client {
     uint8_t *buf;
     int buf_used;
     char *socks_username;
+    struct BSocksClient_auth_info auth_info[2];
     BSocksClient socks_client;
     int socks_up;
     int socks_closed;
@@ -1919,6 +1920,9 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
     ASSERT_FORCE(BAddr_Parse2(&addr, OVERRIDE_DEST_ADDR, NULL, 0, 1))
 #endif
 
+    // copy global auth info to client-specific structure
+    memcpy(client->auth_info, socks_auth_info, sizeof(socks_auth_info));
+
     // add source address to username if requested
     if (options.username && options.append_source_to_username) {
         char addr_str[BADDR_MAX_PRINT_LEN];
@@ -1927,12 +1931,13 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
         if (!client->socks_username) {
             goto fail1;
         }
-        socks_auth_info[1].password.username = client->socks_username;
-        socks_auth_info[1].password.username_len = strlen(client->socks_username);
+        // Modify client-specific auth info, not the global one
+        client->auth_info[1].password.username = client->socks_username;
+        client->auth_info[1].password.username_len = strlen(client->socks_username);
     }
 
-    // init SOCKS
-    if (!BSocksClient_Init(&client->socks_client, socks_server_addr, socks_auth_info, socks_num_auth_info,
+    // init SOCKS using client-specific auth info
+    if (!BSocksClient_Init(&client->socks_client, socks_server_addr, client->auth_info, socks_num_auth_info,
                            addr, (BSocksClient_handler)client_socks_handler, client, &ss)) {
         BLog(BLOG_ERROR, "listener accept: BSocksClient_Init failed");
         goto fail1;

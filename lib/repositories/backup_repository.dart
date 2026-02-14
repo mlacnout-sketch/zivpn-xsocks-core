@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:archive/archive_io.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -33,7 +34,7 @@ class BackupRepository {
       // 4. Save ZIP to temp
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      final fileName = "minizivpn_backup_$timestamp.zip";
+      final fileName = 'minizivpn_backup_$timestamp.zip';
       final zipFile = File('${tempDir.path}/$fileName');
       
       final encoder = ZipEncoder();
@@ -43,7 +44,9 @@ class BackupRepository {
       await zipFile.writeAsBytes(zipData);
       return zipFile;
     } catch (e) {
-      print("Backup failed: $e");
+      if (kDebugMode) {
+        print('Backup failed: $e');
+      }
       return null;
     }
   }
@@ -58,7 +61,8 @@ class BackupRepository {
       if (configFile == null) return false;
       
       final content = utf8.decode(configFile.content as List<int>);
-      final Map<String, dynamic> prefsData = jsonDecode(content);
+      final Map<String, dynamic> prefsData =
+          jsonDecode(content) as Map<String, dynamic>;
       
       final prefs = await SharedPreferences.getInstance();
       
@@ -70,16 +74,24 @@ class BackupRepository {
         final key = entry.key;
         final val = entry.value;
         
-        if (val is bool) await prefs.setBool(key, val);
-        else if (val is int) await prefs.setInt(key, val);
-        else if (val is double) await prefs.setDouble(key, val);
-        else if (val is String) await prefs.setString(key, val);
-        else if (val is List) await prefs.setStringList(key, List<String>.from(val));
+        if (val is bool) {
+          await prefs.setBool(key, val);
+        } else if (val is int) {
+          await prefs.setInt(key, val);
+        } else if (val is double) {
+          await prefs.setDouble(key, val);
+        } else if (val is String) {
+          await prefs.setString(key, val);
+        } else if (val is List) {
+          await prefs.setStringList(key, List<String>.from(val));
+        }
       }
       
       return true;
     } catch (e) {
-      print("Restore failed: $e");
+      if (kDebugMode) {
+        print('Restore failed: $e');
+      }
       return false;
     }
   }
