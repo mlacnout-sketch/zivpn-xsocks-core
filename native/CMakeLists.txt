@@ -156,6 +156,7 @@ target_compile_options(pdnsd PRIVATE
     -Wno-unused-but-set-variable
     -Wno-implicit-fallthrough
     -Wno-type-limits
+    -Wno-unused-parameter
 )
 target_include_directories(pdnsd PRIVATE pdnsd pdnsd/src)
 target_link_libraries(pdnsd log)
