@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Bundle
 import android.os.Build
+import android.os.PowerManager
 import android.view.Display
 import kotlin.math.abs
 
@@ -83,9 +84,11 @@ class MainActivity: FlutterActivity() {
                 floatArrayOf(display.refreshRate)
             }
 
-            val targetRate = NativeSystem.pickBestRefreshRate(supportedRates)
+            val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+            val powerSaveMode = powerManager?.isPowerSaveMode ?: false
+            val targetRate = NativeSystem.pickBestRefreshRate(supportedRates, powerSaveMode)
             applyPreferredRefreshRate(display, targetRate)
-            sendToLog("UI render hint applied: ${targetRate}Hz (Skia/Vulkan pipeline)")
+            sendToLog("UI render hint applied: ${targetRate}Hz (powerSave=$powerSaveMode, Skia/Vulkan pipeline)")
         } catch (e: Exception) {
             Log.w("ZIVPN-Render", "Unable to optimize render path: ${e.message}")
         }
@@ -98,8 +101,10 @@ class MainActivity: FlutterActivity() {
             }
             if (bestMode != null) {
                 val params = window.attributes
-                params.preferredDisplayModeId = bestMode.modeId
-                window.attributes = params
+                if (params.preferredDisplayModeId != bestMode.modeId) {
+                    params.preferredDisplayModeId = bestMode.modeId
+                    window.attributes = params
+                }
             }
         }
     }

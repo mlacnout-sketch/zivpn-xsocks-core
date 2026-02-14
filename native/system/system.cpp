@@ -106,7 +106,7 @@ sendfd(JNIEnv *env, jobject thiz, jint tun_fd) {
 
 
 static jfloat
-pickBestRefreshRate(JNIEnv *env, jobject thiz, jfloatArray supported_rates) {
+pickBestRefreshRate(JNIEnv *env, jobject thiz, jfloatArray supported_rates, jboolean power_save_mode) {
     if (supported_rates == nullptr) {
         return 60.0f;
     }
@@ -121,15 +121,18 @@ pickBestRefreshRate(JNIEnv *env, jobject thiz, jfloatArray supported_rates) {
         return 60.0f;
     }
 
+    // In power-save mode, favor smoother-than-60 only when close, but cap target lower for battery.
+    const float targetRate = power_save_mode ? 90.0f : 120.0f;
+
     float best = rates[0];
-    float bestScore = fabsf(120.0f - rates[0]);
+    float bestScore = fabsf(targetRate - rates[0]);
 
     for (jsize i = 1; i < len; ++i) {
-        float rate = rates[i];
-        float score = fabsf(120.0f - rate);
+        const float rate = rates[i];
+        const float score = fabsf(targetRate - rate);
 
-        // Prefer the closest refresh rate to 120Hz, but break ties by choosing higher rate.
-        if (score < bestScore || (score == bestScore && rate > best)) {
+        // Prefer the closest rate to target; on ties prefer lower refresh rate to reduce battery usage.
+        if (score < bestScore || (score == bestScore && rate < best)) {
             best = rate;
             bestScore = score;
         }
@@ -149,7 +152,7 @@ static JNINativeMethod method_table[] = {
         (void*) exec },
     { "getABI", "()Ljava/lang/String;",
         (void*) getABI },
-    { "pickBestRefreshRate", "([F)F",
+    { "pickBestRefreshRate", "([FZ)F",
         (void*) pickBestRefreshRate }
 };
 
