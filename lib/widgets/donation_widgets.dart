@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'dart:math';
 
 // --- KONFIGURASI SAWERIA ---
 const String _kSaweriaUrl = "https://saweria.co/Damnwhoknows";
 
-Future<void> _launchSaweria() async {
-  try {
-    await launchUrl(Uri.parse(_kSaweriaUrl), mode: LaunchMode.externalApplication);
-  } catch (e) {
-    debugPrint("Gagal buka saweria: $e");
+Future<void> _openSaweria(BuildContext context) async {
+  final Uri url = Uri.parse(_kSaweriaUrl);
+  await Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => SaweriaWebViewPage(initialUrl: url)),
+  );
+}
+
+Future<void> _openSaweriaExternal() async {
+  final Uri url = Uri.parse(_kSaweriaUrl);
+
+  if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+    throw Exception('Tidak bisa membuka link');
   }
 }
 
@@ -108,7 +116,7 @@ class _SiOrenBannerState extends State<SiOrenBanner> {
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
-                        onPressed: _launchSaweria,
+                        onPressed: () => _openSaweria(context),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orangeAccent,
                           foregroundColor: Colors.black87,
@@ -221,7 +229,7 @@ bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}
                         ),
                         onPressed: () {
                           Navigator.pop(context);
-                          _launchSaweria();
+                          _openSaweria(context);
                           Future.delayed(const Duration(seconds: 1), onProceed);
                         },
                         child: const Row(
@@ -260,4 +268,103 @@ bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}
     },
   );
   return true;
+}
+
+
+class SaweriaWebViewPage extends StatefulWidget {
+  final Uri initialUrl;
+
+  const SaweriaWebViewPage({super.key, required this.initialUrl});
+
+  @override
+  State<SaweriaWebViewPage> createState() => _SaweriaWebViewPageState();
+}
+
+class _SaweriaWebViewPageState extends State<SaweriaWebViewPage> {
+  late final WebViewController _controller;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (_) => setState(() => _loading = true),
+          onPageFinished: (_) => setState(() => _loading = false),
+        ),
+      )
+      ..loadRequest(widget.initialUrl);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF121212),
+      appBar: AppBar(
+        title: const Text('Support Dev ☕'),
+        actions: [
+          IconButton(
+            tooltip: 'Buka di browser',
+            onPressed: _openSaweriaExternal,
+            icon: const Icon(Icons.open_in_new),
+          )
+        ],
+      ),
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF8A00), Color(0xFFFF4D6D)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.orange.withValues(alpha: 0.25),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                )
+              ],
+            ),
+            child: const Row(
+              children: [
+                Text('💖', style: TextStyle(fontSize: 22)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Terima kasih sudah support. Donasi kamu bantu update tetap jalan 🚀',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+              child: Stack(
+                children: [
+                  WebViewWidget(controller: _controller),
+                  if (_loading)
+                    const Center(child: CircularProgressIndicator()),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openSaweriaExternal,
+        icon: const Icon(Icons.favorite),
+        label: const Text('Buka di Browser'),
+      ),
+    );
+  }
 }
