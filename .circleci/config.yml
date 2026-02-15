@@ -39,7 +39,7 @@ jobs:
               APP_ABI=arm64-v8a \
               APP_PLATFORM=android-24 \
               NDK_APPLICATION_MK=Application.mk
-            
+
             # Move result to jniLibs
             mkdir -p ../../android/app/src/main/jniLibs/arm64-v8a/
             cp libs/arm64-v8a/libhev-socks5-tunnel.so ../../android/app/src/main/jniLibs/arm64-v8a/
@@ -47,6 +47,17 @@ jobs:
       - run:
           name: Flutter Dependencies
           command: flutter pub get
+
+      - run:
+          name: Resolve App Version from pubspec
+          command: |
+            APP_VERSION_LINE=$(grep '^version:' pubspec.yaml | head -n1 | awk '{print $2}')
+            APP_VERSION_NAME=${APP_VERSION_LINE%%+*}
+            APP_VERSION_CODE=${APP_VERSION_LINE##*+}
+
+            echo "Resolved version line: ${APP_VERSION_LINE}"
+            echo "export APP_VERSION_NAME=${APP_VERSION_NAME}" >> $BASH_ENV
+            echo "export APP_VERSION_CODE=${APP_VERSION_CODE}" >> $BASH_ENV
 
       - run:
           name: Setup Keystore
@@ -67,7 +78,21 @@ jobs:
 
       - run:
           name: Build APK
-          command: flutter build apk --release --target-platform android-arm64
+          command: |
+            source $BASH_ENV
+            flutter build apk \
+              --release \
+              --target-platform android-arm64 \
+              --build-name "$APP_VERSION_NAME" \
+              --build-number "$APP_VERSION_CODE"
+
+      - run:
+          name: Prepare Versioned Artifact
+          command: |
+            source $BASH_ENV
+            mkdir -p build/artifacts
+            cp build/app/outputs/flutter-apk/app-release.apk \
+              "build/artifacts/mini_zivpn-v${APP_VERSION_NAME}+${APP_VERSION_CODE}-arm64.apk"
 
       - run:
           name: List Build Output (Debug)
@@ -75,7 +100,7 @@ jobs:
           when: always
 
       - store_artifacts:
-          path: build/app/outputs/flutter-apk/
+          path: build/artifacts/
           destination: build-outputs
 
 workflows:
@@ -87,3 +112,5 @@ workflows:
             branches:
               only:
                 - main
+            tags:
+              only: /^v.*/
