@@ -314,9 +314,9 @@ class _SettingsTabState extends State<SettingsTab> {
             _buildTextInput(_dnsCtrl, 'Upstream DNS', Icons.dns, isNumber: false),
             _buildDropdownTile(
               'Native Performance Profile',
-              'Preset tuning tun2socks + pdnsd',
+              'Preset tun2socks + pdnsd + hysteria',
               _nativePerfProfile,
-              const ['balanced', 'throughput', 'latency', 'custom'],
+              const ['balanced', 'throughput', 'latency', 'stable', 'brutal', 'custom'],
               (val) => setState(() => _nativePerfProfile = val!),
             ),
             _buildDropdownTile(
