@@ -30,7 +30,8 @@ class DashboardTab extends StatefulWidget {
   State<DashboardTab> createState() => _DashboardTabState();
 }
 
-class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderStateMixin {
+class _DashboardTabState extends State<DashboardTab>
+    with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
@@ -44,7 +45,7 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
     _pulseAnimation = Tween<double>(begin: 0.0, end: 10.0).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOutSine),
     );
-    
+
     if (widget.vpnState == "connecting") {
       _pulseController.repeat(reverse: true);
     }
@@ -73,7 +74,9 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     bool isConnected = widget.vpnState == "connected";
     bool isConnecting = widget.vpnState == "connecting";
-    Color statusColor = isConnected ? AppColors.primary : (isConnecting ? Colors.orange : AppColors.card);
+    Color statusColor = isConnected
+        ? AppColors.primary
+        : (isConnecting ? Colors.orange : AppColors.card);
 
     return Padding(
       padding: const EdgeInsets.all(20.0),
@@ -88,7 +91,8 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
               letterSpacing: 1.5,
             ),
           ),
-          const Text("Turbo Tunnel Engine", style: TextStyle(color: Colors.grey)),
+          const Text("Turbo Tunnel Engine",
+              style: TextStyle(color: Colors.grey)),
           const SiOrenBanner(), // Banner Si Oren
           const SizedBox(height: 20),
           Expanded(
@@ -110,10 +114,19 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                               color: statusColor,
                               boxShadow: [
                                 BoxShadow(
-                                  color: (isConnecting ? Colors.orange : (isConnected ? AppColors.primary : Colors.black))
-                                      .withValues(alpha: isConnecting ? 0.6 : 0.4),
-                                  blurRadius: isConnecting ? 20 + _pulseAnimation.value : 30,
-                                  spreadRadius: isConnecting ? 5 + _pulseAnimation.value : 10,
+                                  color: (isConnecting
+                                          ? Colors.orange
+                                          : (isConnected
+                                              ? AppColors.primary
+                                              : Colors.black))
+                                      .withValues(
+                                          alpha: isConnecting ? 0.6 : 0.4),
+                                  blurRadius: isConnecting
+                                      ? 20 + _pulseAnimation.value
+                                      : 30,
+                                  spreadRadius: isConnecting
+                                      ? 5 + _pulseAnimation.value
+                                      : 10,
                                 )
                               ],
                             ),
@@ -125,19 +138,25 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                           children: [
                             if (isConnecting)
                               const SizedBox(
-                                width: 64, 
-                                height: 64, 
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
-                              )
+                                  width: 64,
+                                  height: 64,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 3))
                             else
                               Icon(
-                                isConnected ? Icons.vpn_lock : Icons.power_settings_new,
+                                isConnected
+                                    ? Icons.vpn_lock
+                                    : Icons.power_settings_new,
                                 size: 64,
                                 color: Colors.white,
                               ),
                             const SizedBox(height: 15),
                             Text(
-                              isConnecting ? "CONNECTING..." : (isConnected ? "CONNECTED" : "TAP TO CONNECT"),
+                              isConnecting
+                                  ? "CONNECTING..."
+                                  : (isConnected
+                                      ? "CONNECTED"
+                                      : "TAP TO CONNECT"),
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -156,40 +175,51 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                                   border: Border.all(color: Colors.white12),
                                 ),
                                 child: ValueListenableBuilder<String>(
-                                  valueListenable: widget.duration,
-                                  builder: (context, val, _) {
-                                    return Text(
-                                      val,
-                                      style: const TextStyle(
-                                        fontFamily: 'monospace',
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: Colors.white,
-                                      ),
-                                    );
-                                  }
-                                ),
+                                    valueListenable: widget.duration,
+                                    builder: (context, val, _) {
+                                      return Text(
+                                        val,
+                                        style: const TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: Colors.white,
+                                        ),
+                                      );
+                                    }),
                               ),
                               if (widget.autoPilotActive) ...[
                                 const SizedBox(height: 10),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: widget.isResetting ? Colors.redAccent : Colors.blueAccent.withValues(alpha: 0.3),
+                                    color: widget.isResetting
+                                        ? Colors.redAccent
+                                        : Colors.blueAccent
+                                            .withValues(alpha: 0.3),
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: widget.isResetting ? Colors.red : Colors.blueAccent, width: 0.5),
+                                    border: Border.all(
+                                        color: widget.isResetting
+                                            ? Colors.red
+                                            : Colors.blueAccent,
+                                        width: 0.5),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        widget.isResetting ? Icons.sync : Icons.radar,
+                                        widget.isResetting
+                                            ? Icons.sync
+                                            : Icons.radar,
                                         size: 10,
                                         color: Colors.white,
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
-                                        widget.isResetting ? "RESETTING" : "MONITORING",
+                                        widget.isResetting
+                                            ? "RESETTING"
+                                            : "MONITORING",
                                         style: const TextStyle(
                                           fontSize: 9,
                                           fontWeight: FontWeight.bold,
@@ -226,34 +256,37 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
               border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
             ),
             child: ValueListenableBuilder<int>(
-              valueListenable: widget.sessionRx,
-              builder: (context, rx, _) {
-                return ValueListenableBuilder<int>(
-                  valueListenable: widget.sessionTx,
-                  builder: (context, tx, _) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Text(
-                          "Session: ${FormatUtils.formatBytes(rx + tx)}",
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                        Container(width: 1, height: 12, color: Colors.white10),
-                        Text(
-                          "Rx: ${FormatUtils.formatBytes(rx)}",
-                          style: const TextStyle(color: Colors.greenAccent, fontSize: 12),
-                        ),
-                        Container(width: 1, height: 12, color: Colors.white10),
-                        Text(
-                          "Tx: ${FormatUtils.formatBytes(tx)}",
-                          style: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
-                        ),
-                      ],
-                    );
-                  }
-                );
-              }
-            ),
+                valueListenable: widget.sessionRx,
+                builder: (context, rx, _) {
+                  return ValueListenableBuilder<int>(
+                      valueListenable: widget.sessionTx,
+                      builder: (context, tx, _) {
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            Text(
+                              "Session: ${FormatUtils.formatBytes(rx + tx)}",
+                              style: const TextStyle(
+                                  color: Colors.white70, fontSize: 12),
+                            ),
+                            Container(
+                                width: 1, height: 12, color: Colors.white10),
+                            Text(
+                              "Rx: ${FormatUtils.formatBytes(rx)}",
+                              style: const TextStyle(
+                                  color: Colors.greenAccent, fontSize: 12),
+                            ),
+                            Container(
+                                width: 1, height: 12, color: Colors.white10),
+                            Text(
+                              "Tx: ${FormatUtils.formatBytes(tx)}",
+                              style: const TextStyle(
+                                  color: Colors.orangeAccent, fontSize: 12),
+                            ),
+                          ],
+                        );
+                      });
+                }),
           ),
           Row(
             children: [
@@ -287,7 +320,6 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
       ),
     );
   }
-
 }
 
 class StatCard extends StatelessWidget {
@@ -327,9 +359,11 @@ class StatCard extends StatelessWidget {
             children: [
               Text(
                 value,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(label,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           )
         ],

@@ -31,9 +31,11 @@ class AutoPilotConfig {
   }) {
     return AutoPilotConfig(
       checkIntervalSeconds: checkIntervalSeconds ?? this.checkIntervalSeconds,
-      connectionTimeoutSeconds: connectionTimeoutSeconds ?? this.connectionTimeoutSeconds,
+      connectionTimeoutSeconds:
+          connectionTimeoutSeconds ?? this.connectionTimeoutSeconds,
       maxFailCount: maxFailCount ?? this.maxFailCount,
-      airplaneModeDelaySeconds: airplaneModeDelaySeconds ?? this.airplaneModeDelaySeconds,
+      airplaneModeDelaySeconds:
+          airplaneModeDelaySeconds ?? this.airplaneModeDelaySeconds,
       recoveryWaitSeconds: recoveryWaitSeconds ?? this.recoveryWaitSeconds,
       enableStabilizer: enableStabilizer ?? this.enableStabilizer,
       autoReset: autoReset ?? this.autoReset,

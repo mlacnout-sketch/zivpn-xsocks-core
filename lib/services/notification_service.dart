@@ -5,20 +5,23 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _notifications =
+      FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
 
   Future<void> init() async {
     if (_isInitialized) return;
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidSettings);
 
     await _notifications.initialize(initSettings);
     _isInitialized = true;
   }
 
-  Future<void> showProgress(int id, int progress, int total, String title, String body) async {
+  Future<void> showProgress(
+      int id, int progress, int total, String title, String body) async {
     if (!_isInitialized) await init();
 
     final androidDetails = AndroidNotificationDetails(
