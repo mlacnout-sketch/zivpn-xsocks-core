@@ -66,6 +66,7 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
+            tooltip: 'Save selection',
             onPressed: () => Navigator.pop(context, _selectedPackages.toList()),
           )
         ],
@@ -78,6 +79,16 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
               decoration: InputDecoration(
                 hintText: "Search apps...",
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchCtrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Clear search',
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          // Ensure keyboard stays open or handles focus as expected
+                        },
+                      )
+                    : null,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
                 fillColor: AppColors.card,
@@ -88,9 +99,20 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: _filteredApps.length,
-              itemBuilder: (context, index) {
+          : _filteredApps.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.search_off, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text("No apps found", style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _filteredApps.length,
+                  itemBuilder: (context, index) {
                 final app = _filteredApps[index];
                 final pkg = app['package']!;
                 final isSelected = _selectedPackages.contains(pkg);
