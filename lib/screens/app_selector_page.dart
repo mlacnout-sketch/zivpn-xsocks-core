@@ -33,7 +33,13 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
       final List<dynamic> apps = await platform.invokeMethod('getInstalledApps');
       if (mounted) {
         setState(() {
-          _allApps = apps.map((e) => Map<String, String>.from(e)).toList();
+          _allApps = apps.map((e) {
+            final m = Map<String, String>.from(e);
+            // ⚡ Bolt Optimization: Pre-compute lowercase string for search.
+            // Expected impact: Removes repeated toLowerCase() calls during typing (O(N) vs O(N*M)).
+            m['search_key'] = '${m['name']!.toLowerCase()} ${m['package']!.toLowerCase()}';
+            return m;
+          }).toList();
           _filteredApps = _allApps;
           _isLoading = false;
         });
@@ -52,8 +58,9 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
     final query = _searchCtrl.text.toLowerCase();
     setState(() {
       _filteredApps = _allApps.where((app) {
-        return app['name']!.toLowerCase().contains(query) ||
-               app['package']!.toLowerCase().contains(query);
+        // ⚡ Bolt Optimization: Use pre-computed search key.
+        // Avoids creating new strings and calling toLowerCase() repeatedly on UI thread.
+        return app['search_key']!.contains(query);
       }).toList();
     });
   }
