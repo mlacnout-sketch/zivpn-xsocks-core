@@ -31,6 +31,8 @@
 #include <stddef.h>
 #include <string.h>
 #include <limits.h>
+#include <time.h>
+#include <inttypes.h>
 
 #include <misc/version.h>
 #include <misc/loggers_string.h>
@@ -74,6 +76,46 @@ extern u16_t g_tcp_wnd;
 extern u16_t g_tcp_snd_buf;
 int g_socks_buf_size = CLIENT_SOCKS_RECV_BUF_SIZE;
 
+typedef struct Tun2SocksPerfMetrics {
+    uint64_t ingress_packets;
+    uint64_t ingress_bytes;
+    uint64_t ingress_ns;
+    uint64_t dns_packets;
+    uint64_t dns_ns;
+    uint64_t udp_packets;
+    uint64_t udp_ns;
+    uint64_t tcp_recv_calls;
+    uint64_t tcp_recv_bytes;
+    uint64_t tcp_recv_ns;
+    uint64_t tcp_sent_calls;
+    uint64_t tcp_sent_bytes;
+    uint64_t tcp_sent_ns;
+    uint64_t session_lookup_calls;
+    uint64_t session_lookup_hits;
+    uint64_t session_lookup_ns;
+    uint64_t session_insert_calls;
+    uint64_t session_insert_ns;
+    uint64_t session_remove_calls;
+    uint64_t session_remove_ns;
+    uint64_t reassembly_bytes;
+    uint64_t event_loop_ticks;
+    uint64_t event_loop_max_ns;
+    uint64_t event_loop_lag_ns;
+    uint64_t event_loop_lag_max_ns;
+    uint64_t tcp_timer_handler_ns;
+} Tun2SocksPerfMetrics;
+
+static Tun2SocksPerfMetrics g_perf_metrics;
+static uint64_t g_perf_last_report_ns;
+
+static uint64_t perf_now_ns(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
+}
+
+static void perf_report_if_due(void);
+
 #ifdef ANDROID
 
 #include <ancillary.h>
@@ -100,26 +142,35 @@ static int conaddr_comparator (void *unused, uint16_t *v1, uint16_t *v2)
 
 static Connection * find_connection (uint16_t port)
 {
+    uint64_t t0 = perf_now_ns();
     BAVLNode *tree_node = BAVL_LookupExact(&connections_tree, &port);
+    g_perf_metrics.session_lookup_calls++;
+    g_perf_metrics.session_lookup_ns += (perf_now_ns() - t0);
+
     if (!tree_node) {
         return NULL;
     }
 
+    g_perf_metrics.session_lookup_hits++;
     return UPPER_OBJECT(tree_node, Connection, connections_tree_node);
 }
 
 static void remove_connection (Connection *con)
 {
+    uint64_t t0 = perf_now_ns();
     con->count -= 1;
     if (con->count <= 0)
     {
         BAVL_Remove(&connections_tree, &con->connections_tree_node);
         free(con);
     }
+    g_perf_metrics.session_remove_calls++;
+    g_perf_metrics.session_remove_ns += (perf_now_ns() - t0);
 }
 
 static void insert_connection (BAddr local_addr, BAddr remote_addr, uint16_t port)
 {
+   uint64_t t0 = perf_now_ns();
    Connection * con = find_connection(port);
    if (con != NULL)
        con->count += 1;
@@ -132,6 +183,8 @@ static void insert_connection (BAddr local_addr, BAddr remote_addr, uint16_t por
        tmp->count = 1;
        BAVL_Insert(&connections_tree, &tmp->connections_tree_node, NULL);
    }
+   g_perf_metrics.session_insert_calls++;
+   g_perf_metrics.session_insert_ns += (perf_now_ns() - t0);
 }
 
 static void free_connections()
@@ -208,6 +261,8 @@ struct {
     int tcp_snd_buf;
     int tcp_wnd;
     int socks_buf;
+    int perf_telemetry_enable;
+    int perf_telemetry_interval_ms;
 #ifdef ANDROID
     int tun_fd;
     int tun_mtu;
@@ -241,6 +296,9 @@ struct tcp_client {
     int socks_recv_buf_sent;
     int socks_recv_waiting;
     int socks_recv_tcp_pending;
+    uint64_t perf_reassembly_bytes;
+    uint64_t perf_tcp_in_bytes;
+    uint64_t perf_tcp_out_bytes;
 };
 
 // IP address of netif
@@ -761,6 +819,8 @@ void print_help (const char *name)
         "        [--udpgw-max-connections <number>]\n"
         "        [--udpgw-connection-buffer-size <number>]\n"
         "        [--udpgw-transparent-dns]\n"
+        "        [--perf-telemetry-disable]\n"
+        "        [--perf-telemetry-interval-ms <number>]\n"
         "Address format is a.b.c.d:port (IPv4) or [addr]:port (IPv6).\n",
         name
     );
@@ -811,6 +871,8 @@ int parse_arguments (int argc, char *argv[])
     options.tcp_snd_buf = 0;
     options.tcp_wnd = 0;
     options.socks_buf = 0;
+    options.perf_telemetry_enable = 1;
+    options.perf_telemetry_interval_ms = 5000;
 
     int i;
     for (i = 1; i < argc; i++) {
@@ -1060,6 +1122,20 @@ int parse_arguments (int argc, char *argv[])
                 return 0;
             }
             if ((options.socks_buf = atoi(argv[i + 1])) <= 0) {
+                fprintf(stderr, "%s: wrong argument\n", arg);
+                return 0;
+            }
+            i++;
+        }
+        else if (!strcmp(arg, "--perf-telemetry-disable")) {
+            options.perf_telemetry_enable = 0;
+        }
+        else if (!strcmp(arg, "--perf-telemetry-interval-ms")) {
+            if (1 >= argc - i) {
+                fprintf(stderr, "%s: requires an argument\n", arg);
+                return 0;
+            }
+            if ((options.perf_telemetry_interval_ms = atoi(argv[i + 1])) <= 0) {
                 fprintf(stderr, "%s: wrong argument\n", arg);
                 return 0;
             }
@@ -1330,9 +1406,47 @@ fail:
     }
 }
 
+static void perf_report_if_due(void)
+{
+    if (!options.perf_telemetry_enable) {
+        return;
+    }
+
+    uint64_t now = perf_now_ns();
+    if (g_perf_last_report_ns == 0) {
+        g_perf_last_report_ns = now;
+        return;
+    }
+
+    uint64_t interval_ns = (uint64_t)options.perf_telemetry_interval_ms * 1000000ull;
+    if (now - g_perf_last_report_ns < interval_ns) {
+        return;
+    }
+
+    MemoryPoolStats mp;
+    pool_get_stats(&mp);
+
+    BLog(BLOG_NOTICE,
+         "PERF ingress_pkts=%" PRIu64 " ingress_bytes=%" PRIu64 " dns_pkts=%" PRIu64
+         " udp_pkts=%" PRIu64 " tcp_recv_calls=%" PRIu64 " tcp_sent_calls=%" PRIu64
+         " sess_lookup=%" PRIu64 " hits=%" PRIu64 " reassembly_bytes=%" PRIu64
+         " ev_ticks=%" PRIu64 " ev_max_ns=%" PRIu64 " ev_lag_max_ns=%" PRIu64
+         " alloc=%llu free=%llu pool_hit=%llu pool_miss=%llu lock_wait_ns=%llu",
+         g_perf_metrics.ingress_packets, g_perf_metrics.ingress_bytes, g_perf_metrics.dns_packets,
+         g_perf_metrics.udp_packets, g_perf_metrics.tcp_recv_calls, g_perf_metrics.tcp_sent_calls,
+         g_perf_metrics.session_lookup_calls, g_perf_metrics.session_lookup_hits, g_perf_metrics.reassembly_bytes,
+         g_perf_metrics.event_loop_ticks, g_perf_metrics.event_loop_max_ns, g_perf_metrics.event_loop_lag_max_ns,
+         mp.alloc_calls, mp.free_calls, mp.pool_hits, mp.pool_misses, mp.lock_wait_ns);
+
+    g_perf_last_report_ns = now;
+}
+
 void tcp_timer_handler (void *unused)
 {
     ASSERT(!quitting)
+
+    uint64_t t0 = perf_now_ns();
+    uint64_t expected = (uint64_t)tcp_timer.base.absTime;
 
     BLog(BLOG_DEBUG, "TCP timer");
 
@@ -1341,6 +1455,18 @@ void tcp_timer_handler (void *unused)
     BReactor_SetTimerAbsolute(&ss, &tcp_timer, btime_add(tcp_timer.base.absTime, TCP_TMR_INTERVAL));
 
     tcp_tmr();
+
+    uint64_t elapsed = perf_now_ns() - t0;
+    g_perf_metrics.event_loop_ticks++;
+    g_perf_metrics.tcp_timer_handler_ns += elapsed;
+    if (elapsed > g_perf_metrics.event_loop_max_ns) g_perf_metrics.event_loop_max_ns = elapsed;
+
+    uint64_t now = perf_now_ns();
+    uint64_t lag = (now > expected) ? (now - expected) : 0;
+    g_perf_metrics.event_loop_lag_ns += lag;
+    if (lag > g_perf_metrics.event_loop_lag_max_ns) g_perf_metrics.event_loop_lag_max_ns = lag;
+
+    perf_report_if_due();
     return;
 }
 
@@ -1359,6 +1485,10 @@ void device_read_handler_send (void *unused, uint8_t *data, int data_len)
     ASSERT(!quitting)
     ASSERT(data_len >= 0)
 
+    uint64_t t0 = perf_now_ns();
+    g_perf_metrics.ingress_packets++;
+    g_perf_metrics.ingress_bytes += (uint64_t)data_len;
+
     BLog(BLOG_DEBUG, "device: received packet");
 
     // accept packet
@@ -1367,23 +1497,27 @@ void device_read_handler_send (void *unused, uint8_t *data, int data_len)
 #ifdef ANDROID
     // process DNS directly
     if (process_device_dns_packet(data, data_len)) {
+        g_perf_metrics.ingress_ns += (perf_now_ns() - t0);
         return;
     }
 #endif
 
     // process UDP directly
     if (process_device_udp_packet(data, data_len)) {
+        g_perf_metrics.ingress_ns += (perf_now_ns() - t0);
         return;
     }
 
     // obtain pbuf
     if (data_len > UINT16_MAX) {
         BLog(BLOG_WARNING, "device read: packet too large");
+        g_perf_metrics.ingress_ns += (perf_now_ns() - t0);
         return;
     }
     struct pbuf *p = pbuf_alloc(PBUF_RAW, data_len, PBUF_POOL);
     if (!p) {
         BLog(BLOG_WARNING, "device read: pbuf_alloc failed");
+        g_perf_metrics.ingress_ns += (perf_now_ns() - t0);
         return;
     }
 
@@ -1395,12 +1529,16 @@ void device_read_handler_send (void *unused, uint8_t *data, int data_len)
         BLog(BLOG_WARNING, "device read: input failed");
         pbuf_free(p);
     }
+
+    g_perf_metrics.ingress_ns += (perf_now_ns() - t0);
 }
 
 #ifdef ANDROID
 int process_device_dns_packet (uint8_t *data, int data_len)
 {
     ASSERT(data_len >= 0)
+
+    uint64_t t0 = perf_now_ns();
 
     // do nothing if we don't have dnsgw
     if (!options.dnsgw) {
@@ -1649,9 +1787,12 @@ int process_device_dns_packet (uint8_t *data, int data_len)
     // submit packet
     BTap_Send(&device, device_write_buf, packet_length);
 
+    g_perf_metrics.udp_packets++;
+    g_perf_metrics.udp_ns += (perf_now_ns() - t0);
     return 1;
 
 fail:
+    g_perf_metrics.udp_ns += (perf_now_ns() - t0);
     return 0;
 }
 #endif
@@ -1659,6 +1800,8 @@ fail:
 int process_device_udp_packet (uint8_t *data, int data_len)
 {
     ASSERT(data_len >= 0)
+
+    uint64_t t0 = perf_now_ns();
 
     // do nothing if we don't have udpgw
     if (!options.udpgw_remote_server_addr) {
@@ -1769,9 +1912,12 @@ int process_device_udp_packet (uint8_t *data, int data_len)
     // submit packet to udpgw
     SocksUdpGwClient_SubmitPacket(&udpgw_client, local_addr, remote_addr, is_dns, data, data_len);
 
+    g_perf_metrics.udp_packets++;
+    g_perf_metrics.udp_ns += (perf_now_ns() - t0);
     return 1;
 
 fail:
+    g_perf_metrics.udp_ns += (perf_now_ns() - t0);
     return 0;
 }
 
@@ -2148,6 +2294,7 @@ void client_err_func (void *arg, err_t err)
 
 err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
 {
+    uint64_t t0 = perf_now_ns();
     struct tcp_client *client = (struct tcp_client *)arg;
     ASSERT(!client->client_closed)
     ASSERT(err == ERR_OK) // checked in lwIP source. Otherwise, I've no idea what should
@@ -2156,6 +2303,7 @@ err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
     if (!p) {
         client_log(client, BLOG_INFO, "client closed");
         client_free_client(client);
+        g_perf_metrics.tcp_recv_ns += (perf_now_ns() - t0);
         return ERR_ABRT;
     }
 
@@ -2182,6 +2330,7 @@ err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
         SYNC_COMMIT
         DEAD_LEAVE2(client->dead_client)
         if (DEAD_KILLED) {
+            g_perf_metrics.tcp_recv_ns += (perf_now_ns() - t0);
             return ERR_ABRT;
         }
     }
@@ -2189,6 +2338,7 @@ err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
     // free pbuff
     pbuf_free(p);
 
+    g_perf_metrics.tcp_recv_ns += (perf_now_ns() - t0);
     return ERR_OK;
 }
 
@@ -2390,12 +2540,17 @@ int client_socks_recv_send_out (struct tcp_client *client)
 
 err_t client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
 {
+    uint64_t t0 = perf_now_ns();
     struct tcp_client *client = (struct tcp_client *)arg;
 
     ASSERT(!client->client_closed)
     ASSERT(client->socks_up)
     ASSERT(len > 0)
     ASSERT(len <= client->socks_recv_tcp_pending)
+
+    g_perf_metrics.tcp_sent_calls++;
+    g_perf_metrics.tcp_sent_bytes += len;
+    client->perf_tcp_out_bytes += len;
 
     // decrement pending
     client->socks_recv_tcp_pending -= len;
@@ -2410,6 +2565,7 @@ err_t client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
 
         // possibly send more data
         if (client_socks_recv_send_out(client) < 0) {
+            g_perf_metrics.tcp_recv_ns += (perf_now_ns() - t0);
             return ERR_ABRT;
         }
 
@@ -2425,10 +2581,12 @@ err_t client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
             SYNC_COMMIT
             DEAD_LEAVE2(client->dead_client)
             if (DEAD_KILLED) {
+                g_perf_metrics.tcp_sent_ns += (perf_now_ns() - t0);
                 return ERR_ABRT;
             }
         }
 
+        g_perf_metrics.tcp_sent_ns += (perf_now_ns() - t0);
         return ERR_OK;
     }
 
@@ -2436,9 +2594,11 @@ err_t client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
     if (client->socks_closed && client->socks_recv_tcp_pending == 0) {
         client_log(client, BLOG_INFO, "removing after SOCKS went down");
         client_free_client(client);
+        g_perf_metrics.tcp_sent_ns += (perf_now_ns() - t0);
         return ERR_ABRT;
     }
 
+    g_perf_metrics.tcp_sent_ns += (perf_now_ns() - t0);
     return ERR_OK;
 }
 

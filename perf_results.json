@@ -1,0 +1,259 @@
+[
+  {
+    "scenario": "high_pps_small_pkt",
+    "raw": "RESULT threads=6 duration=15 pps_target=120000 flows=400 frag=none\nMETRIC packets=1298881 bytes=1015850889 drops=0 pps=86503.07 mbps=541.23\nLATENCY_NS p50=3595 p95=6558 p99=23705 p999=74642\nFLOW tcp=779071 udp=389891 dns=129919 reassembly_bytes=0 event_loop_max_ns=10557649\nALLOC alloc_calls=1298881 free_calls=1298881 pool_hits=1298876 pool_misses=5 bytes_heap=10240 lock_wait_ns=253867985\n",
+    "metric": [
+      1298881,
+      1015850889,
+      0,
+      86503.07,
+      541.23
+    ],
+    "lat": [
+      3595,
+      6558,
+      23705,
+      74642
+    ],
+    "flow": [
+      779071,
+      389891,
+      129919,
+      0,
+      10557649
+    ],
+    "alloc": [
+      1298881,
+      1298881,
+      1298876,
+      5,
+      10240,
+      253867985
+    ]
+  },
+  {
+    "scenario": "fragmented_tcp",
+    "raw": "RESULT threads=6 duration=15 pps_target=90000 flows=1200 frag=heavy\nMETRIC packets=1013142 bytes=791947005 drops=0 pps=67475.62 mbps=421.95\nLATENCY_NS p50=4703 p95=22885 p99=48972 p999=138171\nFLOW tcp=607563 udp=304140 dns=101439 reassembly_bytes=165729762 event_loop_max_ns=13759842\nALLOC alloc_calls=1013142 free_calls=1013142 pool_hits=1013137 pool_misses=5 bytes_heap=10240 lock_wait_ns=255857501\n",
+    "metric": [
+      1013142,
+      791947005,
+      0,
+      67475.62,
+      421.95
+    ],
+    "lat": [
+      4703,
+      22885,
+      48972,
+      138171
+    ],
+    "flow": [
+      607563,
+      304140,
+      101439,
+      165729762,
+      13759842
+    ],
+    "alloc": [
+      1013142,
+      1013142,
+      1013137,
+      5,
+      10240,
+      255857501
+    ]
+  },
+  {
+    "scenario": "concurrent_sessions",
+    "raw": "RESULT threads=8 duration=15 pps_target=100000 flows=2000 frag=moderate\nMETRIC packets=1143123 bytes=893977790 drops=0 pps=76100.25 mbps=476.11\nLATENCY_NS p50=4652 p95=23516 p99=49896 p999=153325\nFLOW tcp=685675 udp=343170 dns=114278 reassembly_bytes=187050931 event_loop_max_ns=15943937\nALLOC alloc_calls=1143123 free_calls=1143123 pool_hits=1143118 pool_misses=5 bytes_heap=10240 lock_wait_ns=385490640\n",
+    "metric": [
+      1143123,
+      893977790,
+      0,
+      76100.25,
+      476.11
+    ],
+    "lat": [
+      4652,
+      23516,
+      49896,
+      153325
+    ],
+    "flow": [
+      685675,
+      343170,
+      114278,
+      187050931,
+      15943937
+    ],
+    "alloc": [
+      1143123,
+      1143123,
+      1143118,
+      5,
+      10240,
+      385490640
+    ]
+  },
+  {
+    "scenario": "rapid_churn",
+    "raw": "RESULT threads=8 duration=12 pps_target=130000 flows=2500 frag=none\nMETRIC packets=1195554 bytes=935156546 drops=0 pps=99505.91 mbps=622.66\nLATENCY_NS p50=3552 p95=6509 p99=25306 p999=99329\nFLOW tcp=717144 udp=359102 dns=119308 reassembly_bytes=0 event_loop_max_ns=11901630\nALLOC alloc_calls=1195554 free_calls=1195554 pool_hits=1195547 pool_misses=7 bytes_heap=14336 lock_wait_ns=273997862\n",
+    "metric": [
+      1195554,
+      935156546,
+      0,
+      99505.91,
+      622.66
+    ],
+    "lat": [
+      3552,
+      6509,
+      25306,
+      99329
+    ],
+    "flow": [
+      717144,
+      359102,
+      119308,
+      0,
+      11901630
+    ],
+    "alloc": [
+      1195554,
+      1195554,
+      1195547,
+      7,
+      14336,
+      273997862
+    ]
+  },
+  {
+    "scenario": "dns_flood",
+    "raw": "RESULT threads=6 duration=12 pps_target=150000 flows=300 frag=none\nMETRIC packets=1090427 bytes=852851228 drops=0 pps=90740.56 mbps=567.76\nLATENCY_NS p50=3574 p95=6800 p99=24704 p999=82738\nFLOW tcp=654115 udp=327432 dns=108880 reassembly_bytes=0 event_loop_max_ns=9908044\nALLOC alloc_calls=1090427 free_calls=1090427 pool_hits=1090422 pool_misses=5 bytes_heap=10240 lock_wait_ns=263168599\n",
+    "metric": [
+      1090427,
+      852851228,
+      0,
+      90740.56,
+      567.76
+    ],
+    "lat": [
+      3574,
+      6800,
+      24704,
+      82738
+    ],
+    "flow": [
+      654115,
+      327432,
+      108880,
+      0,
+      9908044
+    ],
+    "alloc": [
+      1090427,
+      1090427,
+      1090422,
+      5,
+      10240,
+      263168599
+    ]
+  },
+  {
+    "scenario": "slow_upstream_sim",
+    "raw": "RESULT threads=4 duration=12 pps_target=60000 flows=1000 frag=heavy\nMETRIC packets=593047 bytes=463936242 drops=0 pps=49393.49 mbps=309.12\nLATENCY_NS p50=4715 p95=21487 p99=48051 p999=148104\nFLOW tcp=355414 udp=178545 dns=59088 reassembly_bytes=97047817 event_loop_max_ns=5178159\nALLOC alloc_calls=593047 free_calls=593047 pool_hits=593043 pool_misses=4 bytes_heap=8192 lock_wait_ns=95294274\n",
+    "metric": [
+      593047,
+      463936242,
+      0,
+      49393.49,
+      309.12
+    ],
+    "lat": [
+      4715,
+      21487,
+      48051,
+      148104
+    ],
+    "flow": [
+      355414,
+      178545,
+      59088,
+      97047817,
+      5178159
+    ],
+    "alloc": [
+      593047,
+      593047,
+      593043,
+      4,
+      8192,
+      95294274
+    ]
+  },
+  {
+    "scenario": "mixed_worst_case",
+    "raw": "RESULT threads=10 duration=20 pps_target=140000 flows=2200 frag=heavy\nMETRIC packets=1680963 bytes=1314385502 drops=0 pps=83962.63 mbps=525.22\nLATENCY_NS p50=4792 p95=31406 p99=82307 p999=259074\nFLOW tcp=1008267 udp=504636 dns=168060 reassembly_bytes=275143316 event_loop_max_ns=31358988\nALLOC alloc_calls=1680963 free_calls=1680963 pool_hits=1680956 pool_misses=7 bytes_heap=14336 lock_wait_ns=1106642419\n",
+    "metric": [
+      1680963,
+      1314385502,
+      0,
+      83962.63,
+      525.22
+    ],
+    "lat": [
+      4792,
+      31406,
+      82307,
+      259074
+    ],
+    "flow": [
+      1008267,
+      504636,
+      168060,
+      275143316,
+      31358988
+    ],
+    "alloc": [
+      1680963,
+      1680963,
+      1680956,
+      7,
+      14336,
+      1106642419
+    ]
+  },
+  {
+    "scenario": "soak_mixed",
+    "raw": "RESULT threads=8 duration=120 pps_target=100000 flows=1800 frag=heavy\nMETRIC packets=10366215 bytes=8106142310 drops=0 pps=86331.43 mbps=540.07\nLATENCY_NS p50=4622 p95=19888 p99=36552 p999=121970\nFLOW tcp=6220175 udp=3108240 dns=1037800 reassembly_bytes=1702349511 event_loop_max_ns=29989054\nALLOC alloc_calls=10366215 free_calls=10366215 pool_hits=10366208 pool_misses=7 bytes_heap=14336 lock_wait_ns=2208647568\n",
+    "metric": [
+      10366215,
+      8106142310,
+      0,
+      86331.43,
+      540.07
+    ],
+    "lat": [
+      4622,
+      19888,
+      36552,
+      121970
+    ],
+    "flow": [
+      6220175,
+      3108240,
+      1037800,
+      1702349511,
+      29989054
+    ],
+    "alloc": [
+      10366215,
+      10366215,
+      10366208,
+      7,
+      14336,
+      2208647568
+    ],
+    "soak_runtime_s": 120.08380389213562
+  }
+]

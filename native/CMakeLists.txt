@@ -4,6 +4,8 @@ project(minizivpn_native)
 
 option(TUN2SOCKS_ENABLE_LTO "Enable link-time optimization for tun2socks" ON)
 option(TUN2SOCKS_ENABLE_CPU_TUNING "Enable ABI-specific CPU tuning flags" OFF)
+option(TUN2SOCKS_ENABLE_FRAME_POINTER "Keep frame pointers for profiling" ON)
+option(TUN2SOCKS_ENABLE_PERF_TELEMETRY "Enable tun2socks perf telemetry instrumentation" ON)
 
 # --- libancillary ---
 add_library(ancillary STATIC
@@ -94,6 +96,12 @@ target_compile_definitions(tun2socks PRIVATE
     ANDROID
 )
 
+if(TUN2SOCKS_ENABLE_PERF_TELEMETRY)
+    target_compile_definitions(tun2socks PRIVATE TUN2SOCKS_ENABLE_PERF_TELEMETRY=1)
+else()
+    target_compile_definitions(tun2socks PRIVATE TUN2SOCKS_ENABLE_PERF_TELEMETRY=0)
+endif()
+
 target_include_directories(tun2socks PRIVATE
     libancillary
     badvpn/lwip/src/include/ipv4
@@ -112,8 +120,13 @@ if(ANDROID)
         -DNDEBUG
         -fno-plt
         -fvisibility=hidden
-        -fomit-frame-pointer
     )
+
+    if(TUN2SOCKS_ENABLE_FRAME_POINTER)
+        target_compile_options(tun2socks PRIVATE -fno-omit-frame-pointer)
+    else()
+        target_compile_options(tun2socks PRIVATE -fomit-frame-pointer)
+    endif()
 
     if(TUN2SOCKS_ENABLE_LTO)
         target_compile_options(tun2socks PRIVATE -flto)
@@ -140,6 +153,9 @@ else()
         -Wno-unused-label
         -Wno-unused-variable
     )
+    if(TUN2SOCKS_ENABLE_FRAME_POINTER)
+        target_compile_options(tun2socks PRIVATE -fno-omit-frame-pointer)
+    endif()
 endif()
 
 if(NOT SKIP_JNI_CHECK)
@@ -160,6 +176,20 @@ if(NOT SKIP_JNI_CHECK)
     else()
         target_link_libraries(system ancillary log dl)
     endif()
+endif()
+
+
+add_executable(tun2socks_perf_harness
+    perf/tun2socks_perf_harness.cpp
+    badvpn/tun2socks/MemoryPool.c
+)
+target_include_directories(tun2socks_perf_harness PRIVATE
+    badvpn
+    badvpn/tun2socks
+)
+target_link_libraries(tun2socks_perf_harness pthread)
+if(TUN2SOCKS_ENABLE_FRAME_POINTER)
+    target_compile_options(tun2socks_perf_harness PRIVATE -fno-omit-frame-pointer)
 endif()
 
 # --- pdnsd ---
