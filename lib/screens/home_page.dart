@@ -399,7 +399,15 @@ class _HomePageState extends State<HomePage> {
                 _saveAccounts();
               },
             ),
-            LogsTab(logs: _logs, scrollController: _logScrollCtrl),
+            LogsTab(
+              logs: _logs,
+              scrollController: _logScrollCtrl,
+              onClearLogs: () {
+                setState(() {
+                  _logs.clear();
+                });
+              },
+            ),
             const AutoPilotTab(),
             SettingsTab(
               onCheckUpdate: () async {

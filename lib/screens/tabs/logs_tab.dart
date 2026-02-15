@@ -5,11 +5,13 @@ import '../../app_colors.dart';
 class LogsTab extends StatefulWidget {
   final List<String> logs;
   final ScrollController scrollController;
+  final VoidCallback onClearLogs;
 
   const LogsTab({
     super.key,
     required this.logs,
     required this.scrollController,
+    required this.onClearLogs,
   });
 
   @override
@@ -63,11 +65,7 @@ class _LogsTabState extends State<LogsTab> {
                   IconButton(
                     icon: const Icon(Icons.delete_sweep),
                     tooltip: "Clear Logs",
-                    onPressed: () {
-                      setState(() {
-                        widget.logs.clear();
-                      });
-                    },
+                    onPressed: widget.onClearLogs,
                   ),
                 ],
               ),
