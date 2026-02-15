@@ -65,12 +65,7 @@ class AutoPilotService {
     await prefs.setInt('stabilizer_size_ap', newConfig.stabilizerSizeMb);
 
     if (isRunning) {
-      _timer?.cancel();
-      _timer = Timer.periodic(
-        Duration(seconds: _config.checkIntervalSeconds),
-        (timer) async => await _checkAndRecover(),
-      );
-      _log('Config updated: interval=${_config.checkIntervalSeconds}s timeout=${_config.connectionTimeoutSeconds}s');
+      _log('Config updated while running');
     }
   }
 
@@ -79,6 +74,30 @@ class AutoPilotService {
       await _platform.invokeMethod('logMessage', {'message': '[AUTOPILOT] $message'});
     } catch (e) {
       print('AP Log error: $e');
+    }
+  }
+
+  Future<void> _ensureShizukuReady() async {
+    final binderAlive = await _shizuku.pingBinder() ?? false;
+
+    // Keep legacy detection behavior: permission check remains primary signal,
+    // because some devices report binder false intermittently.
+    var hasPermission = await _shizuku.checkPermission() ?? false;
+    if (!hasPermission) {
+      hasPermission = await _shizuku.requestPermission() ?? false;
+    }
+
+    if (!hasPermission) {
+      throw 'Shizuku Permission Denied';
+    }
+
+    try {
+      await _shizuku.runCommand('echo shizuku_ok');
+    } catch (e) {
+      if (!binderAlive) {
+        throw 'Shizuku service is not running.';
+      }
+      throw 'Shizuku command failed: $e';
     }
   }
 
@@ -91,14 +110,7 @@ class AutoPilotService {
         message: 'Initializing Shizuku...', 
       ));
 
-      final isBinderAlive = await _shizuku.pingBinder() ?? false;
-      if (!isBinderAlive) throw 'Shizuku service is not running.';
-
-      if (!(await _shizuku.checkPermission() ?? false)) {
-        final granted = await _shizuku.requestPermission() ?? false;
-        if (!granted) throw 'Shizuku Permission Denied';
-      }
-
+      await _ensureShizukuReady();
       await strengthenBackground();
 
       _updateState(_currentState.copyWith(

@@ -53,7 +53,6 @@ class ZivpnService : VpnService() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var pingExecutor: ScheduledExecutorService? = null
     private var isReconnecting = false
-    private var lastPingSuccessLogMs = 0L
     
     // Class-level properties to be accessible within inner classes/lambdas
     private var consecutiveFailures = 0
@@ -417,7 +416,7 @@ class ZivpnService : VpnService() {
             if (NativeSystem.sendfd(fd) == 0) {
                 logToApp("VPN Engine Running.")
                 prefs.edit().putBoolean("flutter.vpn_running", true).apply()
-                val pingInterval = getPrefInt(prefs, "ping_interval", 3)
+                val pingInterval = prefs.getInt("ping_interval", 3)
                 val rawTarget = getPrefString(prefs, "ping_target", "http://connectivitycheck.gstatic.com/generate_204")
                 val finalTarget = if (rawTarget.startsWith("http")) rawTarget else "http://$rawTarget"
                 
@@ -576,7 +575,6 @@ class ZivpnService : VpnService() {
         stopPingTimer()
         consecutiveFailures = 0
         sessionResetCount = 0
-        lastPingSuccessLogMs = 0L
         pingExecutor = Executors.newSingleThreadScheduledExecutor()
         
         val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
@@ -584,8 +582,6 @@ class ZivpnService : VpnService() {
         val autoReset = getPrefBool(prefs, "auto_reset", false)
         val pingTimeout = getPrefInt(prefs, "ping_timeout", 5)
         
-        val safeInterval = if (intervalSeconds < 1) 1 else intervalSeconds
-
         pingExecutor?.scheduleAtFixedRate({
             val start = System.currentTimeMillis()
             try {
@@ -603,12 +599,7 @@ class ZivpnService : VpnService() {
                 if (responseCode == 200 || responseCode == 204) {
                     consecutiveFailures = 0
                     sessionResetCount = 0
-
-                    val now = System.currentTimeMillis()
-                    if (now - lastPingSuccessLogMs >= safeInterval * 3000L) {
-                        lastPingSuccessLogMs = now
-                        logToApp("[PING] OK: $responseCode (${duration}ms), interval=${safeInterval}s")
-                    }
+                    logToApp("[PING] $target: $responseCode (${duration}ms)")
                 } else {
                     throw Exception("HTTP $responseCode")
                 }
@@ -628,9 +619,9 @@ class ZivpnService : VpnService() {
                     consecutiveFailures = 0
                 }
             }
-        }, 0, safeInterval.toLong(), TimeUnit.SECONDS)
+        }, 0, intervalSeconds.toLong(), TimeUnit.SECONDS)
         
-        logToApp("Auto-Ping started every $safeInterval seconds (Timeout: ${pingTimeout}s)")
+        logToApp("Auto-Ping started every $intervalSeconds seconds (Timeout: ${pingTimeout}s)")
     }
 
     private fun stopPingTimer() {
