@@ -76,6 +76,11 @@ extern u16_t g_tcp_wnd;
 extern u16_t g_tcp_snd_buf;
 int g_socks_buf_size = CLIENT_SOCKS_RECV_BUF_SIZE;
 
+#define KEEPALIVE_MICRO_INTERVAL_SECONDS 10
+#define KEEPALIVE_FORCE_IDLE_SECONDS 45
+#define KEEPALIVE_RECONNECT_IDLE_SECONDS 90
+#define KEEPALIVE_RECONNECT_BACKOFF_SECONDS 15
+
 typedef struct Tun2SocksPerfMetrics {
     uint64_t ingress_packets;
     uint64_t ingress_bytes;
@@ -299,6 +304,11 @@ struct tcp_client {
     uint64_t perf_reassembly_bytes;
     uint64_t perf_tcp_in_bytes;
     uint64_t perf_tcp_out_bytes;
+    uint64_t last_keepalive_timestamp;
+    uint32_t failed_keepalive_attempts;
+    uint64_t last_inbound_packet_time;
+    uint64_t last_outbound_packet_time;
+    uint64_t last_reconnect_timestamp;
 };
 
 // IP address of netif
@@ -411,6 +421,9 @@ static void client_socks_recv_handler_done (struct tcp_client *client, int data_
 static int client_socks_recv_send_out (struct tcp_client *client);
 static err_t client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len);
 static void udpgw_client_handler_received (void *unused, BAddr local_addr, BAddr remote_addr, const uint8_t *data, int data_len);
+static int client_try_send_keepalive (struct tcp_client *client, int burst_count, const char *reason);
+static void client_mark_inbound_activity (struct tcp_client *client);
+static void client_mark_outbound_activity (struct tcp_client *client);
 
 #ifdef ANDROID
 static void daemonize(const char* path) {
@@ -1441,6 +1454,56 @@ static void perf_report_if_due(void)
     g_perf_last_report_ns = now;
 }
 
+static void client_mark_inbound_activity (struct tcp_client *client)
+{
+    uint64_t now = perf_now_ns();
+    client->last_inbound_packet_time = now;
+}
+
+static void client_mark_outbound_activity (struct tcp_client *client)
+{
+    uint64_t now = perf_now_ns();
+    client->last_outbound_packet_time = now;
+}
+
+static int client_try_send_keepalive (struct tcp_client *client, int burst_count, const char *reason)
+{
+    static const uint8_t kKeepalivePayload[2] = {0x00, 0x00};
+
+    if (!client || client->client_closed || client->socks_closed || !client->socks_up) {
+        return 0;
+    }
+
+    int sent = 0;
+    int i;
+    for (i = 0; i < burst_count; ++i) {
+        if (client->buf_used != 0) {
+            break;
+        }
+
+        if (g_tcp_wnd - client->buf_used < 1) {
+            client->failed_keepalive_attempts++;
+            break;
+        }
+
+        client->buf[client->buf_used++] = kKeepalivePayload[0];
+        client_mark_outbound_activity(client);
+        client->last_keepalive_timestamp = client->last_outbound_packet_time;
+
+        StreamPassInterface_Sender_Send(client->socks_send_if, client->buf, client->buf_used);
+        sent++;
+    }
+
+    if (sent == 0) {
+        client->failed_keepalive_attempts++;
+    } else {
+        client->failed_keepalive_attempts = 0;
+        client_log(client, BLOG_DEBUG, "keepalive sent reason=%s burst=%d", reason, sent);
+    }
+
+    return sent;
+}
+
 void tcp_timer_handler (void *unused)
 {
     ASSERT(!quitting)
@@ -1456,13 +1519,50 @@ void tcp_timer_handler (void *unused)
 
     tcp_tmr();
 
+    uint64_t now = perf_now_ns();
+    const uint64_t keepalive_micro_ns = (uint64_t)KEEPALIVE_MICRO_INTERVAL_SECONDS * 1000000000ull;
+    const uint64_t keepalive_force_idle_ns = (uint64_t)KEEPALIVE_FORCE_IDLE_SECONDS * 1000000000ull;
+    const uint64_t keepalive_reconnect_idle_ns = (uint64_t)KEEPALIVE_RECONNECT_IDLE_SECONDS * 1000000000ull;
+    const uint64_t reconnect_backoff_ns = (uint64_t)KEEPALIVE_RECONNECT_BACKOFF_SECONDS * 1000000000ull;
+
+    LinkedList1Node *node = LinkedList1_GetFirst(&tcp_clients);
+    while (node) {
+        struct tcp_client *client = UPPER_OBJECT(node, struct tcp_client, list_node);
+        node = LinkedList1Node_Next(node);
+
+        if (client->client_closed || client->socks_closed || !client->socks_up) {
+            continue;
+        }
+
+        uint64_t last_activity = client->last_inbound_packet_time;
+        if (client->last_outbound_packet_time > last_activity) {
+            last_activity = client->last_outbound_packet_time;
+        }
+
+        if (now - client->last_keepalive_timestamp >= keepalive_micro_ns) {
+            client_try_send_keepalive(client, 1, "periodic-10s");
+        }
+
+        if (now - last_activity >= keepalive_force_idle_ns) {
+            client_try_send_keepalive(client, 2, "idle-45s-burst");
+        }
+
+        if (now - client->last_inbound_packet_time >= keepalive_reconnect_idle_ns &&
+            now - client->last_reconnect_timestamp >= reconnect_backoff_ns) {
+            client->last_reconnect_timestamp = now;
+            client_log(client, BLOG_WARNING, "no inbound traffic for 90s, reconnecting socks path");
+            client_abort_client(client);
+            continue;
+        }
+    }
+
     uint64_t elapsed = perf_now_ns() - t0;
     g_perf_metrics.event_loop_ticks++;
     g_perf_metrics.tcp_timer_handler_ns += elapsed;
     if (elapsed > g_perf_metrics.event_loop_max_ns) g_perf_metrics.event_loop_max_ns = elapsed;
 
-    uint64_t now = perf_now_ns();
-    uint64_t lag = (now > expected) ? (now - expected) : 0;
+    uint64_t now_lag = perf_now_ns();
+    uint64_t lag = (now_lag > expected) ? (now_lag - expected) : 0;
     g_perf_metrics.event_loop_lag_ns += lag;
     if (lag > g_perf_metrics.event_loop_lag_max_ns) g_perf_metrics.event_loop_lag_max_ns = lag;
 
@@ -2118,6 +2218,13 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
     client->socks_up = 0;
     client->socks_closed = 0;
 
+    uint64_t now = perf_now_ns();
+    client->last_keepalive_timestamp = now;
+    client->failed_keepalive_attempts = 0;
+    client->last_inbound_packet_time = now;
+    client->last_outbound_packet_time = now;
+    client->last_reconnect_timestamp = 0;
+
     client_log(client, BLOG_INFO, "accepted");
 
     DEAD_ENTER(client->dead_client)
@@ -2318,6 +2425,7 @@ err_t client_recv_func (void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
     // copy data to buffer
     ASSERT_EXECUTE(pbuf_copy_partial(p, client->buf + client->buf_used, p->tot_len, 0) == p->tot_len)
     client->buf_used += p->tot_len;
+    client_mark_outbound_activity(client);
 
     // if there was nothing in the buffer before, and SOCKS is up, start send data
     if (client->buf_used == p->tot_len && client->socks_up) {
@@ -2373,6 +2481,7 @@ void client_socks_handler (struct tcp_client *client, int event)
 
             // set up
             client->socks_up = 1;
+            client->last_keepalive_timestamp = perf_now_ns();
 
             // start sending data if there is any
             if (client->buf_used > 0) {
@@ -2424,6 +2533,7 @@ void client_socks_send_handler_done (struct tcp_client *client, int data_len)
         // confirm sent data
         tcp_recved(client->pcb, data_len);
     }
+    client_mark_outbound_activity(client);
 
     if (client->buf_used > 0) {
         // send any further data
@@ -2462,6 +2572,7 @@ void client_socks_recv_handler_done (struct tcp_client *client, int data_len)
 
     // set amount of data in buffer
     client->socks_recv_buf_used = data_len;
+    client_mark_inbound_activity(client);
     client->socks_recv_buf_sent = 0;
     client->socks_recv_waiting = 0;
 
@@ -2507,6 +2618,7 @@ int client_socks_recv_send_out (struct tcp_client *client)
 
         client->socks_recv_buf_sent += to_write;
         client->socks_recv_tcp_pending += to_write;
+    client_mark_inbound_activity(client);
     } while (client->socks_recv_buf_sent < client->socks_recv_buf_used);
 
     // start sending now
@@ -2554,6 +2666,7 @@ err_t client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len)
 
     // decrement pending
     client->socks_recv_tcp_pending -= len;
+    client_mark_inbound_activity(client);
 
     // continue queuing
     if (client->socks_recv_buf_used > 0) {

@@ -34,6 +34,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 
 #include <misc/nonblocking.h>
 #include <misc/strdup.h>
@@ -87,6 +89,55 @@ static void connection_send_job_handler (BConnection *o);
 static void connection_recv_job_handler (BConnection *o);
 static void connection_send_if_handler_send (BConnection *o, uint8_t *data, int data_len);
 static void connection_recv_if_handler_recv (BConnection *o, uint8_t *data, int data_len);
+
+static int configure_tcp_keepalive (int fd)
+{
+    struct sockaddr_storage ss;
+    socklen_t slen = sizeof(ss);
+    if (getsockname(fd, (struct sockaddr *)&ss, &slen) < 0) {
+        BLog(BLOG_WARNING, "getsockname failed while configuring keepalive");
+        return 0;
+    }
+
+    if (ss.ss_family != AF_INET && ss.ss_family != AF_INET6) {
+        return 1;
+    }
+
+    int on = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof(on)) < 0) {
+        BLog(BLOG_WARNING, "SO_KEEPALIVE failed");
+        return 0;
+    }
+
+#if defined(TCP_KEEPIDLE)
+    int keepidle = 15;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, sizeof(keepidle)) < 0) {
+        BLog(BLOG_WARNING, "TCP_KEEPIDLE failed");
+    }
+#elif defined(TCP_KEEPALIVE)
+    int keepalive = 15;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPALIVE, &keepalive, sizeof(keepalive)) < 0) {
+        BLog(BLOG_WARNING, "TCP_KEEPALIVE fallback failed");
+    }
+#endif
+
+#if defined(TCP_KEEPINTVL)
+    int keepintvl = 5;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl)) < 0) {
+        BLog(BLOG_WARNING, "TCP_KEEPINTVL failed");
+    }
+#endif
+
+#if defined(TCP_KEEPCNT)
+    int keepcnt = 5;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt)) < 0) {
+        BLog(BLOG_WARNING, "TCP_KEEPCNT failed");
+    }
+#endif
+
+    BLog(BLOG_INFO, "tcp keepalive configured (idle=15,intvl=5,cnt=5)");
+    return 1;
+}
 
 static int build_unix_address (struct unix_addr *out, const char *socket_path)
 {
@@ -207,6 +258,7 @@ static void connector_fd_handler (BConnector *o, int events)
     
     // set connected
     o->connected = 1;
+    configure_tcp_keepalive(o->fd);
     
 fail0:
     // call handler
@@ -689,6 +741,7 @@ int BConnector_Init (BConnector *o, BAddr addr, BReactor *reactor, void *user,
     } else {
         // set connected
         o->connected = 1;
+        configure_tcp_keepalive(o->fd);
         
         // set job
         BPending_Set(&o->job);
@@ -768,6 +821,7 @@ int BConnector_InitUnix (BConnector *o, const char *socket_path, BReactor *react
     } else {
         // set connected
         o->connected = 1;
+        configure_tcp_keepalive(o->fd);
         
         // set job
         BPending_Set(&o->job);
