@@ -1130,8 +1130,12 @@ int process_arguments (void)
             BLog(BLOG_ERROR, "dnsgw addr: BAddr_Parse2 failed");
             return 0;
         }
-        if (dnsgw.type != BADDR_TYPE_IPV4) {
-            BLog(BLOG_ERROR, "dnsgw addr: must be an IPv4 address");
+        if (dnsgw.type != BADDR_TYPE_IPV4 && dnsgw.type != BADDR_TYPE_IPV6) {
+            BLog(BLOG_ERROR, "dnsgw addr: must be an IPv4 or IPv6 address");
+            return 0;
+        }
+        if (dnsgw.type == BADDR_TYPE_IPV6 && !options.netif_ip6addr) {
+            BLog(BLOG_ERROR, "dnsgw addr: IPv6 gateway requires --netif-ip6addr");
             return 0;
         }
     }
@@ -1379,8 +1383,8 @@ int process_device_dns_packet (uint8_t *data, int data_len)
             // to port 53 is considered a DNS packet
             to_dns = udp_header.dest_port == hton16(53);
 
-            // from port 8153 is considered a DNS packet
-            from_dns = udp_header.source_port == dnsgw.ipv4.port;
+            // from configured dnsgw port is considered a DNS packet
+            from_dns = (dnsgw.type == BADDR_TYPE_IPV4 && udp_header.source_port == dnsgw.ipv4.port);
 
             // if not DNS packet, just bypass it.
             if (!to_dns && !from_dns) {
@@ -1389,6 +1393,10 @@ int process_device_dns_packet (uint8_t *data, int data_len)
 
             // modify DNS packet
             if (to_dns) {
+                if (dnsgw.type != BADDR_TYPE_IPV4) {
+                    goto fail;
+                }
+
                 BLog(BLOG_INFO, "UDP: to DNS %d bytes", data_len);
 
                 // construct addresses
@@ -1421,6 +1429,41 @@ int process_device_dns_packet (uint8_t *data, int data_len)
                 Connection * con = find_connection(udp_header.dest_port);
                 if (con != NULL)
                 {
+                    if (con->local_addr.type == BADDR_TYPE_IPV6) {
+                        BLog(BLOG_INFO, "UDP/IPv6: from DNS %d bytes", data_len);
+
+                        // build IPv6 header
+                        struct ipv6_header ipv6_h;
+                        ipv6_h.version4_tc4 = hton8(0x60);
+                        ipv6_h.tc4_fl4 = hton8(0);
+                        ipv6_h.fl = hton16(0);
+                        ipv6_h.payload_length = hton16(sizeof(struct udp_header) + data_len);
+                        ipv6_h.next_header = hton8(IPV6_NEXT_UDP);
+                        ipv6_h.hop_limit = hton8(64);
+                        memcpy(ipv6_h.source_address, con->remote_addr.ipv6.ip, 16);
+                        memcpy(ipv6_h.destination_address, con->local_addr.ipv6.ip, 16);
+
+                        // build UDP header
+                        udp_header.source_port = con->remote_addr.ipv6.port;
+                        udp_header.dest_port = con->local_addr.ipv6.port;
+                        udp_header.length = hton16(sizeof(udp_header) + data_len);
+
+                        // update UDP header's checksum
+                        udp_header.checksum = hton16(0);
+                        udp_header.checksum = udp_ip6_checksum(&udp_header, data, data_len,
+                                ipv6_h.source_address, ipv6_h.destination_address);
+
+                        // write packet
+                        memcpy(device_write_buf, &ipv6_h, sizeof(ipv6_h));
+                        memcpy(device_write_buf + sizeof(ipv6_h), &udp_header, sizeof(udp_header));
+                        memcpy(device_write_buf + sizeof(ipv6_h) + sizeof(udp_header), data, data_len);
+                        packet_length = sizeof(ipv6_h) + sizeof(udp_header) + data_len;
+
+                        remove_connection(con);
+
+                        break;
+                    }
+
                     // build IP header
                     ipv4_header.source_address = con->remote_addr.ipv4.ip;
                     ipv4_header.destination_address = con->local_addr.ipv4.ip;
@@ -1455,8 +1498,113 @@ int process_device_dns_packet (uint8_t *data, int data_len)
         } break;
 
         case 6: {
-            // TODO: support IPv6 DNS Gateway
-            goto fail;
+            // ignore if IPv6 support is disabled
+            if (!options.netif_ip6addr) {
+                goto fail;
+            }
+
+            // only process IPv6 DNS gateway packets in this branch
+            if (dnsgw.type != BADDR_TYPE_IPV6) {
+                goto fail;
+            }
+
+            // ignore non-UDP packets
+            if (data_len < sizeof(struct ipv6_header) || data[offsetof(struct ipv6_header, next_header)] != IPV6_NEXT_UDP) {
+                goto fail;
+            }
+
+            // parse IPv6 header
+            struct ipv6_header ipv6_header;
+            if (!ipv6_check(data, data_len, &ipv6_header, &data, &data_len)) {
+                goto fail;
+            }
+
+            // parse UDP
+            struct udp_header udp_header;
+            if (!udp_check(data, data_len, &udp_header, &data, &data_len)) {
+                goto fail;
+            }
+
+            // verify UDP checksum
+            uint16_t checksum_in_packet = udp_header.checksum;
+            udp_header.checksum = 0;
+            uint16_t checksum_computed = udp_ip6_checksum(&udp_header, data, data_len,
+                    ipv6_header.source_address, ipv6_header.destination_address);
+            if (checksum_in_packet != checksum_computed) {
+                goto fail;
+            }
+
+            // to port 53 is considered a DNS packet
+            to_dns = udp_header.dest_port == hton16(53);
+
+            // from configured dnsgw port is considered a DNS packet
+            from_dns = udp_header.source_port == dnsgw.ipv6.port;
+
+            // if not DNS packet, just bypass it.
+            if (!to_dns && !from_dns) {
+                goto fail;
+            }
+
+            if (to_dns) {
+                BLog(BLOG_INFO, "UDP/IPv6: to DNS %d bytes", data_len);
+
+                // construct addresses
+                if (!init) {
+                    init = 1;
+                    BAVL_Init(&connections_tree, OFFSET_DIFF(Connection, port, connections_tree_node), (BAVL_comparator)conaddr_comparator, NULL);
+                }
+                BAddr local_addr;
+                BAddr remote_addr;
+                BAddr_InitIPv6(&local_addr, ipv6_header.source_address, udp_header.source_port);
+                BAddr_InitIPv6(&remote_addr, ipv6_header.destination_address, udp_header.dest_port);
+                insert_connection(local_addr, remote_addr, udp_header.source_port);
+
+                // build IPv6 header
+                memcpy(ipv6_header.source_address, netif_ip6addr.bytes, 16);
+                memcpy(ipv6_header.destination_address, dnsgw.ipv6.ip, 16);
+
+                // build UDP header
+                udp_header.dest_port = dnsgw.ipv6.port;
+                udp_header.length = hton16(sizeof(udp_header) + data_len);
+
+            } else if (from_dns) {
+                // if not initialized
+                if (!init) {
+                    goto fail;
+                }
+
+                BLog(BLOG_INFO, "UDP/IPv6: from DNS %d bytes", data_len);
+
+                Connection *con = find_connection(udp_header.dest_port);
+                if (con != NULL)
+                {
+                    // build IPv6 header
+                    memcpy(ipv6_header.source_address, con->remote_addr.ipv6.ip, 16);
+                    memcpy(ipv6_header.destination_address, con->local_addr.ipv6.ip, 16);
+
+                    // build UDP header
+                    udp_header.source_port = con->remote_addr.ipv6.port;
+                    udp_header.dest_port = con->local_addr.ipv6.port;
+                    udp_header.length = hton16(sizeof(udp_header) + data_len);
+
+                    remove_connection(con);
+                }
+                else
+                {
+                    goto fail;
+                }
+            }
+
+            // update UDP header's checksum
+            udp_header.checksum = hton16(0);
+            udp_header.checksum = udp_ip6_checksum(&udp_header, data, data_len,
+                    ipv6_header.source_address, ipv6_header.destination_address);
+
+            // write packet
+            memcpy(device_write_buf, &ipv6_header, sizeof(ipv6_header));
+            memcpy(device_write_buf + sizeof(ipv6_header), &udp_header, sizeof(udp_header));
+            memcpy(device_write_buf + sizeof(ipv6_header) + sizeof(udp_header), data, data_len);
+            packet_length = sizeof(ipv6_header) + sizeof(udp_header) + data_len;
         } break;
 
         default: {
