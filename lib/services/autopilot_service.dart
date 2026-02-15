@@ -63,8 +63,15 @@ class AutoPilotService {
     await prefs.setBool('enable_stabilizer_ap', newConfig.enableStabilizer);
     await prefs.setBool('auto_reset_ap', newConfig.autoReset);
     await prefs.setInt('stabilizer_size_ap', newConfig.stabilizerSizeMb);
-    
-    // No restart needed, just config update
+
+    if (isRunning) {
+      _timer?.cancel();
+      _timer = Timer.periodic(
+        Duration(seconds: _config.checkIntervalSeconds),
+        (timer) async => await _checkAndRecover(),
+      );
+      _log('Config updated: interval=${_config.checkIntervalSeconds}s timeout=${_config.connectionTimeoutSeconds}s');
+    }
   }
 
   Future<void> _log(String message) async {
@@ -150,7 +157,14 @@ class AutoPilotService {
         ));
 
         if (newFailCount >= _config.maxFailCount) {
-          await _performReset();
+          if (_config.autoReset) {
+            await _performReset();
+          } else {
+            _updateState(_currentState.copyWith(
+              status: AutoPilotStatus.monitoring,
+              message: 'Auto reset OFF, menunggu koneksi pulih',
+            ));
+          }
         }
       }
     } catch (e) {
@@ -183,6 +197,8 @@ class AutoPilotService {
   }
 
   Future<void> _performReset() async {
+    if (_isResetting) return;
+    _isResetting = true;
     try {
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.resetting,
@@ -224,6 +240,8 @@ class AutoPilotService {
         status: AutoPilotStatus.error,
         message: 'Reset error: $e',
       ));
+    } finally {
+      _isResetting = false;
     }
   }
 
