@@ -160,6 +160,13 @@ void connector_handler (BSocksClient* o, int is_error)
         BLog(BLOG_ERROR, "BConnection_Init failed");
         goto fail0;
     }
+
+    // set TCP_NODELAY
+    if (o->tcp_nodelay) {
+        if (!BConnection_SetTcpNoDelay(&o->con, 1)) {
+            BLog(BLOG_ERROR, "BConnection_SetTcpNoDelay failed");
+        }
+    }
     
     BLog(BLOG_DEBUG, "connected");
     
@@ -525,7 +532,8 @@ struct BSocksClient_auth_info BSocksClient_auth_password (const char *username, 
 
 int BSocksClient_Init (BSocksClient *o,
                        BAddr server_addr, const struct BSocksClient_auth_info *auth_info, size_t num_auth_info,
-                       BAddr dest_addr, BSocksClient_handler handler, void *user, BReactor *reactor)
+                       BAddr dest_addr, BSocksClient_handler handler, void *user, BReactor *reactor,
+                       int tcp_nodelay)
 {
     ASSERT(!BAddr_IsInvalid(&server_addr))
     ASSERT(dest_addr.type == BADDR_TYPE_IPV4 || dest_addr.type == BADDR_TYPE_IPV6)
@@ -543,6 +551,7 @@ int BSocksClient_Init (BSocksClient *o,
     o->handler = handler;
     o->user = user;
     o->reactor = reactor;
+    o->tcp_nodelay = tcp_nodelay;
     
     // set no buffer
     o->buffer = NULL;

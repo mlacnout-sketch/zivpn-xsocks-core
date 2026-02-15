@@ -305,6 +305,15 @@ void BConnection_SetHandlers (BConnection *o, void *user, BConnection_handler ha
 int BConnection_SetSendBuffer (BConnection *o, int buf_size);
 
 /**
+ * Sets the TCP_NODELAY socket option.
+ *
+ * @param o the object
+ * @param val 1 to enable, 0 to disable
+ * @return 1 on success, 0 on failure
+ */
+int BConnection_SetTcpNoDelay (BConnection *o, int val);
+
+/**
  * Initializes the send interface for the connection.
  * The send interface must not be initialized.
  * 

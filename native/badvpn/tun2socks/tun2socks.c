@@ -208,6 +208,7 @@ struct {
     int tcp_snd_buf;
     int tcp_wnd;
     int socks_buf;
+    int enable_tcp_nodelay;
 #ifdef ANDROID
     int tun_fd;
     int tun_mtu;
@@ -613,7 +614,8 @@ int main (int argc, char **argv)
         // init udpgw client
         if (!SocksUdpGwClient_Init(&udpgw_client, udp_mtu, options.udpgw_max_connections, options.udpgw_connection_buffer_size, UDPGW_KEEPALIVE_TIME,
                                    socks_server_addr, socks_auth_info, socks_num_auth_info,
-                                   udpgw_remote_server_addr, UDPGW_RECONNECT_TIME, &ss, NULL, udpgw_client_handler_received
+                                   udpgw_remote_server_addr, UDPGW_RECONNECT_TIME, &ss, NULL, udpgw_client_handler_received,
+                                   options.enable_tcp_nodelay
         )) {
             BLog(BLOG_ERROR, "SocksUdpGwClient_Init failed");
             goto fail4a;
@@ -1064,6 +1066,9 @@ int parse_arguments (int argc, char *argv[])
                 return 0;
             }
             i++;
+        }
+        else if (!strcmp(arg, "--enable-tcp-nodelay")) {
+            options.enable_tcp_nodelay = 1;
         }
         else {
             fprintf(stderr, "unknown option: %s\n", arg);
@@ -1933,7 +1938,7 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
 
     // init SOCKS
     if (!BSocksClient_Init(&client->socks_client, socks_server_addr, socks_auth_info, socks_num_auth_info,
-                           addr, (BSocksClient_handler)client_socks_handler, client, &ss)) {
+                           addr, (BSocksClient_handler)client_socks_handler, client, &ss, options.enable_tcp_nodelay)) {
         BLog(BLOG_ERROR, "listener accept: BSocksClient_Init failed");
         goto fail1;
     }

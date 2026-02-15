@@ -414,6 +414,10 @@ class ZivpnService : VpnService() {
                 }
             }
 
+            if (profile == "latency") {
+                tunCmd.add("--enable-tcp-nodelay")
+            }
+
             logToApp("Native profile=$profile tcpWnd=$tcpWnd socksBuf=$socksBuf udpgwMax=$udpgwMaxConn pdnsdCache=$pdnsdPermCache")
 
             val tunProc = ProcessBuilder(tunCmd).directory(filesDir).start()

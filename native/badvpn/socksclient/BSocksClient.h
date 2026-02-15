@@ -82,6 +82,7 @@ typedef struct {
     void *user;
     BReactor *reactor;
     int state;
+    int tcp_nodelay;
     char *buffer;
     BConnector connector;
     BConnection con;
@@ -113,11 +114,13 @@ struct BSocksClient_auth_info BSocksClient_auth_password (const char *username, 
  * @param handler handler for up and error events
  * @param user value passed to handler
  * @param reactor reactor we live in
+ * @param tcp_nodelay whether to enable TCP_NODELAY
  * @return 1 on success, 0 on failure
  */
 int BSocksClient_Init (BSocksClient *o,
                        BAddr server_addr, const struct BSocksClient_auth_info *auth_info, size_t num_auth_info,
-                       BAddr dest_addr, BSocksClient_handler handler, void *user, BReactor *reactor) WARN_UNUSED;
+                       BAddr dest_addr, BSocksClient_handler handler, void *user, BReactor *reactor,
+                       int tcp_nodelay) WARN_UNUSED;
 
 /**
  * Frees the object.
