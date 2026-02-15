@@ -201,7 +201,7 @@ class UpdateRepository {
       final buildRemote = _extractBuildNumber(latestTag);
       final buildLocal = int.tryParse(currentBuildNumber) ?? _extractBuildNumber(currentVersion);
 
-      print("Ver Check (same base): Remote=$remoteVersion ($buildRemote) vs Local=$localVersion ($buildLocal)");
+      print("Ver Check: Remote=$remoteVersion ($buildRemote) vs Local=$localVersion ($buildLocal)");
       return buildRemote > buildLocal;
     } catch (e) {
       print("Version check error: $e");
@@ -210,6 +210,7 @@ class UpdateRepository {
   }
 
   List<int> _extractVersionParts(String value) {
+    // Accept single or multi-segment versions: 1 / 1.2 / 1.2.3
     final match = RegExp(r'(\d+(?:\.\d+)*)').firstMatch(value);
     if (match == null) return const [];
 
