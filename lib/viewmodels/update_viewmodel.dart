@@ -17,12 +17,12 @@ class UpdateViewModel {
   Stream<double> get downloadProgress => _downloadProgress.stream;
   Stream<bool> get isDownloading => _isDownloading.stream;
 
-  Future<bool> checkForUpdate() async {
+  Future<AppVersion?> checkForUpdate() async {
     final update = await _repository.fetchUpdate();
     if (!_availableUpdate.isClosed) {
       _availableUpdate.add(update);
     }
-    return update != null;
+    return update;
   }
 
   Future<File?> startDownload(AppVersion version) async {

@@ -141,71 +141,107 @@ class UpdateRepository {
       
       for (var release in releases) {
         final tagName = release['tag_name'].toString();
-        if (_isNewer(tagName, currentVersion, currentBuildNumber)) {
-          final assets = release['assets'] as List?;
-          if (assets == null) continue;
+        final isDraft = release['draft'] == true;
+        final isPrerelease = release['prerelease'] == true;
 
-          final asset = assets.firstWhere(
-            (a) => a['content_type'] == 'application/vnd.android.package-archive' || a['name'].toString().endsWith('.apk'),
-            orElse: () => null
-          );
-
-          if (asset != null) {
-            return AppVersion(
-              name: tagName,
-              apkUrl: asset['browser_download_url'],
-              apkSize: asset['size'],
-              description: release['body'] ?? "",
-            );
-          }
+        if (isDraft || isPrerelease) {
+          print("Skip release: $tagName (draft=$isDraft, prerelease=$isPrerelease)");
+          continue;
         }
+
+        if (!_isNewer(tagName, currentVersion, currentBuildNumber)) {
+          print("Skip release: $tagName (not newer than installed)");
+          continue;
+        }
+
+        final assets = release['assets'] as List?;
+        if (assets == null) {
+          print("Skip release: $tagName (no assets)");
+          continue;
+        }
+
+        final asset = assets.firstWhere(
+          (a) => a['content_type'] == 'application/vnd.android.package-archive' || a['name'].toString().endsWith('.apk'),
+          orElse: () => null
+        );
+
+        if (asset == null) {
+          print("Skip release: $tagName (no APK asset)");
+          continue;
+        }
+
+        print("Update found: $tagName");
+        return AppVersion(
+          name: tagName,
+          apkUrl: asset['browser_download_url'],
+          apkSize: asset['size'],
+          description: release['body'] ?? "",
+        );
       }
+
+      print("No newer release found.");
       return null;
   }
 
   bool _isNewer(String latestTag, String currentVersion, String currentBuildNumber) {
     try {
-      // Parse Major.Minor.Patch
-      final RegExp regVer = RegExp(r'(\d+)\.(\d+)\.(\d+)');
-      final match1 = regVer.firstMatch(latestTag);
-      final match2 = regVer.firstMatch(currentVersion);
+      final remoteVersion = _extractVersionParts(latestTag);
+      final localVersion = _extractVersionParts(currentVersion);
 
-      if (match1 == null || match2 == null) return false;
-
-      final v1 = [
-        int.parse(match1.group(1)!),
-        int.parse(match1.group(2)!),
-        int.parse(match1.group(3)!)
-      ];
-      
-      final v2 = [
-        int.parse(match2.group(1)!),
-        int.parse(match2.group(2)!),
-        int.parse(match2.group(3)!)
-      ];
-
-      for (int i = 0; i < 3; i++) {
-        if (v1[i] > v2[i]) return true;
-        if (v1[i] < v2[i]) return false;
-      }
-      
-      // If versions are equal, check Build Number
-      int buildRemote = 0;
-      int buildLocal = int.tryParse(currentBuildNumber) ?? 0;
-
-      // Extract Remote Build Number (-bXX)
-      final RegExp regBuildRemote = RegExp(r'-b(\d+)');
-      final matchBuildRemote = regBuildRemote.firstMatch(latestTag);
-      if (matchBuildRemote != null) {
-        buildRemote = int.parse(matchBuildRemote.group(1)!);
+      if (remoteVersion.isEmpty || localVersion.isEmpty) {
+        return false;
       }
 
-      print("Ver Check: Remote=$v1 ($buildRemote) vs Local=$v2 ($buildLocal)");
+      final compare = _compareVersionParts(remoteVersion, localVersion);
+      if (compare != 0) {
+        print("Ver Check: Remote=$remoteVersion vs Local=$localVersion => compare=$compare");
+        return compare > 0;
+      }
 
+      final buildRemote = _extractBuildNumber(latestTag);
+      final buildLocal = int.tryParse(currentBuildNumber) ?? _extractBuildNumber(currentVersion);
+
+      print("Ver Check (same base): Remote=$remoteVersion ($buildRemote) vs Local=$localVersion ($buildLocal)");
       return buildRemote > buildLocal;
     } catch (e) {
       print("Version check error: $e");
       return false;
     }
+  }
+
+  List<int> _extractVersionParts(String value) {
+    final match = RegExp(r'(\d+(?:\.\d+)*)').firstMatch(value);
+    if (match == null) return const [];
+
+    return match
+        .group(1)!
+        .split('.')
+        .map((part) => int.tryParse(part) ?? 0)
+        .toList(growable: false);
+  }
+
+  int _compareVersionParts(List<int> remote, List<int> local) {
+    final maxLen = remote.length > local.length ? remote.length : local.length;
+    for (int i = 0; i < maxLen; i++) {
+      final r = i < remote.length ? remote[i] : 0;
+      final l = i < local.length ? local[i] : 0;
+      if (r > l) return 1;
+      if (r < l) return -1;
+    }
+    return 0;
+  }
+
+  int _extractBuildNumber(String value) {
+    final dashBuild = RegExp(r'-b(\d+)', caseSensitive: false).firstMatch(value);
+    if (dashBuild != null) {
+      return int.tryParse(dashBuild.group(1)!) ?? 0;
+    }
+
+    final plusBuild = RegExp(r'\+(\d+)').firstMatch(value);
+    if (plusBuild != null) {
+      return int.tryParse(plusBuild.group(1)!) ?? 0;
+    }
+
+    return 0;
   }
 }

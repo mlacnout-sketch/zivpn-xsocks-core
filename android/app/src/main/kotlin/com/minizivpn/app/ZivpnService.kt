@@ -57,6 +57,38 @@ class ZivpnService : VpnService() {
     private var consecutiveFailures = 0
     private var sessionResetCount = 0
 
+    private fun acquireCpuWakeLock() {
+        if (wakeLock?.isHeld == true) return
+
+        try {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MiniZivpn::CoreWakelock").apply {
+                setReferenceCounted(false)
+                acquire(10 * 60 * 1000L)
+            }
+            logToApp("CPU Wakelock acquired")
+        } catch (e: SecurityException) {
+            logToApp("CPU Wakelock failed: missing permission (${e.message})")
+            wakeLock = null
+        } catch (e: Exception) {
+            logToApp("CPU Wakelock failed: ${e.message}")
+            wakeLock = null
+        }
+    }
+
+    private fun releaseCpuWakeLock() {
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+                logToApp("CPU Wakelock released")
+            }
+        } catch (e: Exception) {
+            logToApp("CPU Wakelock release warning: ${e.message}")
+        } finally {
+            wakeLock = null
+        }
+    }
+
     private fun logToApp(msg: String) {
         val intent = Intent(ACTION_LOG)
         intent.putExtra("message", msg)
@@ -213,10 +245,7 @@ class ZivpnService : VpnService() {
                 val useWakelock = getPrefBool(prefs, "cpu_wakelock", false)
 
                 if (useWakelock) {
-                    val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-                    wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MiniZivpn::CoreWakelock")
-                    wakeLock?.acquire()
-                    logToApp("CPU Wakelock acquired")
+                    acquireCpuWakeLock()
                 }
 
                 // 1. START HYSTERIA & LOAD BALANCER
@@ -476,11 +505,7 @@ class ZivpnService : VpnService() {
         
         stopPingTimer()
 
-        if (wakeLock?.isHeld == true) {
-            wakeLock?.release()
-            logToApp("CPU Wakelock released")
-        }
-        wakeLock = null
+        releaseCpuWakeLock()
         
         // Stop tun2socks process explicitly if it's in the list (it is)
         

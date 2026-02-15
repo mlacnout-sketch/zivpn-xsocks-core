@@ -67,10 +67,6 @@ class _HomePageState extends State<HomePage> {
     _initAutoPilotListener();
     _checkInitialImport();
     
-    _updateViewModel.availableUpdate.listen((update) {
-      if (update != null && mounted) _showUpdateDialog(update);
-    });
-    _updateViewModel.checkForUpdate();
   }
 
   @override
@@ -403,8 +399,16 @@ class _HomePageState extends State<HomePage> {
             const AutoPilotTab(),
             SettingsTab(
               onCheckUpdate: () async {
-                final hasUpdate = await _updateViewModel.checkForUpdate();
-                if (!hasUpdate && mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("You are using the latest version!")));
+                final update = await _updateViewModel.checkForUpdate();
+                if (!mounted) return;
+
+                if (update != null) {
+                  _showUpdateDialog(update);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("You are using the latest version!")),
+                  );
+                }
               },
               onRestoreSuccess: () => _loadData(),
             ),
