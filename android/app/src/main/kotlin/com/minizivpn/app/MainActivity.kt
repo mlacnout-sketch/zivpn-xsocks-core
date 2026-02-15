@@ -172,6 +172,7 @@ class MainActivity: FlutterActivity() {
                 prefs.putBoolean("flutter.bypass_mode", call.argument<Boolean>("bypass_mode") ?: false)
                 prefs.putBoolean("flutter.cpu_wakelock", call.argument<Boolean>("cpu_wakelock") ?: false)
                 prefs.putBoolean("flutter.udpgw_transparent_dns", call.argument<Boolean>("udpgw_transparent_dns") ?: false)
+                prefs.putBoolean("flutter.perf_telemetry", call.argument<Boolean>("perf_telemetry") ?: true)
 
                 // Integers
                 prefs.putInt("flutter.mtu", call.argument<Int>("mtu") ?: 1500)
@@ -181,6 +182,7 @@ class MainActivity: FlutterActivity() {
                 prefs.putInt("flutter.pdnsd_cache_entries", call.argument<Int>("pdnsd_cache_entries") ?: 2048)
                 prefs.putInt("flutter.pdnsd_timeout_sec", call.argument<Int>("pdnsd_timeout_sec") ?: 10)
                 prefs.putInt("flutter.pdnsd_verbosity", call.argument<Int>("pdnsd_verbosity") ?: 2)
+                prefs.putInt("flutter.perf_telemetry_interval_ms", call.argument<Int>("perf_telemetry_interval_ms") ?: 5000)
                 
                 prefs.apply()
 

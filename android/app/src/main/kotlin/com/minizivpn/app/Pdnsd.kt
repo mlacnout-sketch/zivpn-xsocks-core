@@ -4,9 +4,9 @@ import android.content.Context
 import java.io.File
 
 data class PdnsdTuning(
-    val permCache: Int = 2048,
-    val timeout: Int = 10,
-    val minTtl: String = "15m",
+    val permCache: Int = 8192,
+    val timeout: Int = 5,
+    val minTtl: String = "1h",
     val maxTtl: String = "1w",
     val queryMethod: String = "tcp_only",
     val verbosity: Int = 2

@@ -42,12 +42,14 @@ class _SettingsTabState extends State<SettingsTab> {
   final _pdnsdMinTtlCtrl = TextEditingController();
   final _pdnsdMaxTtlCtrl = TextEditingController();
   final _pdnsdVerbosityCtrl = TextEditingController();
+  final _perfTelemetryIntervalCtrl = TextEditingController();
 
   bool _cpuWakelock = false;
   bool _enableUdpgw = true;
   bool _udpgwTransparentDns = false;
   bool _filterApps = false;
   bool _bypassMode = false;
+  bool _perfTelemetry = true;
   String _logLevel = 'info';
   String _nativePerfProfile = 'balanced';
   String _pdnsdQueryMethod = 'tcp_only';
@@ -82,6 +84,7 @@ class _SettingsTabState extends State<SettingsTab> {
     _pdnsdMinTtlCtrl.dispose();
     _pdnsdMaxTtlCtrl.dispose();
     _pdnsdVerbosityCtrl.dispose();
+    _perfTelemetryIntervalCtrl.dispose();
     super.dispose();
   }
 
@@ -160,12 +163,14 @@ class _SettingsTabState extends State<SettingsTab> {
       _pdnsdMinTtlCtrl.text = prefs.getString('pdnsd_min_ttl') ?? '15m';
       _pdnsdMaxTtlCtrl.text = prefs.getString('pdnsd_max_ttl') ?? '1w';
       _pdnsdVerbosityCtrl.text = (prefs.getInt('pdnsd_verbosity') ?? 2).toString();
+      _perfTelemetryIntervalCtrl.text = (prefs.getInt('perf_telemetry_interval_ms') ?? 5000).toString();
 
       _cpuWakelock = prefs.getBool('cpu_wakelock') ?? false;
       _enableUdpgw = prefs.getBool('enable_udpgw') ?? true;
       _udpgwTransparentDns = prefs.getBool('udpgw_transparent_dns') ?? false;
       _filterApps = prefs.getBool('filter_apps') ?? false;
       _bypassMode = prefs.getBool('bypass_mode') ?? false;
+      _perfTelemetry = prefs.getBool('perf_telemetry') ?? true;
       _logLevel = prefs.getString('log_level') ?? 'info';
       _nativePerfProfile = prefs.getString('native_perf_profile') ?? 'balanced';
       _pdnsdQueryMethod = prefs.getString('pdnsd_query_method') ?? 'tcp_only';
@@ -194,12 +199,14 @@ class _SettingsTabState extends State<SettingsTab> {
     await prefs.setString('pdnsd_min_ttl', val(_pdnsdMinTtlCtrl, '15m'));
     await prefs.setString('pdnsd_max_ttl', val(_pdnsdMaxTtlCtrl, '1w'));
     await prefs.setInt('pdnsd_verbosity', int.tryParse(val(_pdnsdVerbosityCtrl, '2')) ?? 2);
+    await prefs.setInt('perf_telemetry_interval_ms', int.tryParse(val(_perfTelemetryIntervalCtrl, '5000')) ?? 5000);
 
     await prefs.setBool('cpu_wakelock', _cpuWakelock);
     await prefs.setBool('enable_udpgw', _enableUdpgw);
     await prefs.setBool('udpgw_transparent_dns', _udpgwTransparentDns);
     await prefs.setBool('filter_apps', _filterApps);
     await prefs.setBool('bypass_mode', _bypassMode);
+    await prefs.setBool('perf_telemetry', _perfTelemetry);
     await prefs.setString('log_level', _logLevel);
     await prefs.setString('native_perf_profile', _nativePerfProfile);
     await prefs.setString('pdnsd_query_method', _pdnsdQueryMethod);
@@ -308,6 +315,15 @@ class _SettingsTabState extends State<SettingsTab> {
               value: _cpuWakelock,
               onChanged: (val) => setState(() => _cpuWakelock = val),
             ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Tun2Socks Perf Telemetry'),
+              subtitle: const Text('Kirim metrik performa native ke log aplikasi'),
+              value: _perfTelemetry,
+              onChanged: (val) => setState(() => _perfTelemetry = val),
+            ),
+            if (_perfTelemetry)
+              _buildTextInput(_perfTelemetryIntervalCtrl, 'Perf Telemetry Interval (ms)', Icons.speed),
             _buildTextInput(_tcpSndBufCtrl, 'TCP Send Buffer', Icons.upload_file),
             _buildTextInput(_tcpWndCtrl, 'TCP Window Size', Icons.download_for_offline),
             _buildTextInput(_socksBufCtrl, 'SOCKS Buffer', Icons.memory),

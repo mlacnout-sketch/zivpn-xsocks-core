@@ -4,6 +4,13 @@ project(minizivpn_native)
 
 option(TUN2SOCKS_ENABLE_LTO "Enable link-time optimization for tun2socks" ON)
 option(TUN2SOCKS_ENABLE_CPU_TUNING "Enable ABI-specific CPU tuning flags" OFF)
+option(TUN2SOCKS_ENABLE_FRAME_POINTER "Keep frame pointers for profiling" ON)
+option(TUN2SOCKS_ENABLE_PERF_TELEMETRY "Enable tun2socks perf telemetry instrumentation" ON)
+option(TUN2SOCKS_BUILD_PERF_HARNESS "Build native perf harness target" OFF)
+
+if(NOT ANDROID)
+    set(TUN2SOCKS_BUILD_PERF_HARNESS ON CACHE BOOL "Build native perf harness target" FORCE)
+endif()
 
 # --- libancillary ---
 add_library(ancillary STATIC
@@ -94,6 +101,12 @@ target_compile_definitions(tun2socks PRIVATE
     ANDROID
 )
 
+if(TUN2SOCKS_ENABLE_PERF_TELEMETRY)
+    target_compile_definitions(tun2socks PRIVATE TUN2SOCKS_ENABLE_PERF_TELEMETRY=1)
+else()
+    target_compile_definitions(tun2socks PRIVATE TUN2SOCKS_ENABLE_PERF_TELEMETRY=0)
+endif()
+
 target_include_directories(tun2socks PRIVATE
     libancillary
     badvpn/lwip/src/include/ipv4
@@ -112,8 +125,13 @@ if(ANDROID)
         -DNDEBUG
         -fno-plt
         -fvisibility=hidden
-        -fomit-frame-pointer
     )
+
+    if(TUN2SOCKS_ENABLE_FRAME_POINTER)
+        target_compile_options(tun2socks PRIVATE -fno-omit-frame-pointer)
+    else()
+        target_compile_options(tun2socks PRIVATE -fomit-frame-pointer)
+    endif()
 
     if(TUN2SOCKS_ENABLE_LTO)
         target_compile_options(tun2socks PRIVATE -flto)
@@ -140,6 +158,9 @@ else()
         -Wno-unused-label
         -Wno-unused-variable
     )
+    if(TUN2SOCKS_ENABLE_FRAME_POINTER)
+        target_compile_options(tun2socks PRIVATE -fno-omit-frame-pointer)
+    endif()
 endif()
 
 if(NOT SKIP_JNI_CHECK)
@@ -162,6 +183,22 @@ if(NOT SKIP_JNI_CHECK)
     endif()
 endif()
 
+
+if(TUN2SOCKS_BUILD_PERF_HARNESS)
+    add_executable(tun2socks_perf_harness
+        perf/tun2socks_perf_harness.cpp
+        badvpn/tun2socks/MemoryPool.c
+    )
+    target_include_directories(tun2socks_perf_harness PRIVATE
+        badvpn
+        badvpn/tun2socks
+    )
+    target_link_libraries(tun2socks_perf_harness pthread)
+    if(TUN2SOCKS_ENABLE_FRAME_POINTER)
+        target_compile_options(tun2socks_perf_harness PRIVATE -fno-omit-frame-pointer)
+    endif()
+endif()
+
 # --- pdnsd ---
 file(GLOB PDNSD_SOURCES "pdnsd/src/*.c")
 # Remove pdnsd-ctl.c if it exists in the glob to avoid multiple mains or conflicts
@@ -173,8 +210,9 @@ set_target_properties(pdnsd PROPERTIES SUFFIX ".so")
 set_target_properties(pdnsd PROPERTIES PREFIX "lib")
 target_compile_options(pdnsd PRIVATE 
     -Wall -O3 
+    -DNDEBUG
     -Wno-deprecated-declarations 
-    -Wno-unused-variable 
+    -Wno-unused-variable  
     -Wno-string-plus-int
     -Wno-gnu-designator
 )

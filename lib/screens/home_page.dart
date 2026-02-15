@@ -168,6 +168,8 @@ class _HomePageState extends State<HomePage> {
     // Set Defaults
     if (!prefs.containsKey('mtu')) await prefs.setInt('mtu', 1500);
     if (!prefs.containsKey('ping_interval')) await prefs.setInt('ping_interval', 3);
+    if (!prefs.containsKey('perf_telemetry')) await prefs.setBool('perf_telemetry', true);
+    if (!prefs.containsKey('perf_telemetry_interval_ms')) await prefs.setInt('perf_telemetry_interval_ms', 5000);
     
     final String? jsonStr = prefs.getString('saved_accounts');
     if (jsonStr != null) {
@@ -333,7 +335,9 @@ class _HomePageState extends State<HomePage> {
           "pdnsd_min_ttl": prefs.getString('pdnsd_min_ttl') ?? "15m",
           "pdnsd_max_ttl": prefs.getString('pdnsd_max_ttl') ?? "1w",
           "pdnsd_query_method": prefs.getString('pdnsd_query_method') ?? "tcp_only",
-          "pdnsd_verbosity": prefs.getInt('pdnsd_verbosity') ?? 2
+          "pdnsd_verbosity": prefs.getInt('pdnsd_verbosity') ?? 2,
+          "perf_telemetry": prefs.getBool('perf_telemetry') ?? true,
+          "perf_telemetry_interval_ms": prefs.getInt('perf_telemetry_interval_ms') ?? 5000
         });
         await platform.invokeMethod('startVpn');
 

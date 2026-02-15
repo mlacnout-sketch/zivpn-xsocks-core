@@ -27,7 +27,7 @@
 #include "cache.h"
 
 /* Default UDP buffer size (when EDNS is not used). */
-#define UDP_BUFSIZE 512
+#define UDP_BUFSIZE 4096
 
 
 typedef struct qhintnode_s qhintnode_t;

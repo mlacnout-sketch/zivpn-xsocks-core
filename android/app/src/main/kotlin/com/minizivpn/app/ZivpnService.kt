@@ -394,6 +394,8 @@ class ZivpnService : VpnService() {
 
             val useUdpgw = getPrefBool(prefs, "enable_udpgw", true)
             val udpgwPort = getPrefString(prefs, "udpgw_port", "7300")
+            val perfTelemetryEnabled = getPrefBool(prefs, "perf_telemetry", true)
+            val perfTelemetryIntervalMs = clamp(getPrefIntFlexible(prefs, "perf_telemetry_interval_ms", 5000), 500, 60000)
 
             val tunCmd = arrayListOf(
                 tun2socksBin, "--netif-ipaddr", "169.254.1.2", "--netif-netmask", "255.255.255.0",
@@ -414,7 +416,14 @@ class ZivpnService : VpnService() {
                 }
             }
 
-            logToApp("Native profile=$profile tcpWnd=$tcpWnd socksBuf=$socksBuf udpgwMax=$udpgwMaxConn pdnsdCache=$pdnsdPermCache")
+            if (!perfTelemetryEnabled) {
+                tunCmd.add("--perf-telemetry-disable")
+            } else {
+                tunCmd.add("--perf-telemetry-interval-ms")
+                tunCmd.add(perfTelemetryIntervalMs.toString())
+            }
+
+            logToApp("Native profile=$profile tcpWnd=$tcpWnd socksBuf=$socksBuf udpgwMax=$udpgwMaxConn pdnsdCache=$pdnsdPermCache perfTelemetry=$perfTelemetryEnabled perfIntervalMs=$perfTelemetryIntervalMs")
 
             val tunProc = ProcessBuilder(tunCmd).directory(filesDir).start()
             processes.add(tunProc)
