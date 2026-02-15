@@ -31,7 +31,8 @@ class _SettingsTabState extends State<SettingsTab> {
   final _udpgwPortCtrl = TextEditingController();
   final _udpgwMaxConnCtrl = TextEditingController();
   final _udpgwBufSizeCtrl = TextEditingController();
-  final _dnsCtrl = TextEditingController();
+  final _dnsPrimaryCtrl = TextEditingController();
+  final _dnsSecondaryCtrl = TextEditingController();
   final _appsListCtrl = TextEditingController();
   final _tcpSndBufCtrl = TextEditingController();
   final _tcpWndCtrl = TextEditingController();
@@ -71,7 +72,8 @@ class _SettingsTabState extends State<SettingsTab> {
     _udpgwPortCtrl.dispose();
     _udpgwMaxConnCtrl.dispose();
     _udpgwBufSizeCtrl.dispose();
-    _dnsCtrl.dispose();
+    _dnsPrimaryCtrl.dispose();
+    _dnsSecondaryCtrl.dispose();
     _appsListCtrl.dispose();
     _tcpSndBufCtrl.dispose();
     _tcpWndCtrl.dispose();
@@ -149,7 +151,16 @@ class _SettingsTabState extends State<SettingsTab> {
       _udpgwPortCtrl.text = prefs.getString('udpgw_port') ?? '7300';
       _udpgwMaxConnCtrl.text = prefs.getString('udpgw_max_connections') ?? '512';
       _udpgwBufSizeCtrl.text = prefs.getString('udpgw_buffer_size') ?? '32';
-      _dnsCtrl.text = prefs.getString('upstream_dns') ?? '208.67.222.222';
+      final legacyUpstreamDns = prefs.getString('upstream_dns') ?? '1.1.1.1,1.0.0.1';
+      final dnsParts = legacyUpstreamDns
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      _dnsPrimaryCtrl.text = prefs.getString('upstream_dns_primary') ??
+          (dnsParts.isNotEmpty ? dnsParts[0] : '1.1.1.1');
+      _dnsSecondaryCtrl.text = prefs.getString('upstream_dns_secondary') ??
+          (dnsParts.length > 1 ? dnsParts[1] : '1.0.0.1');
       _appsListCtrl.text = prefs.getString('apps_list') ?? '';
       _tcpSndBufCtrl.text = prefs.getString('tcp_snd_buf') ?? '65535';
       _tcpWndCtrl.text = prefs.getString('tcp_wnd') ?? '65535';
@@ -163,7 +174,7 @@ class _SettingsTabState extends State<SettingsTab> {
 
       _cpuWakelock = prefs.getBool('cpu_wakelock') ?? false;
       _enableUdpgw = prefs.getBool('enable_udpgw') ?? true;
-      _udpgwTransparentDns = prefs.getBool('udpgw_transparent_dns') ?? false;
+      _udpgwTransparentDns = prefs.getBool('udpgw_transparent_dns') ?? true;
       _filterApps = prefs.getBool('filter_apps') ?? false;
       _bypassMode = prefs.getBool('bypass_mode') ?? false;
       _logLevel = prefs.getString('log_level') ?? 'info';
@@ -183,7 +194,12 @@ class _SettingsTabState extends State<SettingsTab> {
     await prefs.setString('udpgw_port', val(_udpgwPortCtrl, '7300'));
     await prefs.setString('udpgw_max_connections', val(_udpgwMaxConnCtrl, '512'));
     await prefs.setString('udpgw_buffer_size', val(_udpgwBufSizeCtrl, '32'));
-    await prefs.setString('upstream_dns', val(_dnsCtrl, '208.67.222.222'));
+    final dnsPrimary = val(_dnsPrimaryCtrl, '1.1.1.1').trim();
+    final dnsSecondary = _dnsSecondaryCtrl.text.trim().isEmpty ? '1.0.0.1' : _dnsSecondaryCtrl.text.trim();
+    final upstreamDns = [dnsPrimary, dnsSecondary].where((e) => e.isNotEmpty).join(',');
+    await prefs.setString('upstream_dns_primary', dnsPrimary);
+    await prefs.setString('upstream_dns_secondary', dnsSecondary);
+    await prefs.setString('upstream_dns', upstreamDns);
     await prefs.setString('apps_list', _appsListCtrl.text);
     await prefs.setString('tcp_snd_buf', val(_tcpSndBufCtrl, '65535'));
     await prefs.setString('tcp_wnd', val(_tcpWndCtrl, '65535'));
@@ -311,7 +327,8 @@ class _SettingsTabState extends State<SettingsTab> {
             _buildTextInput(_tcpSndBufCtrl, 'TCP Send Buffer', Icons.upload_file),
             _buildTextInput(_tcpWndCtrl, 'TCP Window Size', Icons.download_for_offline),
             _buildTextInput(_socksBufCtrl, 'SOCKS Buffer', Icons.memory),
-            _buildTextInput(_dnsCtrl, 'Upstream DNS', Icons.dns, isNumber: false),
+            _buildTextInput(_dnsPrimaryCtrl, 'Upstream DNS 1', Icons.dns, isNumber: false),
+            _buildTextInput(_dnsSecondaryCtrl, 'Upstream DNS 2', Icons.dns_outlined, isNumber: false),
             _buildDropdownTile(
               'Native Performance Profile',
               'Preset tuning tun2socks + pdnsd',

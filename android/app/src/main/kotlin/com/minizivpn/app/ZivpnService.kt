@@ -52,6 +52,7 @@ class ZivpnService : VpnService() {
     private val processes = mutableListOf<Process>()
     private var wakeLock: PowerManager.WakeLock? = null
     private var pingExecutor: ScheduledExecutorService? = null
+    private var secureDnsProxy: SecureDnsProxy? = null
     
     // Class-level properties to be accessible within inner classes/lambdas
     private var consecutiveFailures = 0
@@ -326,7 +327,7 @@ class ZivpnService : VpnService() {
             val cacheDir = File(cacheDir, "pdnsd_cache")
             if (!cacheDir.exists()) cacheDir.mkdirs()
             
-            val upstreamDns = getPrefString(prefs, "upstream_dns", "208.67.222.222")
+            val upstreamDns = getPrefString(prefs, "upstream_dns", "1.1.1.1,1.0.0.1")
             val profile = getPrefString(prefs, "native_perf_profile", "balanced")
 
             var tcpSndBuf = getPrefIntFlexible(prefs, "tcp_snd_buf", 65535)
@@ -367,26 +368,59 @@ class ZivpnService : VpnService() {
             pdnsdTimeout = clamp(pdnsdTimeout, 3, 30)
             pdnsdVerbosity = clamp(pdnsdVerbosity, 0, 3)
 
-            val pdnsdConf = Pdnsd.writeConfig(
-                context = this,
-                listenPort = pdnsdPort,
-                upstreamDns = upstreamDns,
-                tuning = PdnsdTuning(
-                    permCache = pdnsdPermCache,
-                    timeout = pdnsdTimeout,
-                    minTtl = getPrefString(prefs, "pdnsd_min_ttl", "15m"),
-                    maxTtl = getPrefString(prefs, "pdnsd_max_ttl", "1w"),
-                    queryMethod = getPrefString(prefs, "pdnsd_query_method", "tcp_only"),
-                    verbosity = pdnsdVerbosity
-                )
-            )
-            val pdnsdBin = Pdnsd.getExecutable(this)
-            File(pdnsdBin).setExecutable(true)
+            val secureDnsMode = getPrefString(prefs, "secure_dns_mode", "doh").lowercase()
+            val requireDnssec = getPrefBool(prefs, "secure_dns_require_dnssec", true)
+            val secureDnsListenPort = clamp(getPrefIntFlexible(prefs, "secure_dns_listen_port", 5454), 1024, 65535)
+            val dohUrl = getPrefString(prefs, "secure_dns_doh_url", "https://cloudflare-dns.com/dns-query")
+            val dotHost = getPrefString(prefs, "secure_dns_dot_host", "1.1.1.1")
+            val dotPort = clamp(getPrefIntFlexible(prefs, "secure_dns_dot_port", 853), 1, 65535)
 
-            val pdnsdCmd = listOf(pdnsdBin, "-g", "-c", pdnsdConf)
-            val pdnsdProc = ProcessBuilder(pdnsdCmd).directory(filesDir).start()
-            processes.add(pdnsdProc)
-            captureProcessLog(pdnsdProc, "Pdnsd")
+            var dnsGateway = "169.254.1.1:$pdnsdPort"
+            secureDnsProxy?.stop()
+            secureDnsProxy = null
+
+            if (secureDnsMode == "doh" || secureDnsMode == "dot") {
+                val mode = if (secureDnsMode == "dot") SecureDnsMode.DOT else SecureDnsMode.DOH
+                val proxy = SecureDnsProxy(
+                    config = SecureDnsConfig(
+                        mode = mode,
+                        listenHost = "127.0.0.1",
+                        listenPort = secureDnsListenPort,
+                        dohUrl = dohUrl,
+                        dotHost = dotHost,
+                        dotPort = dotPort,
+                        requireDnssecAd = requireDnssec
+                    ),
+                    protectSocket = { socket -> protect(socket) },
+                    logger = { msg -> logToApp(msg) }
+                )
+                proxy.start()
+                secureDnsProxy = proxy
+                dnsGateway = "127.0.0.1:$secureDnsListenPort"
+                logToApp("Secure DNS active mode=$secureDnsMode dnssec_required=$requireDnssec gateway=$dnsGateway")
+            } else {
+                val pdnsdConf = Pdnsd.writeConfig(
+                    context = this,
+                    listenPort = pdnsdPort,
+                    upstreamDns = upstreamDns,
+                    tuning = PdnsdTuning(
+                        permCache = pdnsdPermCache,
+                        timeout = pdnsdTimeout,
+                        minTtl = getPrefString(prefs, "pdnsd_min_ttl", "15m"),
+                        maxTtl = getPrefString(prefs, "pdnsd_max_ttl", "1w"),
+                        queryMethod = getPrefString(prefs, "pdnsd_query_method", "tcp_only"),
+                        verbosity = pdnsdVerbosity
+                    )
+                )
+                val pdnsdBin = Pdnsd.getExecutable(this)
+                File(pdnsdBin).setExecutable(true)
+
+                val pdnsdCmd = listOf(pdnsdBin, "-g", "-c", pdnsdConf)
+                val pdnsdProc = ProcessBuilder(pdnsdCmd).directory(filesDir).start()
+                processes.add(pdnsdProc)
+                captureProcessLog(pdnsdProc, "Pdnsd")
+                logToApp("Secure DNS mode disabled, using pdnsd forwarder")
+            }
 
             val libDir = applicationInfo.nativeLibraryDir
             val tun2socksBin = File(libDir, "libtun2socks.so").absolutePath
@@ -398,7 +432,7 @@ class ZivpnService : VpnService() {
             val tunCmd = arrayListOf(
                 tun2socksBin, "--netif-ipaddr", "169.254.1.2", "--netif-netmask", "255.255.255.0",
                 "--socks-server-addr", "127.0.0.1:7777", "--tunmtu", mtu.toString(),
-                "--loglevel", tsLogLevel, "--dnsgw", "169.254.1.1:$pdnsdPort", "--fake-proc"
+                "--loglevel", tsLogLevel, "--dnsgw", dnsGateway, "--fake-proc"
             )
 
             tunCmd.add("--tcp-snd-buf"); tunCmd.add(tcpSndBuf.toString())
@@ -409,7 +443,7 @@ class ZivpnService : VpnService() {
                 tunCmd.add("--udpgw-remote-server-addr"); tunCmd.add("127.0.0.1:$udpgwPort")
                 tunCmd.add("--udpgw-max-connections"); tunCmd.add(udpgwMaxConn.toString())
                 tunCmd.add("--udpgw-connection-buffer-size"); tunCmd.add(udpgwBufSize.toString())
-                if (getPrefBool(prefs, "udpgw_transparent_dns", false)) {
+                if (getPrefBool(prefs, "udpgw_transparent_dns", true)) {
                     tunCmd.add("--udpgw-transparent-dns")
                 }
             }
@@ -504,6 +538,9 @@ class ZivpnService : VpnService() {
         Log.i("ZIVPN-Tun", "Stopping VPN and cores...")
         
         stopPingTimer()
+
+        secureDnsProxy?.stop()
+        secureDnsProxy = null
 
         releaseCpuWakeLock()
         

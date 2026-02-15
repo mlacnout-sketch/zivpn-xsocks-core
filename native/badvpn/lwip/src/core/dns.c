@@ -85,7 +85,10 @@
 
 /** DNS server IP address */
 #ifndef DNS_SERVER_ADDRESS
-#define DNS_SERVER_ADDRESS(ipaddr)        (ip4_addr_set_u32(ipaddr, ipaddr_addr("208.67.222.222"))) /* resolver1.opendns.com */
+#ifndef DNS_SERVER_ADDRESS_STRING
+#define DNS_SERVER_ADDRESS_STRING "169.254.1.1" /* VPN local DNS gateway to prevent DNS leak */
+#endif
+#define DNS_SERVER_ADDRESS(ipaddr)        (ip4_addr_set_u32(ipaddr, ipaddr_addr(DNS_SERVER_ADDRESS_STRING)))
 #endif
 
 /** DNS server port address */
