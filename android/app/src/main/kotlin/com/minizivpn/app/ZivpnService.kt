@@ -238,7 +238,17 @@ class ZivpnService : VpnService() {
                 val range = getPrefString(prefs, "server_range", "")
                 val pass = getPrefString(prefs, "server_pass", "")
                 val obfs = getPrefString(prefs, "server_obfs", "")
-                val multiplier = 1.0f // Fixed
+                val profile = getPrefString(prefs, "native_perf_profile", "balanced")
+
+                // Determine multiplier based on profile
+                val multiplier = when (profile) {
+                    "throughput" -> 2.0
+                    "latency" -> 0.5
+                    "stable" -> 0.8
+                    "brutal" -> 4.0
+                    else -> 1.0
+                }
+
                 val mtu = getPrefInt(prefs, "mtu", 1500)
                 val logLevel = getPrefString(prefs, "log_level", "info")
                 val coreCount = getPrefInt(prefs, "core_count", 4)
@@ -338,31 +348,55 @@ class ZivpnService : VpnService() {
             var pdnsdTimeout = getPrefIntFlexible(prefs, "pdnsd_timeout_sec", 10)
             var pdnsdVerbosity = getPrefIntFlexible(prefs, "pdnsd_verbosity", 2)
 
-            if (profile == "throughput") {
-                tcpSndBuf = 65535
-                tcpWnd = 65535
-                socksBuf = 131072
-                udpgwMaxConn = 1024
-                udpgwBufSize = 64
-                pdnsdPermCache = 4096
-                pdnsdTimeout = 8
-                pdnsdVerbosity = 1
-            } else if (profile == "latency") {
-                tcpSndBuf = 32768
-                tcpWnd = 32768
-                socksBuf = 65536
-                udpgwMaxConn = 256
-                udpgwBufSize = 16
-                pdnsdPermCache = 2048
-                pdnsdTimeout = 5
-                pdnsdVerbosity = 1
+            when (profile) {
+                "throughput" -> {
+                    tcpSndBuf = 1048576
+                    tcpWnd = 1048576
+                    socksBuf = 2097152
+                    udpgwMaxConn = 4096
+                    udpgwBufSize = 128
+                    pdnsdPermCache = 4096
+                    pdnsdTimeout = 8
+                    pdnsdVerbosity = 1
+                }
+                "latency" -> {
+                    tcpSndBuf = 32768
+                    tcpWnd = 32768
+                    socksBuf = 32768
+                    udpgwMaxConn = 128
+                    udpgwBufSize = 16
+                    pdnsdPermCache = 2048
+                    pdnsdTimeout = 5
+                    pdnsdVerbosity = 1
+                }
+                "stable" -> {
+                    tcpSndBuf = 32768
+                    tcpWnd = 32768
+                    socksBuf = 32768
+                    udpgwMaxConn = 256
+                    udpgwBufSize = 32
+                    pdnsdPermCache = 2048
+                    pdnsdTimeout = 10
+                    pdnsdVerbosity = 2
+                }
+                "brutal" -> {
+                    tcpSndBuf = 2097152
+                    tcpWnd = 2097152
+                    socksBuf = 4194304
+                    udpgwMaxConn = 8192
+                    udpgwBufSize = 256
+                    pdnsdPermCache = 8192
+                    pdnsdTimeout = 15
+                    pdnsdVerbosity = 1
+                }
             }
 
-            tcpSndBuf = clamp(tcpSndBuf, 4096, 65535)
-            tcpWnd = clamp(tcpWnd, 4096, 65535)
-            socksBuf = clamp(socksBuf, 4096, 524288)
-            udpgwMaxConn = clamp(udpgwMaxConn, 16, 4096)
-            udpgwBufSize = clamp(udpgwBufSize, 4, 256)
+            // Relaxed clamping for Brutal Mode support
+            tcpSndBuf = clamp(tcpSndBuf, 4096, 4194304) // Up to 4MB
+            tcpWnd = clamp(tcpWnd, 4096, 4194304) // Up to 4MB
+            socksBuf = clamp(socksBuf, 4096, 8388608) // Up to 8MB
+            udpgwMaxConn = clamp(udpgwMaxConn, 16, 16384)
+            udpgwBufSize = clamp(udpgwBufSize, 4, 512)
             pdnsdPermCache = clamp(pdnsdPermCache, 256, 32768)
             pdnsdTimeout = clamp(pdnsdTimeout, 3, 30)
             pdnsdVerbosity = clamp(pdnsdVerbosity, 0, 3)
