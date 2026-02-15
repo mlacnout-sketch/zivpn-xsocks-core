@@ -34,6 +34,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <netinet/tcp.h>
 
 #include <misc/nonblocking.h>
 #include <misc/strdup.h>
@@ -100,6 +101,19 @@ static int build_unix_address (struct unix_addr *out, const char *socket_path)
     out->u.addr.sun_family = AF_UNIX;
     strcpy(out->u.addr.sun_path, socket_path);
     
+    return 1;
+}
+
+int BConnection_SetTcpNoDelay (BConnection *o, int val)
+{
+    DebugObject_Access(&o->d_obj);
+
+    int flag = val ? 1 : 0;
+    if (setsockopt(o->fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag)) < 0) {
+        BLog(BLOG_ERROR, "setsockopt failed");
+        return 0;
+    }
+
     return 1;
 }
 
