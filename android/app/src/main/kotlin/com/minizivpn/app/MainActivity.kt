@@ -160,18 +160,23 @@ class MainActivity: FlutterActivity() {
                 prefs.putString("flutter.log_level", call.argument<String>("log_level") ?: "info")
                 prefs.putString("flutter.ping_target", call.argument<String>("ping_target") ?: "http://www.gstatic.com/generate_204")
                 prefs.putString("flutter.apps_list", call.argument<String>("apps_list") ?: "")
-                prefs.putString("flutter.upstream_dns", call.argument<String>("upstream_dns") ?: "208.67.222.222")
+                prefs.putString("flutter.upstream_dns", call.argument<String>("upstream_dns") ?: "1.1.1.1,1.0.0.1")
                 prefs.putString("flutter.native_perf_profile", call.argument<String>("native_perf_profile") ?: "balanced")
                 prefs.putString("flutter.pdnsd_min_ttl", call.argument<String>("pdnsd_min_ttl") ?: "15m")
                 prefs.putString("flutter.pdnsd_max_ttl", call.argument<String>("pdnsd_max_ttl") ?: "1w")
                 prefs.putString("flutter.pdnsd_query_method", call.argument<String>("pdnsd_query_method") ?: "tcp_only")
+                prefs.putString("flutter.secure_dns_mode", call.argument<String>("secure_dns_mode") ?: "doh")
+                prefs.putString("flutter.secure_dns_doh_url", call.argument<String>("secure_dns_doh_url") ?: "https://cloudflare-dns.com/dns-query")
+                prefs.putString("flutter.secure_dns_dot_host", call.argument<String>("secure_dns_dot_host") ?: "1.1.1.1")
+
 
                 // Booleans
                 prefs.putBoolean("flutter.enable_udpgw", call.argument<Boolean>("enable_udpgw") ?: true)
                 prefs.putBoolean("flutter.filter_apps", call.argument<Boolean>("filter_apps") ?: false)
                 prefs.putBoolean("flutter.bypass_mode", call.argument<Boolean>("bypass_mode") ?: false)
                 prefs.putBoolean("flutter.cpu_wakelock", call.argument<Boolean>("cpu_wakelock") ?: false)
-                prefs.putBoolean("flutter.udpgw_transparent_dns", call.argument<Boolean>("udpgw_transparent_dns") ?: false)
+                prefs.putBoolean("flutter.udpgw_transparent_dns", call.argument<Boolean>("udpgw_transparent_dns") ?: true)
+                prefs.putBoolean("flutter.secure_dns_require_dnssec", call.argument<Boolean>("secure_dns_require_dnssec") ?: true)
 
                 // Integers
                 prefs.putInt("flutter.mtu", call.argument<Int>("mtu") ?: 1500)
@@ -181,6 +186,8 @@ class MainActivity: FlutterActivity() {
                 prefs.putInt("flutter.pdnsd_cache_entries", call.argument<Int>("pdnsd_cache_entries") ?: 2048)
                 prefs.putInt("flutter.pdnsd_timeout_sec", call.argument<Int>("pdnsd_timeout_sec") ?: 10)
                 prefs.putInt("flutter.pdnsd_verbosity", call.argument<Int>("pdnsd_verbosity") ?: 2)
+                prefs.putInt("flutter.secure_dns_dot_port", call.argument<Int>("secure_dns_dot_port") ?: 853)
+                prefs.putInt("flutter.secure_dns_listen_port", call.argument<Int>("secure_dns_listen_port") ?: 5454)
                 
                 prefs.apply()
 

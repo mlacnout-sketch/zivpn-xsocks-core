@@ -302,6 +302,15 @@ class _HomePageState extends State<HomePage> {
 
       setState(() => _vpnState = "connecting");
 
+      final dnsPrimary = (prefs.getString('upstream_dns_primary') ?? '').trim();
+      final dnsSecondary = (prefs.getString('upstream_dns_secondary') ?? '').trim();
+      final upstreamDns = [dnsPrimary, dnsSecondary]
+          .where((e) => e.isNotEmpty)
+          .join(',');
+      final upstreamDnsArg = upstreamDns.isEmpty
+          ? (prefs.getString('upstream_dns') ?? '1.1.1.1,1.0.0.1')
+          : upstreamDns;
+
       try {
         await platform.invokeMethod('startCore', {
           "ip": ip,
@@ -322,10 +331,11 @@ class _HomePageState extends State<HomePage> {
           "filter_apps": prefs.getBool('filter_apps') ?? false,
           "bypass_mode": prefs.getBool('bypass_mode') ?? false,
           "apps_list": prefs.getString('apps_list') ?? "",
+          "upstream_dns": upstreamDnsArg,
           "log_level": prefs.getString('log_level') ?? "info",
           "core_count": (prefs.getInt('core_count') ?? 4),
           "cpu_wakelock": prefs.getBool('cpu_wakelock') ?? false,
-          "udpgw_transparent_dns": prefs.getBool('udpgw_transparent_dns') ?? false,
+          "udpgw_transparent_dns": prefs.getBool('udpgw_transparent_dns') ?? true,
           "native_perf_profile": prefs.getString('native_perf_profile') ?? "balanced",
           "pdnsd_port": prefs.getInt('pdnsd_port') ?? 8091,
           "pdnsd_cache_entries": prefs.getInt('pdnsd_cache_entries') ?? 2048,
@@ -333,7 +343,13 @@ class _HomePageState extends State<HomePage> {
           "pdnsd_min_ttl": prefs.getString('pdnsd_min_ttl') ?? "15m",
           "pdnsd_max_ttl": prefs.getString('pdnsd_max_ttl') ?? "1w",
           "pdnsd_query_method": prefs.getString('pdnsd_query_method') ?? "tcp_only",
-          "pdnsd_verbosity": prefs.getInt('pdnsd_verbosity') ?? 2
+          "pdnsd_verbosity": prefs.getInt('pdnsd_verbosity') ?? 2,
+          "secure_dns_mode": prefs.getString('secure_dns_mode') ?? "doh",
+          "secure_dns_doh_url": prefs.getString('secure_dns_doh_url') ?? "https://cloudflare-dns.com/dns-query",
+          "secure_dns_dot_host": prefs.getString('secure_dns_dot_host') ?? "1.1.1.1",
+          "secure_dns_dot_port": prefs.getInt('secure_dns_dot_port') ?? 853,
+          "secure_dns_listen_port": prefs.getInt('secure_dns_listen_port') ?? 5454,
+          "secure_dns_require_dnssec": prefs.getBool('secure_dns_require_dnssec') ?? true
         });
         await platform.invokeMethod('startVpn');
 
