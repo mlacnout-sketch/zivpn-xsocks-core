@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../app_colors.dart';
 import '../../widgets/ping_button.dart';
 import '../../widgets/donation_widgets.dart';
+import '../../utils/format_utils.dart';
 
 class DashboardTab extends StatefulWidget {
   final String vpnState;
@@ -234,17 +235,17 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         Text(
-                          "Session: ${_formatTotalBytes(rx + tx)}",
+                          "Session: ${FormatUtils.formatBytes(rx + tx)}",
                           style: const TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                         Container(width: 1, height: 12, color: Colors.white10),
                         Text(
-                          "Rx: ${_formatTotalBytes(rx)}",
+                          "Rx: ${FormatUtils.formatBytes(rx)}",
                           style: const TextStyle(color: Colors.greenAccent, fontSize: 12),
                         ),
                         Container(width: 1, height: 12, color: Colors.white10),
                         Text(
-                          "Tx: ${_formatTotalBytes(tx)}",
+                          "Tx: ${FormatUtils.formatBytes(tx)}",
                           style: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
                         ),
                       ],
@@ -287,14 +288,6 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
     );
   }
 
-  String _formatTotalBytes(int bytes) {
-    if (bytes < 1024) return "$bytes B";
-    if (bytes < 1024 * 1024) return "${(bytes / 1024).toStringAsFixed(1)} KB";
-    if (bytes < 1024 * 1024 * 1024) {
-      return "${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB";
-    }
-    return "${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB";
-  }
 }
 
 class StatCard extends StatelessWidget {

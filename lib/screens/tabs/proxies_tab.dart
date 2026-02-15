@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../app_colors.dart';
 import '../../models/account.dart';
+import '../../utils/format_utils.dart';
 
 class ProxiesTab extends StatefulWidget {
   final List<Account> accounts;
@@ -25,12 +26,6 @@ class ProxiesTab extends StatefulWidget {
 }
 
 class _ProxiesTabState extends State<ProxiesTab> {
-  String _formatTotalBytes(int bytes) {
-    if (bytes < 1024) return "$bytes B";
-    if (bytes < 1024 * 1024) return "${(bytes / 1024).toStringAsFixed(1)} KB";
-    return "${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB";
-  }
-
   void _showAccountDialog(BuildContext context, {int? index}) {
     final isEditing = index != null;
     final Account? existingData = isEditing ? widget.accounts[index] : null;
@@ -188,7 +183,7 @@ class _ProxiesTabState extends State<ProxiesTab> {
                             borderRadius: BorderRadius.circular(4)
                           ),
                           child: Text(
-                            "Used: ${_formatTotalBytes(usage)}",
+                            "Used: ${FormatUtils.formatBytes(usage)}",
                             style: const TextStyle(fontSize: 10, color: Colors.grey),
                           ),
                         ),

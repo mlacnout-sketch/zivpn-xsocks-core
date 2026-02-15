@@ -19,6 +19,7 @@ import '../models/autopilot_state.dart';
 import '../models/app_version.dart';
 import '../models/account.dart';
 import '../widgets/donation_widgets.dart';
+import '../utils/format_utils.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -248,20 +249,14 @@ class _HomePageState extends State<HomePage> {
         if (parts.length == 2) {
           final rx = int.tryParse(parts[0]) ?? 0;
           final tx = int.tryParse(parts[1]) ?? 0;
-          _dlSpeed.value = _formatBytes(rx);
-          _ulSpeed.value = _formatBytes(tx);
+          _dlSpeed.value = FormatUtils.formatBytes(rx, asSpeed: true);
+          _ulSpeed.value = FormatUtils.formatBytes(tx, asSpeed: true);
           _sessionRx.value += rx;
           _sessionTx.value += tx;
           if (_activeAccountIndex != -1) _accounts[_activeAccountIndex].usage += rx + tx;
         }
       }
     });
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return "$bytes B/s";
-    if (bytes < 1024 * 1024) return "${(bytes / 1024).toStringAsFixed(1)} KB/s";
-    return "${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB/s";
   }
 
   Future<void> _toggleVpn() async {
