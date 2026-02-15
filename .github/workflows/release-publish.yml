@@ -9,7 +9,7 @@ jobs:
   build:
     name: Compile Native & Build Release APK
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -30,6 +30,7 @@ jobs:
         run: |
           yes | sdkmanager --licenses
           sdkmanager "ndk;27.0.12077973" "cmake;3.18.1"
+
       - name: Native Code Sanity Check (Fail Fast)
         run: |
           # Manually trigger CMake build to catch C/C++ errors early
@@ -38,16 +39,39 @@ jobs:
           cmake .. -DCMAKE_TOOLCHAIN_FILE=$ANDROID_HOME/ndk/27.0.12077973/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DCMAKE_BUILD_TYPE=Release -DSKIP_JNI_CHECK=ON
           make -j$(nproc)
           echo "Native compilation successful!"
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
 
+      - name: Resolve Version from pubspec
+        id: app_version
+        run: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | head -n1 | awk '{print $2}')
+          VERSION_NAME=${VERSION_LINE%%+*}
+          VERSION_CODE=${VERSION_LINE##*+}
+
+          if [ -z "$VERSION_NAME" ]; then VERSION_NAME="1.0.0"; fi
+          if [ -z "$VERSION_CODE" ] || [ "$VERSION_CODE" = "$VERSION_LINE" ]; then VERSION_CODE="1"; fi
+
+          RELEASE_TAG="v${VERSION_NAME}-b${VERSION_CODE}"
+          APK_NAME="ZIVPN-xSocks-Core-v${VERSION_NAME}+${VERSION_CODE}-arm64.apk"
+
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
+
+          echo "Resolved version: ${VERSION_NAME}+${VERSION_CODE}"
+          echo "Release tag: ${RELEASE_TAG}"
+
       - name: Clean & Get Flutter Dependencies
         run: |
           flutter clean
           flutter pub get
+
       - name: Flutter Analyze (Best Practice Check)
         run: flutter analyze
 
@@ -55,10 +79,11 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          if [ ! -z "$KEYSTORE_BASE64" ]; then
+          if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
             echo "Keystore decoded successfully."
           fi
+
       - name: Build Release APK
         env:
           KEYSTORE_PATH: release.jks
@@ -66,12 +91,20 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
-          flutter build apk --release --target-platform android-arm64
+          flutter build apk --release --target-platform android-arm64 \
+            --build-name "${{ steps.app_version.outputs.version_name }}" \
+            --build-number "${{ steps.app_version.outputs.version_code }}"
+
+      - name: Prepare Versioned APK Artifact
+        run: |
+          mkdir -p build/artifacts
+          cp build/app/outputs/flutter-apk/app-release.apk "build/artifacts/${{ steps.app_version.outputs.apk_name }}"
+
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: ZIVPN-xSocks-Core-Release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: ${{ steps.app_version.outputs.release_tag }}
+          path: build/artifacts/${{ steps.app_version.outputs.apk_name }}
 
   release:
     needs: build
@@ -83,28 +116,53 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Resolve Version from pubspec
+        id: app_version
+        run: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | head -n1 | awk '{print $2}')
+          VERSION_NAME=${VERSION_LINE%%+*}
+          VERSION_CODE=${VERSION_LINE##*+}
+
+          if [ -z "$VERSION_NAME" ]; then VERSION_NAME="1.0.0"; fi
+          if [ -z "$VERSION_CODE" ] || [ "$VERSION_CODE" = "$VERSION_LINE" ]; then VERSION_CODE="1"; fi
+
+          RELEASE_TAG="v${VERSION_NAME}-b${VERSION_CODE}"
+          APK_NAME="ZIVPN-xSocks-Core-v${VERSION_NAME}+${VERSION_CODE}-arm64.apk"
+
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
+
       - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
-          name: ZIVPN-xSocks-Core-Release
+          name: ${{ steps.app_version.outputs.release_tag }}
+          path: dist
 
-      - name: Create Release Tag
-        id: tag_version
+      - name: Check Existing Release Tag
+        id: tag_check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=$(grep 'version:' pubspec.yaml | head -n 1 | awk '{print $2}' | cut -d '+' -f 1)
-          if [ -z "$VERSION" ]; then VERSION="1.0.0"; fi
-          TAG="v$VERSION-b${{ github.run_number }}"
-          echo "VERSION=$TAG" >> $GITHUB_ENV
-          echo "Generated version: $TAG"
+          TAG="${{ steps.app_version.outputs.release_tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release $TAG already exists. Skip creating duplicate release."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Release $TAG not found. Proceed."
+          fi
+
       - name: Create Release
+        if: steps.tag_check.outputs.exists == 'false'
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ env.VERSION }}
-          name: ZIVPN xSocks Core ${{ env.VERSION }}
+          tag_name: ${{ steps.app_version.outputs.release_tag }}
+          name: ZIVPN xSocks Core ${{ steps.app_version.outputs.release_tag }}
           body: |
             Automatic build for xSocks Core.
+            Version source: pubspec.yaml
             Run ID: ${{ github.run_id }}
-          files: app-release.apk
+          files: dist/${{ steps.app_version.outputs.apk_name }}
           draft: false
           prerelease: false
         env:
