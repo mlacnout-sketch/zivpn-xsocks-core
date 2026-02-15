@@ -5,6 +5,7 @@ import 'dart:math';
 
 // --- KONFIGURASI SAWERIA ---
 const String _kSaweriaUrl = "https://saweria.co/Damnwhoknows";
+const String _kCommunityUrl = "https://t.me/+83GWGmnHxvM0MmU1";
 
 Future<void> _openSaweria(BuildContext context) async {
   final Uri url = Uri.parse(_kSaweriaUrl);
@@ -19,6 +20,89 @@ Future<void> _openSaweriaExternal() async {
   if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
     throw Exception('Tidak bisa membuka link');
   }
+}
+
+Future<void> _openCommunityExternal() async {
+  final Uri url = Uri.parse(_kCommunityUrl);
+  if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+    throw Exception('Tidak bisa membuka link grup');
+  }
+}
+
+Future<void> showPostConnectSupportSheet(BuildContext context) async {
+  await showModalBottomSheet(
+    context: context,
+    backgroundColor: const Color(0xFF161722),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (ctx) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Text('🎉', style: TextStyle(fontSize: 24)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Koneksi berhasil!',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                )
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Mau dukung pengembangan atau gabung komunitas pengguna?',
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _openSaweria(context);
+                    },
+                    icon: const Icon(Icons.favorite),
+                    label: const Text('Donasi Saweria'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orangeAccent,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      await _openCommunityExternal();
+                    },
+                    icon: const Icon(Icons.groups),
+                    label: const Text('Gabung Grup'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.lightBlueAccent,
+                      side: const BorderSide(color: Colors.lightBlueAccent),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 // ==========================================

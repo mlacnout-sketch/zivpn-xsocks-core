@@ -58,6 +58,7 @@ class _HomePageState extends State<HomePage> {
   final _autoPilot = AutoPilotService();
   bool _autoPilotActive = false;
   bool _autoPilotResetting = false;
+  bool _hasShownSupportSheet = false;
 
   @override
   void initState() {
@@ -341,6 +342,13 @@ class _HomePageState extends State<HomePage> {
 
         await _autoPilot.init();
         if (_autoPilot.config.autoReset) _autoPilot.start();
+
+        if (mounted && !_hasShownSupportSheet) {
+          _hasShownSupportSheet = true;
+          Future.delayed(const Duration(milliseconds: 450), () {
+            if (mounted) showPostConnectSupportSheet(context);
+          });
+        }
 
       } catch (e) {
         setState(() { _vpnState = "disconnected"; _logs.add("Start Failed: $e"); });
