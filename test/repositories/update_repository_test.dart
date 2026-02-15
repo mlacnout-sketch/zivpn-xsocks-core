@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 // Import the repository. Assuming package structure.
 // Since I'm in test/repositories, I need to import correctly.
 // I don't know the package name from here, but relative imports work in tests if aligned.
@@ -58,14 +59,20 @@ class MockHttpClientResponse extends Fake implements HttpClientResponse {
     // For check update, we need to return a stream that decodes to JSON
     // The repo uses utf8.decoder.join()
     // We can return a Stream<List<int>> that is utf8 bytes of JSON.
-    final jsonStr = '[{"tag_name": "1.0.1", "assets": [{"content_type": "application/vnd.android.package-archive", "browser_download_url": "http://example.com/app.apk", "size": 1024}]}]';
-    return Stream.value(utf8.encode(jsonStr)).cast<List<int>>().transform(streamTransformer);
+    final jsonStr =
+        '[{"tag_name": "1.0.1", "assets": [{"content_type": "application/vnd.android.package-archive", "browser_download_url": "http://example.com/app.apk", "size": 1024}]}]';
+    return Stream.value(utf8.encode(jsonStr))
+        .cast<List<int>>()
+        .transform(streamTransformer);
   }
 
   @override
-  StreamSubscription<List<int>> listen(void Function(List<int> event)? onData, {Function? onError, void Function()? onDone, bool? cancelOnError}) {
-      final jsonStr = '[{"tag_name": "1.0.1", "assets": [{"content_type": "application/vnd.android.package-archive", "browser_download_url": "http://example.com/app.apk", "size": 1024}]}]';
-      return Stream.value(utf8.encode(jsonStr)).listen(onData, onError: onError, onDone: onDone, cancelOnError: cancelOnError);
+  StreamSubscription<List<int>> listen(void Function(List<int> event)? onData,
+      {Function? onError, void Function()? onDone, bool? cancelOnError}) {
+    final jsonStr =
+        '[{"tag_name": "1.0.1", "assets": [{"content_type": "application/vnd.android.package-archive", "browser_download_url": "http://example.com/app.apk", "size": 1024}]}]';
+    return Stream.value(utf8.encode(jsonStr)).listen(onData,
+        onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
 }
 
@@ -99,6 +106,7 @@ void main() {
     late TestHttpOverrides httpOverrides;
 
     setUp(() {
+      SharedPreferences.setMockInitialValues({});
       repository = UpdateRepository();
       httpOverrides = TestHttpOverrides();
       HttpOverrides.global = httpOverrides;
@@ -117,7 +125,7 @@ void main() {
       HttpOverrides.global = null;
     });
 
-    test('fetchUpdate tries SOCKS then DIRECT', () async {
+    test('fetchUpdate tries DIRECT then SOCKS', () async {
       // Act
       final update = await repository.fetchUpdate();
 
@@ -125,13 +133,13 @@ void main() {
       // We expect 2 clients to have been created.
       expect(httpOverrides.clients.length, 2);
 
-      // 1st client: SOCKS
+      // 1st client: DIRECT
       final client1 = httpOverrides.clients[0];
-      expect(client1.findProxyString, contains("SOCKS 127.0.0.1:7777"));
+      expect(client1.findProxyString, isNull); // DIRECT
 
-      // 2nd client: DIRECT
+      // 2nd client: SOCKS
       final client2 = httpOverrides.clients[1];
-      expect(client2.findProxyString, isNull); // DIRECT means findProxy not set in code
+      expect(client2.findProxyString, contains("SOCKS 127.0.0.1:7777"));
 
       // Verification of result
       expect(update, isNotNull);

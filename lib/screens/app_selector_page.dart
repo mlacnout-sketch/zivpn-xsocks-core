@@ -13,7 +13,7 @@ class AppSelectorPage extends StatefulWidget {
 
 class _AppSelectorPageState extends State<AppSelectorPage> {
   static const platform = MethodChannel('com.minizivpn.app/core');
-  
+
   List<Map<String, String>> _allApps = [];
   List<Map<String, String>> _filteredApps = [];
   final Set<String> _selectedPackages = {};
@@ -30,7 +30,8 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
 
   Future<void> _loadApps() async {
     try {
-      final List<dynamic> apps = await platform.invokeMethod('getInstalledApps');
+      final List<dynamic> apps =
+          await platform.invokeMethod('getInstalledApps');
       if (mounted) {
         setState(() {
           _allApps = apps.map((e) => Map<String, String>.from(e)).toList();
@@ -53,7 +54,7 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
     setState(() {
       _filteredApps = _allApps.where((app) {
         return app['name']!.toLowerCase().contains(query) ||
-               app['package']!.toLowerCase().contains(query);
+            app['package']!.toLowerCase().contains(query);
       }).toList();
     });
   }
@@ -66,6 +67,7 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
+            tooltip: 'Save selection',
             onPressed: () => Navigator.pop(context, _selectedPackages.toList()),
           )
         ],
@@ -78,7 +80,15 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
               decoration: InputDecoration(
                 hintText: "Search apps...",
                 prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                suffixIcon: _searchCtrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Clear search',
+                        onPressed: () => _searchCtrl.clear(),
+                      )
+                    : null,
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
                 fillColor: AppColors.card,
               ),
@@ -88,30 +98,44 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: _filteredApps.length,
-              itemBuilder: (context, index) {
-                final app = _filteredApps[index];
-                final pkg = app['package']!;
-                final isSelected = _selectedPackages.contains(pkg);
+          : _filteredApps.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.search_off, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text("No apps found",
+                          style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _filteredApps.length,
+                  itemBuilder: (context, index) {
+                    final app = _filteredApps[index];
+                    final pkg = app['package']!;
+                    final isSelected = _selectedPackages.contains(pkg);
 
-                return CheckboxListTile(
-                  title: Text(app['name']!),
-                  subtitle: Text(pkg, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                  value: isSelected,
-                  activeColor: AppColors.primary,
-                  onChanged: (val) {
-                    setState(() {
-                      if (val == true) {
-                        _selectedPackages.add(pkg);
-                      } else {
-                        _selectedPackages.remove(pkg);
-                      }
-                    });
+                    return CheckboxListTile(
+                      title: Text(app['name']!),
+                      subtitle: Text(pkg,
+                          style: const TextStyle(
+                              fontSize: 10, color: Colors.grey)),
+                      value: isSelected,
+                      activeColor: AppColors.primary,
+                      onChanged: (val) {
+                        setState(() {
+                          if (val == true) {
+                            _selectedPackages.add(pkg);
+                          } else {
+                            _selectedPackages.remove(pkg);
+                          }
+                        });
+                      },
+                    );
                   },
-                );
-              },
-            ),
+                ),
     );
   }
 }

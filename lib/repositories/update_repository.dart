@@ -6,13 +6,15 @@ import '../models/app_version.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UpdateRepository {
-  final String apiUrl = "https://api.github.com/repos/mlacnout-sketch/zivpn-xsocks-core/releases";
+  final String apiUrl =
+      "https://api.github.com/repos/mlacnout-sketch/zivpn-xsocks-core/releases";
 
   Future<List<String>> _getStrategies() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     // Check both potential keys just to be safe (migration consistency)
-    final running = (prefs.getBool('vpn_running') ?? false) || (prefs.getBool('flutter.vpn_running') ?? false);
+    final running = (prefs.getBool('vpn_running') ?? false) ||
+        (prefs.getBool('flutter.vpn_running') ?? false);
 
     if (running) {
       // If VPN is on, DIRECT connection will likely fail (no quota) or cause issues.
@@ -40,7 +42,8 @@ class UpdateRepository {
     return null;
   }
 
-  Future<File?> downloadUpdate(AppVersion version, File targetFile, Function(double) onProgress) async {
+  Future<File?> downloadUpdate(
+      AppVersion version, File targetFile, Function(double) onProgress) async {
     final strategies = await _getStrategies();
     for (final proxy in strategies) {
       try {
@@ -51,7 +54,7 @@ class UpdateRepository {
         print("Download failed via $proxy: $e");
         if (await targetFile.exists()) {
           try {
-             await targetFile.delete();
+            await targetFile.delete();
           } catch (_) {}
         }
       }
@@ -63,30 +66,32 @@ class UpdateRepository {
   Future<String> _executeCheck(String proxyConf) async {
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 15);
-    
+
     if (proxyConf != "DIRECT") {
       client.findProxy = (uri) => proxyConf;
     }
     // GitHub API requires User-Agent
-    client.userAgent = "MiniZivpn-Updater"; 
+    client.userAgent = "MiniZivpn-Updater";
 
     try {
       final request = await client.getUrl(Uri.parse(apiUrl));
       final response = await request.close();
-      
+
       if (response.statusCode != 200) {
         throw Exception("HTTP ${response.statusCode}");
       }
-      
+
       return await response.transform(utf8.decoder).join();
     } finally {
       client.close();
     }
   }
 
-  Future<void> _executeDownload(String url, File targetFile, String proxyConf, Function(double) onProgress) async {
+  Future<void> _executeDownload(String url, File targetFile, String proxyConf,
+      Function(double) onProgress) async {
     final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 30); // Longer timeout for downloads
+    client.connectionTimeout =
+        const Duration(seconds: 30); // Longer timeout for downloads
 
     if (proxyConf != "DIRECT") {
       client.findProxy = (uri) => proxyConf;
@@ -124,7 +129,7 @@ class UpdateRepository {
       }
 
       if (contentLength > 0 && targetFile.lengthSync() != contentLength) {
-          throw Exception("Incomplete download");
+        throw Exception("Incomplete download");
       }
     } finally {
       client.close();
@@ -132,38 +137,41 @@ class UpdateRepository {
   }
 
   Future<AppVersion?> _processResponse(String jsonStr) async {
-      final List releases = json.decode(jsonStr);
-      final packageInfo = await PackageInfo.fromPlatform();
-      final currentVersion = packageInfo.version;
-      final currentBuildNumber = packageInfo.buildNumber;
-      
-      print("Current App: $currentVersion ($currentBuildNumber)");
-      
-      for (var release in releases) {
-        final tagName = release['tag_name'].toString();
-        if (_isNewer(tagName, currentVersion, currentBuildNumber)) {
-          final assets = release['assets'] as List?;
-          if (assets == null) continue;
+    final List releases = json.decode(jsonStr);
+    final packageInfo = await PackageInfo.fromPlatform();
+    final currentVersion = packageInfo.version;
+    final currentBuildNumber = packageInfo.buildNumber;
 
-          final asset = assets.firstWhere(
-            (a) => a['content_type'] == 'application/vnd.android.package-archive' || a['name'].toString().endsWith('.apk'),
-            orElse: () => null
+    print("Current App: $currentVersion ($currentBuildNumber)");
+
+    for (var release in releases) {
+      final tagName = release['tag_name'].toString();
+      if (_isNewer(tagName, currentVersion, currentBuildNumber)) {
+        final assets = release['assets'] as List?;
+        if (assets == null) continue;
+
+        final asset = assets.firstWhere(
+            (a) =>
+                a['content_type'] ==
+                    'application/vnd.android.package-archive' ||
+                a['name'].toString().endsWith('.apk'),
+            orElse: () => null);
+
+        if (asset != null) {
+          return AppVersion(
+            name: tagName,
+            apkUrl: asset['browser_download_url'],
+            apkSize: asset['size'],
+            description: release['body'] ?? "",
           );
-
-          if (asset != null) {
-            return AppVersion(
-              name: tagName,
-              apkUrl: asset['browser_download_url'],
-              apkSize: asset['size'],
-              description: release['body'] ?? "",
-            );
-          }
         }
       }
-      return null;
+    }
+    return null;
   }
 
-  bool _isNewer(String latestTag, String currentVersion, String currentBuildNumber) {
+  bool _isNewer(
+      String latestTag, String currentVersion, String currentBuildNumber) {
     try {
       final remoteVersion = _extractVersionParts(latestTag);
       final localVersion = _extractVersionParts(currentVersion);
@@ -174,14 +182,17 @@ class UpdateRepository {
 
       final compare = _compareVersionParts(remoteVersion, localVersion);
       if (compare != 0) {
-        print("Ver Check: Remote=$remoteVersion vs Local=$localVersion => compare=$compare");
+        print(
+            "Ver Check: Remote=$remoteVersion vs Local=$localVersion => compare=$compare");
         return compare > 0;
       }
 
       final buildRemote = _extractBuildNumber(latestTag);
-      final buildLocal = int.tryParse(currentBuildNumber) ?? _extractBuildNumber(currentVersion);
+      final buildLocal = int.tryParse(currentBuildNumber) ??
+          _extractBuildNumber(currentVersion);
 
-      print("Ver Check: Remote=$remoteVersion ($buildRemote) vs Local=$localVersion ($buildLocal)");
+      print(
+          "Ver Check: Remote=$remoteVersion ($buildRemote) vs Local=$localVersion ($buildLocal)");
       return buildRemote > buildLocal;
     } catch (e) {
       print("Version check error: $e");
@@ -212,7 +223,8 @@ class UpdateRepository {
   }
 
   int _extractBuildNumber(String value) {
-    final dashBuild = RegExp(r'-b(\d+)', caseSensitive: false).firstMatch(value);
+    final dashBuild =
+        RegExp(r'-b(\d+)', caseSensitive: false).firstMatch(value);
     if (dashBuild != null) {
       return int.tryParse(dashBuild.group(1)!) ?? 0;
     }

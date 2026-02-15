@@ -14,13 +14,13 @@ class AutoPilotService {
   final _shizuku = ShizukuApi();
   final _httpClient = http.Client();
   static const _platform = MethodChannel('com.minizivpn.app/core');
-  
+
   Timer? _timer;
   AutoPilotConfig _config = const AutoPilotConfig();
-  
+
   final _stateController = StreamController<AutoPilotState>.broadcast();
   Stream<AutoPilotState> get stateStream => _stateController.stream;
-  
+
   bool _isResetting = false;
   bool _isChecking = false;
 
@@ -63,13 +63,14 @@ class AutoPilotService {
     await prefs.setBool('enable_stabilizer_ap', newConfig.enableStabilizer);
     await prefs.setBool('auto_reset_ap', newConfig.autoReset);
     await prefs.setInt('stabilizer_size_ap', newConfig.stabilizerSizeMb);
-    
+
     // No restart needed, just config update
   }
 
   Future<void> _log(String message) async {
     try {
-      await _platform.invokeMethod('logMessage', {'message': '[AUTOPILOT] $message'});
+      await _platform
+          .invokeMethod('logMessage', {'message': '[AUTOPILOT] $message'});
     } catch (e) {
       print('AP Log error: $e');
     }
@@ -81,7 +82,7 @@ class AutoPilotService {
     try {
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.monitoring,
-        message: 'Initializing Shizuku...', 
+        message: 'Initializing Shizuku...',
       ));
 
       final isBinderAlive = await _shizuku.pingBinder() ?? false;
@@ -178,7 +179,8 @@ class AutoPilotService {
       await _shizuku.runCommand('dumpsys deviceidle whitelist +$pkg');
       await _shizuku.runCommand('cmd activity set-inactive $pkg false');
       await _shizuku.runCommand('cmd activity set-standby-bucket $pkg active');
-      await _shizuku.runCommand('pidof $pkg | xargs -n 1 -I {} sh -c "echo -900 > /proc/{}/oom_score_adj"');
+      await _shizuku.runCommand(
+          'pidof $pkg | xargs -n 1 -I {} sh -c "echo -900 > /proc/{}/oom_score_adj"');
     } catch (e) {}
   }
 
@@ -191,23 +193,26 @@ class AutoPilotService {
 
       // --- HOTSPOT SAFE RESET SEQUENCE ---
       // 1. Blacklist WiFi from Airplane Mode
-      await _shizuku.runCommand('settings put global airplane_mode_radios cell,bluetooth,nfc,wimax');
-      
+      await _shizuku.runCommand(
+          'settings put global airplane_mode_radios cell,bluetooth,nfc,wimax');
+
       // 2. Airplane Mode ON (via Broadcast to respect blacklist)
       await _shizuku.runCommand('settings put global airplane_mode_on 1');
-      await _shizuku.runCommand('am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true');
-      
+      await _shizuku.runCommand(
+          'am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true');
+
       await Future.delayed(Duration(seconds: _config.airplaneModeDelaySeconds));
-      
+
       // 3. Airplane Mode OFF
       await _shizuku.runCommand('settings put global airplane_mode_on 0');
-      await _shizuku.runCommand('am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false');
-      
+      await _shizuku.runCommand(
+          'am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false');
+
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.monitoring,
         message: 'Waiting for recovery...',
       ));
-      
+
       await Future.delayed(Duration(seconds: _config.recoveryWaitSeconds));
 
       if (_config.enableStabilizer) {
@@ -232,31 +237,33 @@ class AutoPilotService {
       status: AutoPilotStatus.stabilizing,
       message: 'Stabilizing connection...',
     ));
-    
+
     final client = http.Client();
-    
+
     // Total chunks equal to MB size (1 chunk = 1MB)
     int totalChunks = _config.stabilizerSizeMb;
-    
+
     for (int i = 1; i <= totalChunks; i++) {
-        try {
-            _log('Stabilizer: Chunk $i/$totalChunks (1MB)...');
-            final request = http.Request('GET', Uri.parse('http://speedtest.tele2.net/1MB.zip'));
-            request.headers['Connection'] = 'close'; // Force new connection
-            
-            final response = await client.send(request).timeout(const Duration(seconds: 15));
-            
-            if (response.statusCode == 200) {
-                // Drain stream to actually download bytes
-                await response.stream.drain();
-            } else {
-                _log('Stabilizer: Chunk $i failed (HTTP ${response.statusCode})');
-            }
-        } catch (e) {
-            _log('Stabilizer: Chunk $i error: $e');
-            // Wait a bit before next chunk if failed
-            await Future.delayed(const Duration(seconds: 1)); 
+      try {
+        _log('Stabilizer: Chunk $i/$totalChunks (1MB)...');
+        final request = http.Request(
+            'GET', Uri.parse('http://speedtest.tele2.net/1MB.zip'));
+        request.headers['Connection'] = 'close'; // Force new connection
+
+        final response =
+            await client.send(request).timeout(const Duration(seconds: 15));
+
+        if (response.statusCode == 200) {
+          // Drain stream to actually download bytes
+          await response.stream.drain();
+        } else {
+          _log('Stabilizer: Chunk $i failed (HTTP ${response.statusCode})');
         }
+      } catch (e) {
+        _log('Stabilizer: Chunk $i error: $e');
+        // Wait a bit before next chunk if failed
+        await Future.delayed(const Duration(seconds: 1));
+      }
     }
     client.close();
   }
