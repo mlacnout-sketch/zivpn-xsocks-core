@@ -23,12 +23,13 @@ class BackupRepository {
 
       // 2. Prepare Config JSON
       final configJson = jsonEncode(allPrefs);
+      final configBytes = utf8.encode(configJson);
 
       // 3. Create ZIP Archive
       final archive = Archive();
       
       // Add config.json
-      archive.addFile(ArchiveFile('config.json', configJson.length, utf8.encode(configJson)));
+      archive.addFile(ArchiveFile('config.json', configBytes.length, configBytes));
       
       // 4. Save ZIP to temp
       final tempDir = await getTemporaryDirectory();

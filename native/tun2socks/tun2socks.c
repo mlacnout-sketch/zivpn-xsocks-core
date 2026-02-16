@@ -31,6 +31,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <limits.h>
+#include <stdlib.h>
 
 #include <misc/version.h>
 #include <misc/loggers_string.h>
@@ -80,23 +81,32 @@
 
 BAVL connections_tree;
 typedef struct {
+    uint32_t local_ip;
+    uint16_t local_port;
+} ConnectionKey;
+
+typedef struct {
+    ConnectionKey key;
     BAddr local_addr;
     BAddr remote_addr;
-    uint16_t port;
     int count;
     BAVLNode connections_tree_node;
 } Connection;
 
-static int conaddr_comparator (void *unused, uint16_t *v1, uint16_t *v2)
+static int conaddr_comparator (void *unused, ConnectionKey *v1, ConnectionKey *v2)
 {
-    if (*v1 == *v2) return 0;
-    else if (*v1 > *v2) return 1;
-    else return -1;
+    if (v1->local_ip < v2->local_ip) return -1;
+    if (v1->local_ip > v2->local_ip) return 1;
+
+    if (v1->local_port < v2->local_port) return -1;
+    if (v1->local_port > v2->local_port) return 1;
+
+    return 0;
 }
 
-static Connection * find_connection (uint16_t port)
+static Connection * find_connection (ConnectionKey key)
 {
-    BAVLNode *tree_node = BAVL_LookupExact(&connections_tree, &port);
+    BAVLNode *tree_node = BAVL_LookupExact(&connections_tree, &key);
     if (!tree_node) {
         return NULL;
     }
@@ -114,19 +124,28 @@ static void remove_connection (Connection *con)
     }
 }
 
-static void insert_connection (BAddr local_addr, BAddr remote_addr, uint16_t port)
+static void insert_connection (BAddr local_addr, BAddr remote_addr)
 {
-   Connection * con = find_connection(port);
-   if (con != NULL)
+   ConnectionKey key;
+   key.local_ip = local_addr.ipv4.ip;
+   key.local_port = local_addr.ipv4.port;
+
+   Connection * con = find_connection(key);
+   if (con != NULL) {
        con->count += 1;
-   else
-   {
+   } else {
        Connection * tmp = (Connection *)malloc(sizeof(Connection));
+       if (!tmp) {
+           BLog(BLOG_ERROR, "malloc Connection failed");
+           return;
+       }
+       tmp->key = key;
        tmp->local_addr = local_addr;
        tmp->remote_addr = remote_addr;
-       tmp->port = port;
        tmp->count = 1;
-       BAVL_Insert(&connections_tree, &tmp->connections_tree_node, NULL);
+       if (!BAVL_Insert(&connections_tree, &tmp->connections_tree_node, NULL)) {
+           free(tmp);
+       }
    }
 }
 
@@ -135,6 +154,7 @@ static void free_connections()
     while (!BAVL_IsEmpty(&connections_tree)) {
         Connection *con = UPPER_OBJECT(BAVL_GetLast(&connections_tree), Connection, connections_tree_node);
         BAVL_Remove(&connections_tree, &con->connections_tree_node);
+        free(con);
     }
 }
 
@@ -1394,13 +1414,13 @@ int process_device_dns_packet (uint8_t *data, int data_len)
                 // construct addresses
                 if (!init) {
                     init = 1;
-                    BAVL_Init(&connections_tree, OFFSET_DIFF(Connection, port, connections_tree_node), (BAVL_comparator)conaddr_comparator, NULL);
+                    BAVL_Init(&connections_tree, OFFSET_DIFF(Connection, key, connections_tree_node), (BAVL_comparator)conaddr_comparator, NULL);
                 }
                 BAddr local_addr;
                 BAddr remote_addr;
                 BAddr_InitIPv4(&local_addr, ipv4_header.source_address, udp_header.source_port);
                 BAddr_InitIPv4(&remote_addr, ipv4_header.destination_address, udp_header.dest_port);
-                insert_connection(local_addr, remote_addr, udp_header.source_port);
+                insert_connection(local_addr, remote_addr);
 
                 // build IP header
                 ipv4_header.destination_address = dnsgw.ipv4.ip;
@@ -1418,7 +1438,10 @@ int process_device_dns_packet (uint8_t *data, int data_len)
 
                 BLog(BLOG_INFO, "UDP: from DNS %d bytes", data_len);
 
-                Connection * con = find_connection(udp_header.dest_port);
+                ConnectionKey key;
+                key.local_ip = ipv4_header.destination_address;
+                key.local_port = udp_header.dest_port;
+                Connection * con = find_connection(key);
                 if (con != NULL)
                 {
                     // build IP header

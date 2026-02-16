@@ -34,6 +34,8 @@
 
 #include <generated/blog_channel_SocksUdpGwClient.h>
 
+#include <stdlib.h>
+
 #define CONNECTION_UDP_BUFFER_SIZE 1
 
 static void free_socks (SocksUdpGwClient *o);
@@ -50,6 +52,7 @@ static SocksUdpGwClient_connection * find_connection (SocksUdpGwClient *o, Socks
 static SocksUdpGwClient_connection * reuse_connection (SocksUdpGwClient *o, SocksUdpGwClient_conaddr conaddr);
 static void connection_send (SocksUdpGwClient_connection *o, const uint8_t *data, int data_len);
 static void connection_first_job_handler (SocksUdpGwClient_connection *con);
+static void connection_cancel_first_job (SocksUdpGwClient_connection *o);
 static SocksUdpGwClient_connection *connection_init (SocksUdpGwClient *client, SocksUdpGwClient_conaddr conaddr, const uint8_t *data, int data_len);
 static void connection_free (SocksUdpGwClient_connection *o);
 
@@ -61,6 +64,7 @@ static void dgram_handler (SocksUdpGwClient_connection *o, int event)
     DebugObject_Access(&client->d_obj);
     
     BLog(BLOG_INFO, "UDP error");
+    connection_free(o);
 }
 
 static void dgram_handler_received (SocksUdpGwClient_connection *o, uint8_t *data, int data_len)
@@ -174,6 +178,22 @@ static SocksUdpGwClient_connection * reuse_connection (SocksUdpGwClient *o, Sock
 
 static void connection_send (SocksUdpGwClient_connection *o, const uint8_t *data, int data_len)
 {
+    SocksUdpGwClient *client = o->client;
+    BAddr remote_addr = o->conaddr.remote_addr;
+
+    int header_len = sizeof(struct socks_udp_header);
+    if (remote_addr.type == BADDR_TYPE_IPV4) {
+        header_len += sizeof(struct udpgw_addr_ipv4);
+    } else {
+        header_len += sizeof(struct udpgw_addr_ipv6);
+    }
+
+    // ensure packet fits into framed UDPGW packet buffer
+    if (header_len + data_len > client->udpgw_mtu) {
+        BLog(BLOG_ERROR, "packet too large for relay frame");
+        return;
+    }
+
     // get buffer location
     uint8_t *out;
     if (!BufferWriter_StartPacket(&o->udp_send_writer, &out)) {
@@ -183,7 +203,6 @@ static void connection_send (SocksUdpGwClient_connection *o, const uint8_t *data
     int out_pos = 0;
     
     // write header
-    BAddr remote_addr = o->conaddr.remote_addr;
     struct socks_udp_header header;
     header.rsv = 0;
     header.frag = 0;
@@ -212,7 +231,7 @@ static void connection_send (SocksUdpGwClient_connection *o, const uint8_t *data
             out_pos += sizeof(addr_ipv6);
         } break;
     }
-    
+
     // write packet to buffer
     memcpy(out + out_pos, data, data_len);
     out_pos += data_len;
@@ -224,6 +243,23 @@ static void connection_send (SocksUdpGwClient_connection *o, const uint8_t *data
 static void connection_first_job_handler (SocksUdpGwClient_connection *con)
 {
     connection_send(con, con->first_data, con->first_data_len);
+
+    if (con->first_data) {
+        free(con->first_data);
+        con->first_data = NULL;
+        con->first_data_len = 0;
+    }
+}
+
+static void connection_cancel_first_job (SocksUdpGwClient_connection *o)
+{
+    BPending_Free(&o->first_job);
+
+    if (o->first_data) {
+        free(o->first_data);
+        o->first_data = NULL;
+    }
+    o->first_data_len = 0;
 }
 
 static SocksUdpGwClient_connection *connection_init (SocksUdpGwClient *client, SocksUdpGwClient_conaddr conaddr, const uint8_t *data, int data_len)
@@ -238,8 +274,17 @@ static SocksUdpGwClient_connection *connection_init (SocksUdpGwClient *client, S
     // init arguments
     o->client = client;
     o->conaddr = conaddr;
-    o->first_data = data;
+    o->first_data = NULL;
     o->first_data_len = data_len;
+
+    if (data_len > 0) {
+        o->first_data = (uint8_t *)malloc(data_len);
+        if (!o->first_data) {
+            BLog(BLOG_ERROR, "malloc first_data failed");
+            goto fail_mem;
+        }
+        memcpy(o->first_data, data, data_len);
+    }
     
     // init first job
     BPending_Init(&o->first_job, BReactor_PendingGroup(client->reactor), (BPending_handler)connection_first_job_handler, o);
@@ -263,11 +308,11 @@ static SocksUdpGwClient_connection *connection_init (SocksUdpGwClient *client, S
     BDatagram_SetSendAddrs(&o->udp_dgram, client->socks_server_addr, ipaddr);
     
     // init UDP dgram interfaces
-    BDatagram_SendAsync_Init(&o->udp_dgram, client->udp_mtu);
-    BDatagram_RecvAsync_Init(&o->udp_dgram, client->udp_mtu);
+    BDatagram_SendAsync_Init(&o->udp_dgram, client->udpgw_mtu);
+    BDatagram_RecvAsync_Init(&o->udp_dgram, client->udpgw_mtu);
     
     // init UDP writer
-    BufferWriter_Init(&o->udp_send_writer, client->udp_mtu, BReactor_PendingGroup(client->reactor));
+    BufferWriter_Init(&o->udp_send_writer, client->udpgw_mtu, BReactor_PendingGroup(client->reactor));
     
     // init UDP buffer
     if (!PacketBuffer_Init(&o->udp_send_buffer, BufferWriter_GetOutput(&o->udp_send_writer), BDatagram_SendAsync_GetIf(&o->udp_dgram), CONNECTION_UDP_BUFFER_SIZE, BReactor_PendingGroup(client->reactor))) {
@@ -276,7 +321,7 @@ static SocksUdpGwClient_connection *connection_init (SocksUdpGwClient *client, S
     }
     
     // init UDP recv interface
-    PacketPassInterface_Init(&o->udp_recv_if, client->udp_mtu, (PacketPassInterface_handler_send)dgram_handler_received, o, BReactor_PendingGroup(client->reactor));
+    PacketPassInterface_Init(&o->udp_recv_if, client->udpgw_mtu, (PacketPassInterface_handler_send)dgram_handler_received, o, BReactor_PendingGroup(client->reactor));
     
     // init UDP recv buffer
     if (!SinglePacketBuffer_Init(&o->udp_recv_buffer, BDatagram_RecvAsync_GetIf(&o->udp_dgram), &o->udp_recv_if, BReactor_PendingGroup(client->reactor))) {
@@ -307,7 +352,10 @@ fail1:
     BDatagram_Free(&o->udp_dgram);
     
 fail0:
-    BPending_Free(&o->first_job);
+    connection_cancel_first_job(o);
+    free(o);
+    goto fail;
+fail_mem:
     free(o);
 fail:
     return NULL;
@@ -316,6 +364,8 @@ fail:
 static void connection_free (SocksUdpGwClient_connection *o)
 {
     SocksUdpGwClient *client = o->client;
+
+    connection_cancel_first_job(o);
     
     // decrement number of connections
     client->num_connections--;
@@ -491,6 +541,7 @@ int SocksUdpGwClient_Init (SocksUdpGwClient *o, int udp_mtu, int max_connections
     if (o->use_relay) {
         // Relay mode (Android-style)
         o->udpgw_mtu = udpgw_compute_mtu(o->udp_mtu);
+        o->num_connections = 0;
         o->max_connections = max_connections;
         
         if (o->max_connections > UINT16_MAX + 1) {

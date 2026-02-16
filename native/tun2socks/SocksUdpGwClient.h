@@ -84,7 +84,7 @@ typedef struct {
     SocksUdpGwClient *client;
     SocksUdpGwClient_conaddr conaddr;
     BPending first_job;
-    const uint8_t *first_data;
+    uint8_t *first_data;
     int first_data_len;
     BDatagram udp_dgram;
     BufferWriter udp_send_writer;
