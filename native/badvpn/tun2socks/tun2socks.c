@@ -1235,7 +1235,7 @@ int process_arguments (void)
             }
 
             if (preferred_port > 0) {
-                int seed = (int)BTime_GetTime() ^ preferred_port;
+                int seed = (int)btime_gettime() ^ preferred_port;
                 int smart_port = SmartPortPlanner_Select(options.smart_port_range, preferred_port, seed);
                 if (smart_port != preferred_port) {
                     if (udpgw_remote_server_addr.type == BADDR_TYPE_IPV4) {
