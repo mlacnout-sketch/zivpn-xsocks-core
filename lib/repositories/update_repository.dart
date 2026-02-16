@@ -173,16 +173,9 @@ class UpdateRepository {
       }
 
       final compare = _compareVersionParts(remoteVersion, localVersion);
-      if (compare != 0) {
-        print("Ver Check: Remote=$remoteVersion vs Local=$localVersion => compare=$compare");
-        return compare > 0;
-      }
-
-      final buildRemote = _extractBuildNumber(latestTag);
-      final buildLocal = int.tryParse(currentBuildNumber) ?? _extractBuildNumber(currentVersion);
-
-      print("Ver Check: Remote=$remoteVersion ($buildRemote) vs Local=$localVersion ($buildLocal)");
-      return buildRemote > buildLocal;
+      // Strictly greater means newer version. Equal or less means no update.
+      // We explicitly ignore build number differences as requested.
+      return compare > 0;
     } catch (e) {
       print("Version check error: $e");
       return false;
