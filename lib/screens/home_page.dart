@@ -91,6 +91,23 @@ class _HomePageState extends State<HomePage> {
   void _initAutoPilotListener() {
     _autoPilot.stateStream.listen((state) {
       if (mounted) {
+        // Detect recovery (Transition from Resetting/Stabilizing -> Monitoring)
+        if (_autoPilotResetting && state.status == AutoPilotStatus.monitoring) {
+             // Connection recovered by AutoPilot!
+             // We should restart VPN to apply new Smart Network Config
+             if (_vpnState == "connected") {
+                 _logs.add("[AUTOPILOT] Signal recovered. Restarting VPN to re-tune...");
+                 // Small delay to ensure network is stable
+                 Future.delayed(const Duration(seconds: 2), () async {
+                     if (mounted && _vpnState == "connected") {
+                         await _toggleVpn(); // Stop
+                         await Future.delayed(const Duration(seconds: 1));
+                         await _toggleVpn(); // Start (Will trigger Smart Probe)
+                     }
+                 });
+             }
+        }
+
         setState(() {
           _autoPilotActive = state.status != AutoPilotStatus.stopped;
           _autoPilotResetting = state.status == AutoPilotStatus.resetting || 
