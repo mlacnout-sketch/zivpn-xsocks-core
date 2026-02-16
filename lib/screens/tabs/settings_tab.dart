@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,11 +43,6 @@ class _SettingsTabState extends State<SettingsTab> {
   final _pdnsdMaxTtlCtrl = TextEditingController();
   final _pdnsdVerbosityCtrl = TextEditingController();
 
-  final _upCtrl = TextEditingController();
-  final _downMbpsCtrl = TextEditingController();
-  final _rcveconnCtrl = TextEditingController();
-  final _recvwindowCtrl = TextEditingController();
-
   bool _cpuWakelock = false;
   bool _enableUdpgw = true;
   bool _udpgwTransparentDns = false;
@@ -88,10 +82,6 @@ class _SettingsTabState extends State<SettingsTab> {
     _pdnsdMinTtlCtrl.dispose();
     _pdnsdMaxTtlCtrl.dispose();
     _pdnsdVerbosityCtrl.dispose();
-    _upCtrl.dispose();
-    _downMbpsCtrl.dispose();
-    _rcveconnCtrl.dispose();
-    _recvwindowCtrl.dispose();
     super.dispose();
   }
 
@@ -171,11 +161,6 @@ class _SettingsTabState extends State<SettingsTab> {
       _pdnsdMaxTtlCtrl.text = prefs.getString('pdnsd_max_ttl') ?? '1w';
       _pdnsdVerbosityCtrl.text = (prefs.getInt('pdnsd_verbosity') ?? 2).toString();
 
-      _upCtrl.text = prefs.getString('libuz_up') ?? '100';
-      _downMbpsCtrl.text = prefs.getString('libuz_down_mbps') ?? '100';
-      _rcveconnCtrl.text = prefs.getString('libuz_rcveconn') ?? '131072';
-      _recvwindowCtrl.text = prefs.getString('libuz_recvwindow') ?? '327680';
-
       _cpuWakelock = prefs.getBool('cpu_wakelock') ?? false;
       _enableUdpgw = prefs.getBool('enable_udpgw') ?? true;
       _udpgwTransparentDns = prefs.getBool('udpgw_transparent_dns') ?? false;
@@ -209,11 +194,6 @@ class _SettingsTabState extends State<SettingsTab> {
     await prefs.setString('pdnsd_min_ttl', val(_pdnsdMinTtlCtrl, '15m'));
     await prefs.setString('pdnsd_max_ttl', val(_pdnsdMaxTtlCtrl, '1w'));
     await prefs.setInt('pdnsd_verbosity', int.tryParse(val(_pdnsdVerbosityCtrl, '2')) ?? 2);
-
-    await prefs.setString('libuz_up', val(_upCtrl, '100'));
-    await prefs.setString('libuz_down_mbps', val(_downMbpsCtrl, '100'));
-    await prefs.setString('libuz_rcveconn', val(_rcveconnCtrl, '131072'));
-    await prefs.setString('libuz_recvwindow', val(_recvwindowCtrl, '327680'));
 
     await prefs.setBool('cpu_wakelock', _cpuWakelock);
     await prefs.setBool('enable_udpgw', _enableUdpgw);
@@ -370,17 +350,6 @@ class _SettingsTabState extends State<SettingsTab> {
         ),
         const SizedBox(height: 12),
         _buildSectionCard(
-          title: 'Libuz Configuration',
-          icon: Icons.settings_input_component,
-          children: [
-            _buildTextInput(_upCtrl, 'Upload Speed (up)', Icons.upload),
-            _buildTextInput(_downMbpsCtrl, 'Download Speed (down_mbps)', Icons.download),
-            _buildTextInput(_rcveconnCtrl, 'Receive Window Conn (rcveconn)', Icons.sync_alt),
-            _buildTextInput(_recvwindowCtrl, 'Receive Window (recvwindow)', Icons.window),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _buildSectionCard(
           title: 'System',
           icon: Icons.settings_suggest,
           children: [
@@ -428,7 +397,6 @@ class _SettingsTabState extends State<SettingsTab> {
       child: TextField(
         controller: ctrl,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-        inputFormatters: isNumber ? [FilteringTextInputFormatter.digitsOnly] : null,
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon),

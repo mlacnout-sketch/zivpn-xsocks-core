@@ -328,11 +328,7 @@ class _HomePageState extends State<HomePage> {
           "pdnsd_min_ttl": prefs.getString('pdnsd_min_ttl') ?? "15m",
           "pdnsd_max_ttl": prefs.getString('pdnsd_max_ttl') ?? "1w",
           "pdnsd_query_method": prefs.getString('pdnsd_query_method') ?? "tcp_only",
-          "pdnsd_verbosity": prefs.getInt('pdnsd_verbosity') ?? 2,
-          "up": prefs.getString('libuz_up') ?? "100",
-          "down_mbps": prefs.getString('libuz_down_mbps') ?? "100",
-          "rcveconn": prefs.getString('libuz_rcveconn') ?? "131072",
-          "recvwindow": prefs.getString('libuz_recvwindow') ?? "327680"
+          "pdnsd_verbosity": prefs.getInt('pdnsd_verbosity') ?? 2
         });
         await platform.invokeMethod('startVpn');
 
