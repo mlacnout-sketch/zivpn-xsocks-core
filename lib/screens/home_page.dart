@@ -316,7 +316,17 @@ class _HomePageState extends State<HomePage> {
 
       try {
         String recvWin = prefs.getString('hysteria_recv_window') ?? "327680";
+        String portRange = prefs.getString('port_range') ?? "6000-19999";
         String recvConn = prefs.getString('hysteria_recv_conn') ?? "131072";
+        String tcpSndBuf = prefs.getString('tcp_snd_buf') ?? "65535";
+        String tcpWnd = prefs.getString('tcp_wnd') ?? "65535";
+        String socksBuf = prefs.getString('socks_buf') ?? "65536";
+        String udpgwMaxConnections = prefs.getString('udpgw_max_connections') ?? "512";
+        String udpgwBufferSize = prefs.getString('udpgw_buffer_size') ?? "32";
+        String udpgwMemoryBudgetKb = prefs.getString('udpgw_memory_budget_kb') ?? "0";
+        String udpgwSmartPortRange = prefs.getString('udpgw_smart_port_range') ?? "";
+        int pdnsdCacheEntries = prefs.getInt('pdnsd_cache_entries') ?? 2048;
+        int pdnsdTimeoutSec = prefs.getInt('pdnsd_timeout_sec') ?? 10;
         final profile = prefs.getString('native_perf_profile') ?? "balanced";
 
         if (profile == "smart") {
@@ -326,6 +336,16 @@ class _HomePageState extends State<HomePage> {
              if (smartConfig != null) {
                 recvWin = smartConfig['recv_win'].toString();
                 recvConn = smartConfig['recv_conn'].toString();
+                tcpWnd = smartConfig['tcp_wnd'].toString();
+                tcpSndBuf = smartConfig['tcp_snd_buf'].toString();
+                socksBuf = smartConfig['socks_buf'].toString();
+                udpgwMaxConnections = smartConfig['udpgw_max_connections'].toString();
+                udpgwBufferSize = smartConfig['udpgw_buffer_size'].toString();
+                udpgwMemoryBudgetKb = (smartConfig['udpgw_memory_budget_kb'] ?? udpgwMemoryBudgetKb).toString();
+                pdnsdCacheEntries = int.tryParse(smartConfig['pdnsd_cache_entries'].toString()) ?? pdnsdCacheEntries;
+                portRange = (smartConfig['smart_port_range'] ?? portRange).toString();
+                udpgwSmartPortRange = (smartConfig['udpgw_smart_port_range'] ?? udpgwSmartPortRange).toString();
+                pdnsdTimeoutSec = int.tryParse(smartConfig['pdnsd_timeout_sec'].toString()) ?? pdnsdTimeoutSec;
                 final score = smartConfig['score'];
                 _logs.add("[SMART] Network Score: $score/100. Applied dynamic tuning.");
              }
@@ -336,18 +356,20 @@ class _HomePageState extends State<HomePage> {
 
         await platform.invokeMethod('startCore', {
           "ip": ip,
-          "port_range": prefs.getString('port_range') ?? "6000-19999",
+          "port_range": portRange,
           "pass": prefs.getString('auth') ?? "",
           "obfs": prefs.getString('obfs') ?? "hu``hqb`c",
           "udp_mode": "udp",
           "mtu": prefs.getInt('mtu') ?? 1500,
           "enable_udpgw": prefs.getBool('enable_udpgw') ?? true,
           "udpgw_port": prefs.getString('udpgw_port') ?? "7300",
-          "udpgw_max_connections": prefs.getString('udpgw_max_connections') ?? "512",
-          "udpgw_buffer_size": prefs.getString('udpgw_buffer_size') ?? "32",
-          "tcp_snd_buf": prefs.getString('tcp_snd_buf') ?? "65535",
-          "tcp_wnd": prefs.getString('tcp_wnd') ?? "65535",
-          "socks_buf": prefs.getString('socks_buf') ?? "65536",
+          "udpgw_max_connections": udpgwMaxConnections,
+          "udpgw_buffer_size": udpgwBufferSize,
+          "udpgw_memory_budget_kb": udpgwMemoryBudgetKb,
+          "udpgw_smart_port_range": udpgwSmartPortRange,
+          "tcp_snd_buf": tcpSndBuf,
+          "tcp_wnd": tcpWnd,
+          "socks_buf": socksBuf,
           "ping_interval": prefs.getInt('ping_interval') ?? 3,
           "ping_target": prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204",
           "filter_apps": prefs.getBool('filter_apps') ?? false,
@@ -359,8 +381,8 @@ class _HomePageState extends State<HomePage> {
           "udpgw_transparent_dns": prefs.getBool('udpgw_transparent_dns') ?? false,
           "native_perf_profile": profile,
           "pdnsd_port": prefs.getInt('pdnsd_port') ?? 8091,
-          "pdnsd_cache_entries": prefs.getInt('pdnsd_cache_entries') ?? 2048,
-          "pdnsd_timeout_sec": prefs.getInt('pdnsd_timeout_sec') ?? 10,
+          "pdnsd_cache_entries": pdnsdCacheEntries,
+          "pdnsd_timeout_sec": pdnsdTimeoutSec,
           "pdnsd_min_ttl": prefs.getString('pdnsd_min_ttl') ?? "15m",
           "pdnsd_max_ttl": prefs.getString('pdnsd_max_ttl') ?? "1w",
           "pdnsd_query_method": prefs.getString('pdnsd_query_method') ?? "tcp_only",

@@ -53,6 +53,7 @@
 #include <system/BSignal.h>
 #include <system/BAddr.h>
 #include <system/BNetwork.h>
+#include <system/BTime.h>
 #include <flow/SinglePacketBuffer.h>
 #include <socksclient/BSocksClient.h>
 #include <tuntap/BTap.h>
@@ -61,6 +62,8 @@
 #include <lwip/netif.h>
 #include <lwip/tcp.h>
 #include <tun2socks/SocksUdpGwClient.h>
+#include <tun2socks/UdpgwStabilizer.h>
+#include <tun2socks/SmartPortPlanner.h>
 
 #ifndef BADVPN_USE_WINAPI
 #include <base/BLog_syslog.h>
@@ -192,6 +195,8 @@ struct {
     char *udpgw_remote_server_addr;
     int udpgw_max_connections;
     int udpgw_connection_buffer_size;
+    int udpgw_memory_budget_kb;
+    char *smart_port_range;
     int udpgw_transparent_dns;
 #ifdef ANDROID
     int tun_fd;
@@ -589,7 +594,26 @@ int main (int argc, char **argv)
         }
 
         // init udpgw client
-        if (!SocksUdpGwClient_Init(&udpgw_client, udp_mtu, DEFAULT_UDPGW_MAX_CONNECTIONS, options.udpgw_connection_buffer_size, UDPGW_KEEPALIVE_TIME,
+        UdpgwStabilizerResult udpgw_stable;
+        UdpgwStabilizer_Compute(udp_mtu, options.udpgw_max_connections, options.udpgw_connection_buffer_size, options.udpgw_memory_budget_kb * 1024, &udpgw_stable);
+
+        if (udpgw_stable.changed) {
+            BLog(BLOG_NOTICE, "UDPGW stabilizer adjusted max_connections=%d->%d buffer_packets=%d->%d budget_bytes=%d (budget_kb=%d)",
+                 udpgw_stable.requested_max_connections,
+                 udpgw_stable.effective_max_connections,
+                 udpgw_stable.requested_buffer_packets,
+                 udpgw_stable.effective_buffer_packets,
+                 udpgw_stable.estimated_buffer_bytes,
+                 options.udpgw_memory_budget_kb);
+        } else {
+            BLog(BLOG_NOTICE, "UDPGW stabilizer using max_connections=%d buffer_packets=%d budget_bytes=%d (budget_kb=%d)",
+                 udpgw_stable.effective_max_connections,
+                 udpgw_stable.effective_buffer_packets,
+                 udpgw_stable.estimated_buffer_bytes,
+                 options.udpgw_memory_budget_kb);
+        }
+
+        if (!SocksUdpGwClient_Init(&udpgw_client, udp_mtu, udpgw_stable.effective_max_connections, udpgw_stable.effective_buffer_packets, UDPGW_KEEPALIVE_TIME,
                                    socks_server_addr, socks_auth_info, socks_num_auth_info,
                                    udpgw_remote_server_addr, UDPGW_RECONNECT_TIME, &ss, NULL, udpgw_client_handler_received
         )) {
@@ -736,6 +760,8 @@ void print_help (const char *name)
         "        [--udpgw-remote-server-addr <addr>]\n"
         "        [--udpgw-max-connections <number>]\n"
         "        [--udpgw-connection-buffer-size <number>]\n"
+        "        [--udpgw-memory-budget-kb <number>]\n"
+        "        [--smart-port-range <start-end>]\n"
         "        [--udpgw-transparent-dns]\n"
         "Address format is a.b.c.d:port (IPv4) or [addr]:port (IPv6).\n",
         name
@@ -783,6 +809,8 @@ int parse_arguments (int argc, char *argv[])
     options.udpgw_remote_server_addr = NULL;
     options.udpgw_max_connections = DEFAULT_UDPGW_MAX_CONNECTIONS;
     options.udpgw_connection_buffer_size = DEFAULT_UDPGW_CONNECTION_BUFFER_SIZE;
+    options.udpgw_memory_budget_kb = 16384;
+    options.smart_port_range = NULL;
     options.udpgw_transparent_dns = 0;
 
     int i;
@@ -1005,6 +1033,25 @@ int parse_arguments (int argc, char *argv[])
             }
             i++;
         }
+        else if (!strcmp(arg, "--udpgw-memory-budget-kb")) {
+            if (1 >= argc - i) {
+                fprintf(stderr, "%s: requires an argument\n", arg);
+                return 0;
+            }
+            if ((options.udpgw_memory_budget_kb = atoi(argv[i + 1])) <= 0) {
+                fprintf(stderr, "%s: wrong argument\n", arg);
+                return 0;
+            }
+            i++;
+        }
+        else if (!strcmp(arg, "--smart-port-range")) {
+            if (1 >= argc - i) {
+                fprintf(stderr, "%s: requires an argument\n", arg);
+                return 0;
+            }
+            options.smart_port_range = argv[i + 1];
+            i++;
+        }
         else if (!strcmp(arg, "--udpgw-transparent-dns")) {
             options.udpgw_transparent_dns = 1;
         }
@@ -1120,6 +1167,28 @@ int process_arguments (void)
             BLog(BLOG_ERROR, "remote udpgw server addr: BAddr_Parse2 failed");
 #endif
             return 0;
+        }
+
+        if (options.smart_port_range) {
+            int preferred_port = 0;
+            if (udpgw_remote_server_addr.type == BADDR_TYPE_IPV4) {
+                preferred_port = ntoh16(udpgw_remote_server_addr.ipv4.port);
+            } else if (udpgw_remote_server_addr.type == BADDR_TYPE_IPV6) {
+                preferred_port = ntoh16(udpgw_remote_server_addr.ipv6.port);
+            }
+
+            if (preferred_port > 0) {
+                int seed = (int)BTime_GetTime() ^ preferred_port;
+                int smart_port = SmartPortPlanner_Select(options.smart_port_range, preferred_port, seed);
+                if (smart_port != preferred_port) {
+                    if (udpgw_remote_server_addr.type == BADDR_TYPE_IPV4) {
+                        udpgw_remote_server_addr.ipv4.port = hton16((uint16_t)smart_port);
+                    } else if (udpgw_remote_server_addr.type == BADDR_TYPE_IPV6) {
+                        udpgw_remote_server_addr.ipv6.port = hton16((uint16_t)smart_port);
+                    }
+                    BLog(BLOG_NOTICE, "smart udpgw port range=%s selected=%d from preferred=%d", options.smart_port_range, smart_port, preferred_port);
+                }
+            }
         }
     }
 

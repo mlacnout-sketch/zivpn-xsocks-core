@@ -74,6 +74,8 @@ set(BADVPN_SOURCES
     badvpn/tun2socks/SocksUdpGwClient.c
     badvpn/udpgw_client/UdpGwClient.c
     badvpn/tun2socks/MemoryPool.c
+    badvpn/tun2socks/UdpgwStabilizer.c
+    badvpn/tun2socks/SmartPortPlanner.c
 )
 
 add_executable(tun2socks ${BADVPN_SOURCES})

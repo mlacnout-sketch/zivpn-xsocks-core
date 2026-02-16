@@ -9,6 +9,7 @@ import android.app.Service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
@@ -321,6 +322,46 @@ class ZivpnService : VpnService() {
         }.start()
     }
 
+
+    private fun computeUdpgwMemoryBudgetKb(prefs: android.content.SharedPreferences): Int {
+        val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val memClassMb = activityManager.memoryClass.coerceAtLeast(64)
+        val requestedKb = getPrefIntFlexible(prefs, "udpgw_memory_budget_kb", 0)
+
+        if (requestedKb > 0) {
+            return clamp(requestedKb, 4096, 131072)
+        }
+
+        // Dynamic budget from device memory class (approx 8.3% of Java heap class).
+        val dynamicKb = ((memClassMb * 1024) / 12)
+        return clamp(dynamicKb, 8192, 65536)
+    }
+
+
+    private fun computeSmartUdpgwPortRange(basePort: Int, prefs: android.content.SharedPreferences): String {
+        val requested = getPrefString(prefs, "udpgw_smart_port_range", "")
+        if (requested.contains("-")) {
+            return requested
+        }
+
+        val profile = getPrefString(prefs, "native_perf_profile", "balanced")
+        val span = when (profile) {
+            "throughput" -> 320
+            "latency" -> 72
+            else -> 180
+        }
+        val start = (basePort - span).coerceAtLeast(1024)
+        val end = (basePort + span).coerceAtMost(65535)
+        return "$start-$end"
+    }
+
+    private fun computeCoreListenPorts(coreCount: Int, serverRange: String): List<Int> {
+        val normalizedCount = coreCount.coerceIn(1, 16)
+        val hashBase = serverRange.hashCode().toUInt().toInt()
+        val start = 20000 + (hashBase and 0x3FF)
+        return (0 until normalizedCount).map { (start + it).coerceAtMost(65534) }
+    }
+
     private fun startNativeEngines(fd: Int, mtu: Int, logLevel: String, prefs: android.content.SharedPreferences, pdnsdPort: Int) {
         // Logika pdnsd dan tun2socks (yang tadinya ada di connect) 
         // Saya buat fungsi bantuan agar kode lebih bersih
@@ -396,6 +437,8 @@ class ZivpnService : VpnService() {
 
             val useUdpgw = getPrefBool(prefs, "enable_udpgw", true)
             val udpgwPort = getPrefString(prefs, "udpgw_port", "7300")
+            val udpgwMemoryBudgetKb = computeUdpgwMemoryBudgetKb(prefs)
+            val udpgwSmartPortRange = computeSmartUdpgwPortRange(udpgwPort.toIntOrNull() ?: 7300, prefs)
 
             val tunCmd = arrayListOf(
                 tun2socksBin, "--netif-ipaddr", "169.254.1.2", "--netif-netmask", "255.255.255.0",
@@ -411,12 +454,14 @@ class ZivpnService : VpnService() {
                 tunCmd.add("--udpgw-remote-server-addr"); tunCmd.add("127.0.0.1:$udpgwPort")
                 tunCmd.add("--udpgw-max-connections"); tunCmd.add(udpgwMaxConn.toString())
                 tunCmd.add("--udpgw-connection-buffer-size"); tunCmd.add(udpgwBufSize.toString())
+                tunCmd.add("--udpgw-memory-budget-kb"); tunCmd.add(udpgwMemoryBudgetKb.toString())
+                tunCmd.add("--smart-port-range"); tunCmd.add(udpgwSmartPortRange)
                 if (getPrefBool(prefs, "udpgw_transparent_dns", false)) {
                     tunCmd.add("--udpgw-transparent-dns")
                 }
             }
 
-            logToApp("Native profile=$profile tcpWnd=$tcpWnd socksBuf=$socksBuf udpgwMax=$udpgwMaxConn pdnsdCache=$pdnsdPermCache")
+            logToApp("Native profile=$profile tcpWnd=$tcpWnd socksBuf=$socksBuf udpgwMax=$udpgwMaxConn udpgwBudgetKb=$udpgwMemoryBudgetKb udpgwPortRange=$udpgwSmartPortRange pdnsdCache=$pdnsdPermCache")
 
             val tunProc = ProcessBuilder(tunCmd).directory(filesDir).start()
             processes.add(tunProc)
@@ -446,7 +491,7 @@ class ZivpnService : VpnService() {
         val dynamicConn = recvConn
         val dynamicWin = recvWin
         
-        val ports = (0 until coreCount).map { 20080 + it }
+        val ports = computeCoreListenPorts(coreCount, range)
         val tunnelTargets = mutableListOf<String>()
 
         // Map log level for Hysteria

@@ -233,6 +233,8 @@ class MainActivity: FlutterActivity() {
                 prefs.putString("flutter.udpgw_port", call.argument<String>("udpgw_port") ?: "7300")
                 prefs.putString("flutter.udpgw_max_connections", call.argument<String>("udpgw_max_connections") ?: "512")
                 prefs.putString("flutter.udpgw_buffer_size", call.argument<String>("udpgw_buffer_size") ?: "32")
+                prefs.putString("flutter.udpgw_memory_budget_kb", call.argument<String>("udpgw_memory_budget_kb") ?: "0")
+                prefs.putString("flutter.udpgw_smart_port_range", call.argument<String>("udpgw_smart_port_range") ?: "")
                 prefs.putString("flutter.tcp_snd_buf", call.argument<String>("tcp_snd_buf") ?: "65535")
                 prefs.putString("flutter.tcp_wnd", call.argument<String>("tcp_wnd") ?: "65535")
                 prefs.putString("flutter.socks_buf", call.argument<String>("socks_buf") ?: "65536")

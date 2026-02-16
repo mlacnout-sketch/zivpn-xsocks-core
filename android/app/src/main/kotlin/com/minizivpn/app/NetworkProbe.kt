@@ -14,7 +14,7 @@ import android.util.Log
 
 class NetworkProbe(private val context: Context) {
 
-    fun getSmartConfig(): Map<String, Int> {
+    fun getSmartConfig(): Map<String, Any> {
         val score = getNetworkScore()
         
         // --- FLUID DYNAMIC TUNING ---
@@ -41,12 +41,52 @@ class NetworkProbe(private val context: Context) {
         val recvWin = rawWin
         // Connection window is typically 1/3 to 1/2 of receive window
         val recvConn = (recvWin / 2.5).toInt()
-        
+
+        // Apply score to all tunable native parameters so "smart" really drives
+        // the complete stack, not only Hysteria receive windows.
+        val tcpWnd = lerpInt(32768, 65535, score)
+        val tcpSndBuf = tcpWnd
+        val socksBuf = align4k(lerpInt(65536, 262144, score))
+        val udpgwMaxConn = lerpInt(256, 1024, score)
+        val udpgwBufferSize = lerpInt(16, 64, score)
+        val pdnsdCacheEntries = lerpInt(2048, 4096, score)
+        val pdnsdTimeoutSec = lerpInt(5, 10, score)
+        val udpgwMemoryBudgetKb = lerpInt(8192, 65536, score)
+
+        // Smart remote port ranges around common defaults.
+        val smartServerPortRange = buildSmartPortRange(13000, lerpInt(1800, 7000, score))
+        val smartUdpgwPortRange = buildSmartPortRange(7300, lerpInt(40, 480, score))
+
         return mapOf(
             "score" to score,
             "recv_win" to recvWin,
-            "recv_conn" to recvConn
+            "recv_conn" to recvConn,
+            "tcp_wnd" to tcpWnd,
+            "tcp_snd_buf" to tcpSndBuf,
+            "socks_buf" to socksBuf,
+            "udpgw_max_connections" to udpgwMaxConn,
+            "udpgw_buffer_size" to udpgwBufferSize,
+            "pdnsd_cache_entries" to pdnsdCacheEntries,
+            "pdnsd_timeout_sec" to pdnsdTimeoutSec,
+            "udpgw_memory_budget_kb" to udpgwMemoryBudgetKb,
+            "smart_port_range" to smartServerPortRange,
+            "udpgw_smart_port_range" to smartUdpgwPortRange
         )
+    }
+
+    private fun lerpInt(min: Int, max: Int, score: Int): Int {
+        val normalized = score.coerceIn(0, 100) / 100.0
+        return (min + ((max - min) * normalized)).toInt()
+    }
+
+    private fun align4k(value: Int): Int {
+        return (value / 4096) * 4096
+    }
+
+    private fun buildSmartPortRange(center: Int, span: Int): String {
+        val start = (center - span).coerceAtLeast(1024)
+        val end = (center + span).coerceAtMost(65535)
+        return "$start-$end"
     }
 
     private fun getNetworkScore(): Int {
