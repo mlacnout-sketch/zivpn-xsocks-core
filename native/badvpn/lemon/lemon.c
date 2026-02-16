@@ -1333,7 +1333,7 @@ void ErrorMsg(const char *filename, int lineno, const char *format, ...){
   availablewidth = LINEWIDTH - prefixsize;
 
   /* Generate the error message */
-  vsprintf(errmsg,format,ap);
+  vsnprintf(errmsg,sizeof(errmsg),format,ap);
   va_end(ap);
   errmsgsize = lemonStrlen(errmsg);
   /* Remove trailing '\n's from the error message. */
@@ -3074,9 +3074,9 @@ struct lemon *lemp;
 
   cp = strrchr(lemp->filename,'.');
   if( cp ){
-    sprintf(buf,"%.*s.lt",(int)(cp-lemp->filename),lemp->filename);
+    snprintf(buf,sizeof(buf),"%.*s.lt",(int)(cp-lemp->filename),lemp->filename);
   }else{
-    sprintf(buf,"%s.lt",lemp->filename);
+    snprintf(buf,sizeof(buf),"%s.lt",lemp->filename);
   }
   if( access(buf,004)==0 ){
     tpltname = buf;
@@ -3832,7 +3832,7 @@ int mhflag;     /* Output in makeheaders format if true */
   /* Generate a table containing the symbolic name of every symbol
   */
   for(i=0; i<lemp->nsymbol; i++){
-    sprintf(line,"\"%s\",",lemp->symbols[i]->name);
+    snprintf(line,sizeof(line),"\"%s\",",lemp->symbols[i]->name);
     fprintf(out,"  %-15s",line);
     if( (i&3)==3 ){ fprintf(out,"\n"); lineno++; }
   }
@@ -3999,7 +3999,7 @@ struct lemon *lemp;
   in = file_open(lemp,".h","rb");
   if( in ){
     for(i=1; i<lemp->nterminal && fgets(line,LINESIZE,in); i++){
-      sprintf(pattern,"#define %s%-30s %2d\n",prefix,lemp->symbols[i]->name,i);
+      snprintf(pattern,sizeof(pattern),"#define %s%-30s %2d\n",prefix,lemp->symbols[i]->name,i);
       if( strcmp(line,pattern) ) break;
     }
     fclose(in);
