@@ -259,6 +259,21 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  int _safeInt(SharedPreferences prefs, String key, int fallback, {int? min, int? max}) {
+    var value = prefs.getInt(key) ?? fallback;
+    if (min != null && value < min) value = min;
+    if (max != null && value > max) value = max;
+    return value;
+  }
+
+  String _safeNumericString(SharedPreferences prefs, String key, String fallback, {int? min, int? max}) {
+    final raw = prefs.getString(key) ?? fallback;
+    var value = int.tryParse(raw) ?? int.tryParse(fallback) ?? 0;
+    if (min != null && value < min) value = min;
+    if (max != null && value > max) value = max;
+    return value.toString();
+  }
+
   Future<void> _toggleVpn() async {
     HapticFeedback.mediumImpact();
     final prefs = await SharedPreferences.getInstance();
@@ -304,31 +319,31 @@ class _HomePageState extends State<HomePage> {
           "pass": prefs.getString('auth') ?? "",
           "obfs": prefs.getString('obfs') ?? "hu``hqb`c",
           "udp_mode": "udp",
-          "mtu": prefs.getInt('mtu') ?? 1500,
+          "mtu": _safeInt(prefs, 'mtu', 1500, min: 1200, max: 9000),
           "enable_udpgw": prefs.getBool('enable_udpgw') ?? true,
-          "udpgw_port": prefs.getString('udpgw_port') ?? "7300",
-          "udpgw_max_connections": prefs.getString('udpgw_max_connections') ?? "512",
-          "udpgw_buffer_size": prefs.getString('udpgw_buffer_size') ?? "32",
-          "tcp_snd_buf": prefs.getString('tcp_snd_buf') ?? "65535",
-          "tcp_wnd": prefs.getString('tcp_wnd') ?? "65535",
-          "socks_buf": prefs.getString('socks_buf') ?? "65536",
-          "ping_interval": prefs.getInt('ping_interval') ?? 3,
+          "udpgw_port": _safeNumericString(prefs, 'udpgw_port', "7300", min: 1, max: 65535),
+          "udpgw_max_connections": _safeNumericString(prefs, 'udpgw_max_connections', "512", min: 1, max: 4096),
+          "udpgw_buffer_size": _safeNumericString(prefs, 'udpgw_buffer_size', "32", min: 1, max: 1024),
+          "tcp_snd_buf": _safeNumericString(prefs, 'tcp_snd_buf', "65535", min: 4096, max: 1048576),
+          "tcp_wnd": _safeNumericString(prefs, 'tcp_wnd', "65535", min: 4096, max: 1048576),
+          "socks_buf": _safeNumericString(prefs, 'socks_buf', "65536", min: 4096, max: 1048576),
+          "ping_interval": _safeInt(prefs, 'ping_interval', 3, min: 1, max: 60),
           "ping_target": prefs.getString('ping_target') ?? "http://www.gstatic.com/generate_204",
           "filter_apps": prefs.getBool('filter_apps') ?? false,
           "bypass_mode": prefs.getBool('bypass_mode') ?? false,
           "apps_list": prefs.getString('apps_list') ?? "",
           "log_level": prefs.getString('log_level') ?? "info",
-          "core_count": (prefs.getInt('core_count') ?? 4),
+          "core_count": _safeInt(prefs, 'core_count', 4, min: 1, max: 16),
           "cpu_wakelock": prefs.getBool('cpu_wakelock') ?? false,
           "udpgw_transparent_dns": prefs.getBool('udpgw_transparent_dns') ?? false,
           "native_perf_profile": prefs.getString('native_perf_profile') ?? "balanced",
-          "pdnsd_port": prefs.getInt('pdnsd_port') ?? 8091,
-          "pdnsd_cache_entries": prefs.getInt('pdnsd_cache_entries') ?? 2048,
-          "pdnsd_timeout_sec": prefs.getInt('pdnsd_timeout_sec') ?? 10,
+          "pdnsd_port": _safeInt(prefs, 'pdnsd_port', 8091, min: 1, max: 65535),
+          "pdnsd_cache_entries": _safeInt(prefs, 'pdnsd_cache_entries', 2048, min: 128, max: 65536),
+          "pdnsd_timeout_sec": _safeInt(prefs, 'pdnsd_timeout_sec', 10, min: 1, max: 120),
           "pdnsd_min_ttl": prefs.getString('pdnsd_min_ttl') ?? "15m",
           "pdnsd_max_ttl": prefs.getString('pdnsd_max_ttl') ?? "1w",
           "pdnsd_query_method": prefs.getString('pdnsd_query_method') ?? "tcp_only",
-          "pdnsd_verbosity": prefs.getInt('pdnsd_verbosity') ?? 2
+          "pdnsd_verbosity": _safeInt(prefs, 'pdnsd_verbosity', 2, min: 0, max: 5)
         });
         await platform.invokeMethod('startVpn');
 
