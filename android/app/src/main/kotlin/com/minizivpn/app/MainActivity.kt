@@ -166,6 +166,11 @@ class MainActivity: FlutterActivity() {
                 prefs.putString("flutter.pdnsd_max_ttl", call.argument<String>("pdnsd_max_ttl") ?: "1w")
                 prefs.putString("flutter.pdnsd_query_method", call.argument<String>("pdnsd_query_method") ?: "tcp_only")
 
+                prefs.putString("flutter.libuz_up", call.argument<String>("up") ?: "100")
+                prefs.putString("flutter.libuz_down_mbps", call.argument<String>("down_mbps") ?: "100")
+                prefs.putString("flutter.libuz_rcveconn", call.argument<String>("rcveconn") ?: "131072")
+                prefs.putString("flutter.libuz_recvwindow", call.argument<String>("recvwindow") ?: "327680")
+
                 // Booleans
                 prefs.putBoolean("flutter.enable_udpgw", call.argument<Boolean>("enable_udpgw") ?: true)
                 prefs.putBoolean("flutter.filter_apps", call.argument<Boolean>("filter_apps") ?: false)
