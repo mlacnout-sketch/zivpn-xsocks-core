@@ -165,6 +165,8 @@ class MainActivity: FlutterActivity() {
                 prefs.putString("flutter.pdnsd_min_ttl", call.argument<String>("pdnsd_min_ttl") ?: "15m")
                 prefs.putString("flutter.pdnsd_max_ttl", call.argument<String>("pdnsd_max_ttl") ?: "1w")
                 prefs.putString("flutter.pdnsd_query_method", call.argument<String>("pdnsd_query_method") ?: "tcp_only")
+                prefs.putString("flutter.hysteria_recv_window", call.argument<String>("hysteria_recv_window") ?: "327680")
+                prefs.putString("flutter.hysteria_recv_conn", call.argument<String>("hysteria_recv_conn") ?: "131072")
 
                 // Booleans
                 prefs.putBoolean("flutter.enable_udpgw", call.argument<Boolean>("enable_udpgw") ?: true)

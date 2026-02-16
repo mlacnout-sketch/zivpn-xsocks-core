@@ -238,18 +238,20 @@ class ZivpnService : VpnService() {
                 val range = getPrefString(prefs, "server_range", "")
                 val pass = getPrefString(prefs, "server_pass", "")
                 val obfs = getPrefString(prefs, "server_obfs", "")
-                val multiplier = 1.0f // Fixed
                 val mtu = getPrefInt(prefs, "mtu", 1500)
                 val logLevel = getPrefString(prefs, "log_level", "info")
                 val coreCount = getPrefInt(prefs, "core_count", 4)
                 val useWakelock = getPrefBool(prefs, "cpu_wakelock", false)
+                val recvWin = getPrefIntFlexible(prefs, "hysteria_recv_window", 327680)
+                val recvConn = getPrefIntFlexible(prefs, "hysteria_recv_conn", 131072)
 
                 if (useWakelock) {
                     acquireCpuWakeLock()
                 }
 
                 // 1. START HYSTERIA & LOAD BALANCER
-                startCores(ip, range, pass, obfs, multiplier.toDouble(), coreCount, logLevel)
+                logToApp("Starting Hysteria with recvWin=$recvWin recvConn=$recvConn")
+                startCores(ip, range, pass, obfs, recvWin, recvConn, coreCount, logLevel)
 
                 val pendingIntent = PendingIntent.getActivity(
                     this, 0, Intent(this, MainActivity::class.java),
@@ -435,15 +437,14 @@ class ZivpnService : VpnService() {
         }
     }
 
-    private fun startCores(ip: String, range: String, pass: String, obfs: String, multiplier: Double, coreCount: Int, logLevel: String) {
+    private fun startCores(ip: String, range: String, pass: String, obfs: String, recvWin: Int, recvConn: Int, coreCount: Int, logLevel: String) {
         val libDir = applicationInfo.nativeLibraryDir
         val libUz = File(libDir, "libuz.so").absolutePath
         val libLoad = File(libDir, "libload.so").absolutePath
         
-        val baseConn = 131072
-        val baseWin = 327680
-        val dynamicConn = (baseConn * multiplier).toInt()
-        val dynamicWin = (baseWin * multiplier).toInt()
+        // Use passed values
+        val dynamicConn = recvConn
+        val dynamicWin = recvWin
         
         val ports = (0 until coreCount).map { 20080 + it }
         val tunnelTargets = mutableListOf<String>()

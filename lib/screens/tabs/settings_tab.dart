@@ -42,6 +42,8 @@ class _SettingsTabState extends State<SettingsTab> {
   final _pdnsdMinTtlCtrl = TextEditingController();
   final _pdnsdMaxTtlCtrl = TextEditingController();
   final _pdnsdVerbosityCtrl = TextEditingController();
+  final _hysteriaRecvWinCtrl = TextEditingController();
+  final _hysteriaConnCtrl = TextEditingController();
 
   bool _cpuWakelock = false;
   bool _enableUdpgw = true;
@@ -82,6 +84,8 @@ class _SettingsTabState extends State<SettingsTab> {
     _pdnsdMinTtlCtrl.dispose();
     _pdnsdMaxTtlCtrl.dispose();
     _pdnsdVerbosityCtrl.dispose();
+    _hysteriaRecvWinCtrl.dispose();
+    _hysteriaConnCtrl.dispose();
     super.dispose();
   }
 
@@ -160,6 +164,8 @@ class _SettingsTabState extends State<SettingsTab> {
       _pdnsdMinTtlCtrl.text = prefs.getString('pdnsd_min_ttl') ?? '15m';
       _pdnsdMaxTtlCtrl.text = prefs.getString('pdnsd_max_ttl') ?? '1w';
       _pdnsdVerbosityCtrl.text = (prefs.getInt('pdnsd_verbosity') ?? 2).toString();
+      _hysteriaRecvWinCtrl.text = prefs.getString('hysteria_recv_window') ?? '327680';
+      _hysteriaConnCtrl.text = prefs.getString('hysteria_recv_conn') ?? '131072';
 
       _cpuWakelock = prefs.getBool('cpu_wakelock') ?? false;
       _enableUdpgw = prefs.getBool('enable_udpgw') ?? true;
@@ -194,6 +200,8 @@ class _SettingsTabState extends State<SettingsTab> {
     await prefs.setString('pdnsd_min_ttl', val(_pdnsdMinTtlCtrl, '15m'));
     await prefs.setString('pdnsd_max_ttl', val(_pdnsdMaxTtlCtrl, '1w'));
     await prefs.setInt('pdnsd_verbosity', int.tryParse(val(_pdnsdVerbosityCtrl, '2')) ?? 2);
+    await prefs.setString('hysteria_recv_window', val(_hysteriaRecvWinCtrl, '327680'));
+    await prefs.setString('hysteria_recv_conn', val(_hysteriaConnCtrl, '131072'));
 
     await prefs.setBool('cpu_wakelock', _cpuWakelock);
     await prefs.setBool('enable_udpgw', _enableUdpgw);
@@ -210,6 +218,49 @@ class _SettingsTabState extends State<SettingsTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Settings Saved')),
       );
+    }
+  }
+
+  void _applyPreset(String value) {
+    if (value == 'throughput') {
+      _tcpSndBufCtrl.text = '65535';
+      _tcpWndCtrl.text = '65535';
+      _socksBufCtrl.text = '131072';
+      _udpgwMaxConnCtrl.text = '1024';
+      _udpgwBufSizeCtrl.text = '64';
+      _pdnsdCacheCtrl.text = '4096';
+      _pdnsdTimeoutCtrl.text = '8';
+      _pdnsdVerbosityCtrl.text = '1';
+      _hysteriaRecvWinCtrl.text = '655360';
+      _hysteriaConnCtrl.text = '262144';
+    } else if (value == 'latency') {
+      _tcpSndBufCtrl.text = '32768';
+      _tcpWndCtrl.text = '32768';
+      _socksBufCtrl.text = '65536';
+      _udpgwMaxConnCtrl.text = '256';
+      _udpgwBufSizeCtrl.text = '16';
+      _pdnsdCacheCtrl.text = '2048';
+      _pdnsdTimeoutCtrl.text = '5';
+      _pdnsdVerbosityCtrl.text = '1';
+      _hysteriaRecvWinCtrl.text = '163840';
+      _hysteriaConnCtrl.text = '65536';
+    } else if (value == 'balanced') {
+      _tcpSndBufCtrl.text = '65535';
+      _tcpWndCtrl.text = '65535';
+      _socksBufCtrl.text = '65536';
+      _udpgwMaxConnCtrl.text = '512';
+      _udpgwBufSizeCtrl.text = '32';
+      _pdnsdCacheCtrl.text = '2048';
+      _pdnsdTimeoutCtrl.text = '10';
+      _pdnsdVerbosityCtrl.text = '2';
+      _hysteriaRecvWinCtrl.text = '327680';
+      _hysteriaConnCtrl.text = '131072';
+    }
+  }
+
+  void _onConfigChanged(String _) {
+    if (_nativePerfProfile != 'custom') {
+      setState(() => _nativePerfProfile = 'custom');
     }
   }
 
@@ -254,8 +305,8 @@ class _SettingsTabState extends State<SettingsTab> {
             ),
             if (_enableUdpgw) ...[
               _buildTextInput(_udpgwPortCtrl, 'Udp Gateway Port', Icons.door_sliding),
-              _buildTextInput(_udpgwMaxConnCtrl, 'Max UDP Connections', Icons.connect_without_contact),
-              _buildTextInput(_udpgwBufSizeCtrl, 'UDP Buffer (Packets)', Icons.shopping_bag),
+              _buildTextInput(_udpgwMaxConnCtrl, 'Max UDP Connections', Icons.connect_without_contact, onChanged: _onConfigChanged),
+              _buildTextInput(_udpgwBufSizeCtrl, 'UDP Buffer (Packets)', Icons.shopping_bag, onChanged: _onConfigChanged),
             ],
           ],
         ),
@@ -308,16 +359,21 @@ class _SettingsTabState extends State<SettingsTab> {
               value: _cpuWakelock,
               onChanged: (val) => setState(() => _cpuWakelock = val),
             ),
-            _buildTextInput(_tcpSndBufCtrl, 'TCP Send Buffer', Icons.upload_file),
-            _buildTextInput(_tcpWndCtrl, 'TCP Window Size', Icons.download_for_offline),
-            _buildTextInput(_socksBufCtrl, 'SOCKS Buffer', Icons.memory),
+            _buildTextInput(_tcpSndBufCtrl, 'TCP Send Buffer', Icons.upload_file, onChanged: _onConfigChanged),
+            _buildTextInput(_tcpWndCtrl, 'TCP Window Size', Icons.download_for_offline, onChanged: _onConfigChanged),
+            _buildTextInput(_socksBufCtrl, 'SOCKS Buffer', Icons.memory, onChanged: _onConfigChanged),
+            _buildTextInput(_hysteriaRecvWinCtrl, 'Hysteria Recv Window', Icons.speed, onChanged: _onConfigChanged),
+            _buildTextInput(_hysteriaConnCtrl, 'Hysteria Recv Win Conn', Icons.network_check, onChanged: _onConfigChanged),
             _buildTextInput(_dnsCtrl, 'Upstream DNS', Icons.dns, isNumber: false),
             _buildDropdownTile(
               'Native Performance Profile',
               'Preset tuning tun2socks + pdnsd',
               _nativePerfProfile,
               const ['balanced', 'throughput', 'latency', 'custom'],
-              (val) => setState(() => _nativePerfProfile = val!),
+              (val) {
+                setState(() => _nativePerfProfile = val!);
+                _applyPreset(val!);
+              },
             ),
             _buildDropdownTile(
               'Log Level',
@@ -334,11 +390,11 @@ class _SettingsTabState extends State<SettingsTab> {
           icon: Icons.storage,
           children: [
             _buildTextInput(_pdnsdPortCtrl, 'PDNSD Listen Port', Icons.numbers),
-            _buildTextInput(_pdnsdCacheCtrl, 'PDNSD Cache Entries', Icons.storage),
-            _buildTextInput(_pdnsdTimeoutCtrl, 'PDNSD Timeout (sec)', Icons.timer_outlined),
+            _buildTextInput(_pdnsdCacheCtrl, 'PDNSD Cache Entries', Icons.storage, onChanged: _onConfigChanged),
+            _buildTextInput(_pdnsdTimeoutCtrl, 'PDNSD Timeout (sec)', Icons.timer_outlined, onChanged: _onConfigChanged),
             _buildTextInput(_pdnsdMinTtlCtrl, 'PDNSD Min TTL (contoh: 15m)', Icons.hourglass_top, isNumber: false),
             _buildTextInput(_pdnsdMaxTtlCtrl, 'PDNSD Max TTL (contoh: 1w)', Icons.hourglass_bottom, isNumber: false),
-            _buildTextInput(_pdnsdVerbosityCtrl, 'PDNSD Verbosity (0-3)', Icons.tune),
+            _buildTextInput(_pdnsdVerbosityCtrl, 'PDNSD Verbosity (0-3)', Icons.tune, onChanged: _onConfigChanged),
             _buildDropdownTile(
               'PDNSD Query Method',
               'tcp_only biasanya paling aman untuk tunnel',
@@ -391,12 +447,14 @@ class _SettingsTabState extends State<SettingsTab> {
     String label,
     IconData icon, {
     bool isNumber = true,
+    ValueChanged<String>? onChanged,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: TextField(
         controller: ctrl,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+        onChanged: onChanged,
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon),
