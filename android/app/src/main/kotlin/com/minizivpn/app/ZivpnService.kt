@@ -440,11 +440,12 @@ class ZivpnService : VpnService() {
         val libUz = File(libDir, "libuz.so").absolutePath
         val libLoad = File(libDir, "libload.so").absolutePath
         
-        val baseConn = 131072
-        val baseWin = 327680
-        val dynamicConn = (baseConn * multiplier).toInt()
-        val dynamicWin = (baseWin * multiplier).toInt()
-        
+        val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+        val upVal = getPrefString(prefs, "libuz_up", "100")
+        val downVal = getPrefString(prefs, "libuz_down_mbps", "100")
+        val connVal = getPrefString(prefs, "libuz_rcveconn", "131072")
+        val winVal = getPrefString(prefs, "libuz_recvwindow", "327680")
+
         val ports = (0 until coreCount).map { 20080 + it }
         val tunnelTargets = mutableListOf<String>()
 
@@ -468,8 +469,10 @@ class ZivpnService : VpnService() {
             hyConfig.put("socks5", socks5Json)
             
             hyConfig.put("insecure", true)
-            hyConfig.put("recvwindowconn", dynamicConn)
-            hyConfig.put("recvwindow", dynamicWin)
+            hyConfig.put("up", upVal.toIntOrNull() ?: 100)
+            hyConfig.put("down_mbps", downVal.toIntOrNull() ?: 100)
+            hyConfig.put("recvwindowconn", connVal.toIntOrNull() ?: 131072)
+            hyConfig.put("recvwindow", winVal.toIntOrNull() ?: 327680)
             
             val hyCmd = arrayListOf(libUz, "-s", obfs, "--config", hyConfig.toString())
             val hyPb = ProcessBuilder(hyCmd)
