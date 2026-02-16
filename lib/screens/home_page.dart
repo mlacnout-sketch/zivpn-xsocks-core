@@ -100,9 +100,9 @@ class _HomePageState extends State<HomePage> {
                  // Small delay to ensure network is stable
                  Future.delayed(const Duration(seconds: 2), () async {
                      if (mounted && _vpnState == "connected") {
-                         await _toggleVpn(); // Stop
+                         await _toggleVpn(isSystemRequest: true); // Stop
                          await Future.delayed(const Duration(seconds: 1));
-                         await _toggleVpn(); // Start (Will trigger Smart Probe)
+                         await _toggleVpn(isSystemRequest: true); // Start (Will trigger Smart Probe)
                      }
                  });
              }
@@ -276,7 +276,7 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  Future<void> _toggleVpn() async {
+  Future<void> _toggleVpn({bool isSystemRequest = false}) async {
     HapticFeedback.mediumImpact();
     final prefs = await SharedPreferences.getInstance();
     await prefs.reload();
@@ -301,7 +301,7 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
-      if (mounted) {
+      if (!isSystemRequest && mounted) {
         bool shown = showSarcasticDialog(context, onProceed: performStop);
         if (!shown) performStop();
       } else {
