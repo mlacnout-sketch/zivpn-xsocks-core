@@ -31,9 +31,19 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
   Future<void> _loadApps() async {
     try {
       final List<dynamic> apps = await platform.invokeMethod('getInstalledApps');
+
+      // ⚡ Bolt Optimization: Pre-compute lowercase values once.
+      // Moves O(N) processing out of the search loop, preventing lag during typing.
+      final processedApps = apps.map((e) {
+        final map = Map<String, String>.from(e);
+        map['name_lower'] = map['name']!.toLowerCase();
+        map['package_lower'] = map['package']!.toLowerCase();
+        return map;
+      }).toList();
+
       if (mounted) {
         setState(() {
-          _allApps = apps.map((e) => Map<String, String>.from(e)).toList();
+          _allApps = processedApps;
           _filteredApps = _allApps;
           _isLoading = false;
         });
@@ -52,8 +62,10 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
     final query = _searchCtrl.text.toLowerCase();
     setState(() {
       _filteredApps = _allApps.where((app) {
-        return app['name']!.toLowerCase().contains(query) ||
-               app['package']!.toLowerCase().contains(query);
+        // ⚡ Bolt Optimization: Use pre-computed lowercase values
+        // Reduces filter complexity from O(N * string_len) to O(N * lookup)
+        return app['name_lower']!.contains(query) ||
+               app['package_lower']!.contains(query);
       }).toList();
     });
   }
