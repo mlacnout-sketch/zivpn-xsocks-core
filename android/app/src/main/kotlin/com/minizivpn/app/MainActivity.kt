@@ -151,6 +151,83 @@ class MainActivity: FlutterActivity() {
                     val config = probe.getSmartConfig()
                     result.success(config)
                 }
+            } else if (call.method == "checkUpdateNative") {
+                val urlStr = call.argument<String>("url")
+                Thread {
+                    try {
+                        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                        var targetNet: android.net.Network? = null
+                        for (net in cm.allNetworks) {
+                            val caps = cm.getNetworkCapabilities(net)
+                            if (caps != null && caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) {
+                                targetNet = net
+                                break
+                            }
+                        }
+                        if (targetNet == null) targetNet = cm.activeNetwork
+
+                        if (targetNet != null) {
+                            val url = java.net.URL(urlStr)
+                            val conn = targetNet.openConnection(url) as java.net.HttpURLConnection
+                            conn.connectTimeout = 15000
+                            conn.readTimeout = 15000
+                            conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater")
+                            
+                            val reader = java.io.BufferedReader(java.io.InputStreamReader(conn.inputStream))
+                            val sb = StringBuilder()
+                            var line: String?
+                            while (reader.readLine().also { line = it } != null) sb.append(line)
+                            reader.close()
+                            
+                            uiHandler.post { result.success(sb.toString()) }
+                        } else {
+                            uiHandler.post { result.error("NO_NET", "No network", null) }
+                        }
+                    } catch (e: Exception) {
+                        uiHandler.post { result.error("ERR", e.message, null) }
+                    }
+                }.start()
+            } else if (call.method == "downloadUpdateNative") {
+                val urlStr = call.argument<String>("url")
+                val destPath = call.argument<String>("path")
+                Thread {
+                    try {
+                        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                        var targetNet: android.net.Network? = null
+                        for (net in cm.allNetworks) {
+                            val caps = cm.getNetworkCapabilities(net)
+                            if (caps != null && caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) {
+                                targetNet = net
+                                break
+                            }
+                        }
+                        if (targetNet == null) targetNet = cm.activeNetwork
+
+                        if (targetNet != null && urlStr != null && destPath != null) {
+                            val url = java.net.URL(urlStr)
+                            val conn = targetNet.openConnection(url) as java.net.HttpURLConnection
+                            conn.connectTimeout = 30000
+                            conn.readTimeout = 30000
+                            conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater")
+                            
+                            val input = conn.inputStream
+                            val output = java.io.FileOutputStream(destPath)
+                            val buffer = ByteArray(4096)
+                            var bytesRead: Int
+                            while (input.read(buffer).also { bytesRead = it } != -1) {
+                                output.write(buffer, 0, bytesRead)
+                            }
+                            output.close()
+                            input.close()
+                            
+                            uiHandler.post { result.success("OK") }
+                        } else {
+                            uiHandler.post { result.error("FAIL", "Invalid args or no net", null) }
+                        }
+                    } catch (e: Exception) {
+                        uiHandler.post { result.error("ERR", e.message, null) }
+                    }
+                }.start()
             } else if (call.method == "startCore") {
                 val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE).edit()
                 

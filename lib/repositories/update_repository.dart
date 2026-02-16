@@ -1,147 +1,59 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../models/app_version.dart';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
 class UpdateRepository {
+  static const _platform = MethodChannel('com.minizivpn.app/core');
   final String apiUrl = "https://api.github.com/repos/mlacnout-sketch/zivpn-xsocks-core/releases";
 
-  Future<List<String>> _getStrategies() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Check both potential keys just to be safe (migration consistency)
-    final running = (prefs.getBool('vpn_running') ?? false) || (prefs.getBool('flutter.vpn_running') ?? false);
-
-    if (running) {
-      // If VPN is on, DIRECT connection will likely fail (no quota) or cause issues.
-      // Force SOCKS only.
-      return ["SOCKS 127.0.0.1:7777"];
-    } else {
-      // If VPN is off, try SOCKS (maybe left over?) then DIRECT.
-      // Actually if VPN is off, SOCKS won't work. So DIRECT first.
-      return ["DIRECT", "SOCKS 127.0.0.1:7777"];
-    }
-  }
-
+  // Use Native Bridge to bypass VPN exclusions/routing issues
   Future<AppVersion?> fetchUpdate() async {
-    final strategies = await _getStrategies();
-    for (final proxy in strategies) {
-      try {
-        print("Checking update via: $proxy");
-        final responseBody = await _executeCheck(proxy);
+    try {
+      final responseBody = await _platform.invokeMethod('checkUpdateNative', {'url': apiUrl});
+      if (responseBody != null) {
         return await _processResponse(responseBody);
-      } catch (e) {
-        print("Update check failed via $proxy: $e");
       }
+    } catch (e) {
+      print("Update check failed: $e");
     }
-    print("All update check strategies failed.");
     return null;
   }
 
   Future<File?> downloadUpdate(AppVersion version, File targetFile, Function(double) onProgress) async {
-    final strategies = await _getStrategies();
-    for (final proxy in strategies) {
-      try {
-        print("Downloading update via: $proxy");
-        await _executeDownload(version.apkUrl, targetFile, proxy, onProgress);
+    try {
+      // Notify start (Native download is blocking/indeterminate for now)
+      onProgress(0.1);
+      
+      final result = await _platform.invokeMethod('downloadUpdateNative', {
+        'url': version.apkUrl,
+        'path': targetFile.path
+      });
+
+      if (result == "OK") {
+        onProgress(1.0);
         return targetFile;
-      } catch (e) {
-        print("Download failed via $proxy: $e");
-        if (await targetFile.exists()) {
-          try {
-             await targetFile.delete();
-          } catch (_) {}
-        }
       }
-    }
-    print("All download strategies failed.");
-    return null;
-  }
-
-  Future<String> _executeCheck(String proxyConf) async {
-    final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 15);
-    
-    if (proxyConf != "DIRECT") {
-      client.findProxy = (uri) => proxyConf;
-    }
-    // GitHub API requires User-Agent
-    client.userAgent = "MiniZivpn-Updater"; 
-
-    try {
-      final request = await client.getUrl(Uri.parse(apiUrl));
-      final response = await request.close();
-      
-      if (response.statusCode != 200) {
-        throw Exception("HTTP ${response.statusCode}");
-      }
-      
-      return await response.transform(utf8.decoder).join();
-    } finally {
-      client.close();
-    }
-  }
-
-  Future<void> _executeDownload(String url, File targetFile, String proxyConf, Function(double) onProgress) async {
-    final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 30); // Longer timeout for downloads
-
-    if (proxyConf != "DIRECT") {
-      client.findProxy = (uri) => proxyConf;
-    }
-    client.userAgent = "MiniZivpn-Updater";
-
-    try {
-      final request = await client.getUrl(Uri.parse(url));
-      final response = await request.close();
-
-      if (response.statusCode != 200) {
-        throw Exception("HTTP ${response.statusCode}");
-      }
-
-      final contentLength = response.contentLength;
-
+    } catch (e) {
+      print("Download failed: $e");
       if (await targetFile.exists()) {
-        await targetFile.delete();
+        try { await targetFile.delete(); } catch (_) {}
       }
-
-      final sink = targetFile.openWrite();
-      int receivedBytes = 0;
-
-      try {
-        await for (var chunk in response) {
-          sink.add(chunk);
-          receivedBytes += chunk.length;
-          if (contentLength > 0) {
-            onProgress(receivedBytes / contentLength.toDouble());
-          }
-        }
-        await sink.flush();
-      } finally {
-        await sink.close();
-      }
-
-      if (contentLength > 0 && targetFile.lengthSync() != contentLength) {
-          throw Exception("Incomplete download");
-      }
-    } finally {
-      client.close();
     }
+    return null;
   }
 
   Future<AppVersion?> _processResponse(String jsonStr) async {
       final List releases = json.decode(jsonStr);
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
-      final currentBuildNumber = packageInfo.buildNumber;
       
-      print("Current App: $currentVersion ($currentBuildNumber)");
+      print("Current App: $currentVersion");
       
       for (var release in releases) {
         final tagName = release['tag_name'].toString();
-        if (_isNewer(tagName, currentVersion, currentBuildNumber)) {
+        if (_isNewer(tagName, currentVersion)) {
           final assets = release['assets'] as List?;
           if (assets == null) continue;
 
@@ -163,7 +75,7 @@ class UpdateRepository {
       return null;
   }
 
-  bool _isNewer(String latestTag, String currentVersion, String currentBuildNumber) {
+  bool _isNewer(String latestTag, String currentVersion) {
     try {
       final remoteVersion = _extractVersionParts(latestTag);
       final localVersion = _extractVersionParts(currentVersion);
@@ -201,20 +113,6 @@ class UpdateRepository {
       if (r > l) return 1;
       if (r < l) return -1;
     }
-    return 0;
-  }
-
-  int _extractBuildNumber(String value) {
-    final dashBuild = RegExp(r'-b(\d+)', caseSensitive: false).firstMatch(value);
-    if (dashBuild != null) {
-      return int.tryParse(dashBuild.group(1)!) ?? 0;
-    }
-
-    final plusBuild = RegExp(r'\+(\d+)').firstMatch(value);
-    if (plusBuild != null) {
-      return int.tryParse(plusBuild.group(1)!) ?? 0;
-    }
-
     return 0;
   }
 }
