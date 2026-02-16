@@ -66,6 +66,7 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
+            tooltip: "Save selection",
             onPressed: () => Navigator.pop(context, _selectedPackages.toList()),
           )
         ],
@@ -78,6 +79,13 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
               decoration: InputDecoration(
                 hintText: "Search apps...",
                 prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchCtrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: "Clear search",
+                        onPressed: () => _searchCtrl.clear(),
+                      )
+                    : null,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
                 fillColor: AppColors.card,
@@ -88,30 +96,41 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: _filteredApps.length,
-              itemBuilder: (context, index) {
-                final app = _filteredApps[index];
-                final pkg = app['package']!;
-                final isSelected = _selectedPackages.contains(pkg);
+          : _filteredApps.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.search_off, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text("No apps found", style: TextStyle(color: Colors.grey, fontSize: 16)),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _filteredApps.length,
+                  itemBuilder: (context, index) {
+                    final app = _filteredApps[index];
+                    final pkg = app['package']!;
+                    final isSelected = _selectedPackages.contains(pkg);
 
-                return CheckboxListTile(
-                  title: Text(app['name']!),
-                  subtitle: Text(pkg, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                  value: isSelected,
-                  activeColor: AppColors.primary,
-                  onChanged: (val) {
-                    setState(() {
-                      if (val == true) {
-                        _selectedPackages.add(pkg);
-                      } else {
-                        _selectedPackages.remove(pkg);
-                      }
-                    });
+                    return CheckboxListTile(
+                      title: Text(app['name']!),
+                      subtitle: Text(pkg, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                      value: isSelected,
+                      activeColor: AppColors.primary,
+                      onChanged: (val) {
+                        setState(() {
+                          if (val == true) {
+                            _selectedPackages.add(pkg);
+                          } else {
+                            _selectedPackages.remove(pkg);
+                          }
+                        });
+                      },
+                    );
                   },
-                );
-              },
-            ),
+                ),
     );
   }
 }
