@@ -32,7 +32,6 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import android.net.TrafficStats
-import android.os.Process
 
 /**
  * ZIVPN TunService
@@ -101,7 +100,7 @@ class ZivpnService : VpnService() {
         Log.d("ZIVPN-Core", msg)
     }
 
-    private fun captureProcessLog(process: Process, name: String) {
+    private fun captureProcessLog(process: java.lang.Process, name: String) {
         Thread {
             try {
                 val reader = BufferedReader(InputStreamReader(process.inputStream))
@@ -600,11 +599,11 @@ class ZivpnService : VpnService() {
     private fun startTrafficMonitor() {
         stopTrafficMonitor()
         trafficExecutor = Executors.newSingleThreadScheduledExecutor()
-        lastTxBytes = TrafficStats.getUidTxBytes(Process.myUid())
+        lastTxBytes = TrafficStats.getUidTxBytes(android.os.Process.myUid())
         stagnantCount = 0
 
         trafficExecutor?.scheduleAtFixedRate({
-            val currentTx = TrafficStats.getUidTxBytes(Process.myUid())
+            val currentTx = TrafficStats.getUidTxBytes(android.os.Process.myUid())
             val diff = currentTx - lastTxBytes
             lastTxBytes = currentTx
 
@@ -636,20 +635,40 @@ class ZivpnService : VpnService() {
     private fun performAirplaneModeCycle() {
         Thread {
             try {
-                logToApp("Attempting Airplane Mode Cycle (Root)...")
-                val suAvailable = try {
-                    Runtime.getRuntime().exec("su -c ls").waitFor() == 0
-                } catch (e: Exception) { false }
+                logToApp("Attempting Airplane Mode Cycle (Shizuku/Root)...")
 
-                if (suAvailable) {
-                    Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 1")).waitFor()
-                    Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true")).waitFor()
+                // Helper to run commands
+                fun runCommand(cmd: String): Boolean {
+                    // 1. Try Shizuku via Reflection (Safe)
+                    try {
+                        val shizukuClass = Class.forName("rikka.shizuku.Shizuku")
+                        val pingBinder = shizukuClass.getMethod("pingBinder")
+                        if (pingBinder.invoke(null) as Boolean) {
+                            val newProcess = shizukuClass.getMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                            val process = newProcess.invoke(null, arrayOf("sh", "-c", cmd), null, null) as java.lang.Process
+                            return process.waitFor() == 0
+                        }
+                    } catch (e: Exception) {
+                        // Shizuku not available or error
+                    }
+
+                    // 2. Try SU
+                    try {
+                        val p = Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
+                        return p.waitFor() == 0
+                    } catch (e: Exception) {
+                        return false
+                    }
+                }
+
+                if (runCommand("settings put global airplane_mode_on 1")) {
+                    runCommand("am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true")
                     Thread.sleep(2000)
-                    Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 0")).waitFor()
-                    Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false")).waitFor()
+                    runCommand("settings put global airplane_mode_on 0")
+                    runCommand("am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false")
                     logToApp("Airplane Mode Cycle Completed.")
                 } else {
-                    logToApp("Root not available. Restarting VPN Service...")
+                    logToApp("Shizuku/Root not available. Restarting VPN Service...")
 
                     val restartIntent = Intent(applicationContext, ZivpnService::class.java)
                     restartIntent.action = ACTION_CONNECT
