@@ -31,6 +31,8 @@ import com.minizivpn.app.NativeSystem
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
+import android.net.TrafficStats
+import android.os.Process
 
 /**
  * ZIVPN TunService
@@ -52,6 +54,9 @@ class ZivpnService : VpnService() {
     private val processes = mutableListOf<Process>()
     private var wakeLock: PowerManager.WakeLock? = null
     private var pingExecutor: ScheduledExecutorService? = null
+    private var trafficExecutor: ScheduledExecutorService? = null
+    private var lastTxBytes: Long = 0
+    private var stagnantCount: Int = 0
     
     // Class-level properties to be accessible within inner classes/lambdas
     private var consecutiveFailures = 0
@@ -430,7 +435,10 @@ class ZivpnService : VpnService() {
                 val rawTarget = getPrefString(prefs, "ping_target", "http://connectivitycheck.gstatic.com/generate_204")
                 val finalTarget = if (rawTarget.startsWith("http")) rawTarget else "http://$rawTarget"
                 
-                if (pingInterval > 0) startPingTimer(finalTarget, pingInterval)
+                if (pingInterval > 0) {
+                    startPingTimer(finalTarget, pingInterval)
+                    startTrafficMonitor()
+                }
             }
         } catch (e: Exception) {
             logToApp("Native Engine Error: ${e.message}")
@@ -505,6 +513,7 @@ class ZivpnService : VpnService() {
         Log.i("ZIVPN-Tun", "Stopping VPN and cores...")
         
         stopPingTimer()
+        stopTrafficMonitor()
 
         releaseCpuWakeLock()
         
@@ -579,12 +588,80 @@ class ZivpnService : VpnService() {
                 if (autoReset && consecutiveFailures >= maxFail) {
                     sessionResetCount++
                     logToApp("[CONNECTION_LOST] Max failures reached. Triggering Auto Reset (#$sessionResetCount)...")
+                    performAirplaneModeCycle()
                     consecutiveFailures = 0
                 }
             }
         }, 0, intervalSeconds.toLong(), TimeUnit.SECONDS)
         
         logToApp("Auto-Ping started every $intervalSeconds seconds (Timeout: ${pingTimeout}s)")
+    }
+
+    private fun startTrafficMonitor() {
+        stopTrafficMonitor()
+        trafficExecutor = Executors.newSingleThreadScheduledExecutor()
+        lastTxBytes = TrafficStats.getUidTxBytes(Process.myUid())
+        stagnantCount = 0
+
+        trafficExecutor?.scheduleAtFixedRate({
+            val currentTx = TrafficStats.getUidTxBytes(Process.myUid())
+            val diff = currentTx - lastTxBytes
+            lastTxBytes = currentTx
+
+            // If upload < 1KB (effectively dead/stuck), count it
+            if (diff < 1024) {
+                stagnantCount++
+            } else {
+                stagnantCount = 0
+            }
+
+            // If stagnant for 10 seconds, trigger reset
+            if (stagnantCount >= 10) {
+                logToApp("[WATCHDOG] Upload Stagnation Detected ($stagnantCount checks). Triggering Airplane Mode Reset...")
+                performAirplaneModeCycle()
+                stagnantCount = 0
+            }
+        }, 1, 1, TimeUnit.SECONDS)
+        logToApp("Traffic Monitor started.")
+    }
+
+    private fun stopTrafficMonitor() {
+        if (trafficExecutor != null) {
+            trafficExecutor?.shutdownNow()
+            trafficExecutor = null
+            logToApp("Traffic Monitor stopped.")
+        }
+    }
+
+    private fun performAirplaneModeCycle() {
+        Thread {
+            try {
+                logToApp("Attempting Airplane Mode Cycle (Root)...")
+                val suAvailable = try {
+                    Runtime.getRuntime().exec("su -c ls").waitFor() == 0
+                } catch (e: Exception) { false }
+
+                if (suAvailable) {
+                    Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 1")).waitFor()
+                    Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true")).waitFor()
+                    Thread.sleep(2000)
+                    Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 0")).waitFor()
+                    Runtime.getRuntime().exec(arrayOf("su", "-c", "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false")).waitFor()
+                    logToApp("Airplane Mode Cycle Completed.")
+                } else {
+                    logToApp("Root not available. Restarting VPN Service...")
+
+                    val restartIntent = Intent(applicationContext, ZivpnService::class.java)
+                    restartIntent.action = ACTION_CONNECT
+                    val pendingIntent = PendingIntent.getService(applicationContext, 1, restartIntent, PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE)
+                    val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                    alarmManager.set(android.app.AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 1000, pendingIntent)
+                    disconnect()
+                }
+            } catch (e: Exception) {
+                logToApp("Airplane Mode Cycle Failed: ${e.message}")
+            }
+        }.start()
     }
 
     private fun stopPingTimer() {
