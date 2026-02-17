@@ -35,8 +35,11 @@ class _LogsTabState extends State<LogsTab> {
               Row(
                 children: [
                   IconButton(
-                    icon: Icon(_simpleMode ? Icons.bug_report_outlined : Icons.bug_report),
-                    tooltip: _simpleMode ? "Show Debug Logs" : "Show Simple Logs",
+                    icon: Icon(_simpleMode
+                        ? Icons.bug_report_outlined
+                        : Icons.bug_report),
+                    tooltip:
+                        _simpleMode ? "Show Debug Logs" : "Show Simple Logs",
                     color: _simpleMode ? Colors.grey : AppColors.primary,
                     onPressed: () {
                       setState(() {
@@ -44,7 +47,9 @@ class _LogsTabState extends State<LogsTab> {
                       });
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(_simpleMode ? "Simple Mode Enabled" : "Debug Mode Enabled"),
+                          content: Text(_simpleMode
+                              ? "Simple Mode Enabled"
+                              : "Debug Mode Enabled"),
                           duration: const Duration(milliseconds: 500),
                         ),
                       );
@@ -54,7 +59,8 @@ class _LogsTabState extends State<LogsTab> {
                     icon: const Icon(Icons.copy_all),
                     tooltip: "Copy All",
                     onPressed: () {
-                      Clipboard.setData(ClipboardData(text: widget.logs.join("\n")));
+                      Clipboard.setData(
+                          ClipboardData(text: widget.logs.join("\n")));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text("All logs copied")),
                       );
@@ -88,45 +94,51 @@ class _LogsTabState extends State<LogsTab> {
               itemCount: widget.logs.length,
               itemBuilder: (context, index) {
                 final log = widget.logs[index];
-                
+
                 String message = log;
                 Color color = Colors.greenAccent; // Default color
                 bool isVisible = true;
 
                 // --- LOGIC PENENTUAN WARNA & FILTERING ---
-                if (log.toLowerCase().contains("error") || log.toLowerCase().contains("fail") || log.toLowerCase().contains("refused")) {
-                   color = Colors.redAccent;
+                if (log.toLowerCase().contains("error") ||
+                    log.toLowerCase().contains("fail") ||
+                    log.toLowerCase().contains("refused")) {
+                  color = Colors.redAccent;
                 } else if (log.toLowerCase().contains("warn")) {
-                   color = Colors.orangeAccent;
+                  color = Colors.orangeAccent;
                 } else {
-                   color = Colors.white70;
+                  color = Colors.white70;
                 }
 
                 if (_simpleMode) {
                   // --- SIMPLE MODE: Translate & Hide ---
                   if (color == Colors.redAccent) {
-                     // Keep errors, simplify text if possible
-                     if (log.contains("handshake")) message = "Connection Handshake Failed";
-                     else if (log.contains("timeout")) message = "Connection Timeout";
-                     else if (log.contains("refused")) message = "Server Refused Connection";
+                    // Keep errors, simplify text if possible
+                    if (log.contains("handshake"))
+                      message = "Connection Handshake Failed";
+                    else if (log.contains("timeout"))
+                      message = "Connection Timeout";
+                    else if (log.contains("refused"))
+                      message = "Server Refused Connection";
                   } else {
-                     // Non-error logs
-                     if (log.contains("[Tun2Socks]")) {
-                        if (log.contains("Socks5 UDP")) {
-                           isVisible = false; // Noise
-                        } else {
-                           message = log.replaceAll("[Tun2Socks]", "Tunnel:");
-                        }
-                     } else if (log.contains("Hysteria")) {
-                        // Simplify Hysteria logs
-                        message = "Core: Running...";
-                        if (log.contains("connected")) message = "Core: Connected to Server";
-                     } else if (log.contains("LoadBalancer")) {
-                        message = "System: Optimizing Route";
-                     } else {
-                        // Hide other generic info logs in simple mode unless explicit
-                        // isVisible = false; // (Optional: Hide unknown logs?) -> Better keep them but raw
-                     }
+                    // Non-error logs
+                    if (log.contains("[Tun2Socks]")) {
+                      if (log.contains("Socks5 UDP")) {
+                        isVisible = false; // Noise
+                      } else {
+                        message = log.replaceAll("[Tun2Socks]", "Tunnel:");
+                      }
+                    } else if (log.contains("Hysteria")) {
+                      // Simplify Hysteria logs
+                      message = "Core: Running...";
+                      if (log.contains("connected"))
+                        message = "Core: Connected to Server";
+                    } else if (log.contains("LoadBalancer")) {
+                      message = "System: Optimizing Route";
+                    } else {
+                      // Hide other generic info logs in simple mode unless explicit
+                      // isVisible = false; // (Optional: Hide unknown logs?) -> Better keep them but raw
+                    }
                   }
                 } else {
                   // --- DEBUG MODE: Raw Logs ---

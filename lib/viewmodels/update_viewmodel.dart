@@ -37,34 +37,27 @@ class UpdateViewModel {
       final fileName = "update_${version.name}.apk";
       final targetFile = File("${dir.path}/$fileName");
 
-      final file = await _repository.downloadUpdate(
-        version,
-        targetFile,
-        (progress) {
-          if (!_downloadProgress.isClosed) {
-            _downloadProgress.add(progress);
-            _notificationService.showProgress(
-              100, 
-              (progress * 100).toInt(), 
-              100, 
-              "Downloading Update", 
-              "v${version.name}"
-            );
-          }
+      final file =
+          await _repository.downloadUpdate(version, targetFile, (progress) {
+        if (!_downloadProgress.isClosed) {
+          _downloadProgress.add(progress);
+          _notificationService.showProgress(100, (progress * 100).toInt(), 100,
+              "Downloading Update", "v${version.name}");
         }
-      );
+      });
 
       if (file != null) {
         if (!_isDownloading.isClosed) _isDownloading.add(false);
         if (!_downloadProgress.isClosed) _downloadProgress.add(1.0);
-        await _notificationService.showComplete(100, "Download Complete", "Tap to install");
+        await _notificationService.showComplete(
+            100, "Download Complete", "Tap to install");
         return file;
       }
     } catch (e) {
       print("Download failed: $e");
       await _notificationService.cancel(100);
     }
-    
+
     if (!_isDownloading.isClosed) _isDownloading.add(false);
     if (!_downloadProgress.isClosed) _downloadProgress.add(-1.0);
     return null;
