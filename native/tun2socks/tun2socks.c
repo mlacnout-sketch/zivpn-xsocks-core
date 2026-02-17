@@ -130,25 +130,82 @@ static void insert_connection (BAddr local_addr, BAddr remote_addr, uint16_t por
    }
 }
 
-static void free_connections()
+static void free_connections(void)
 {
+    int freed_count = 0;
+    
     while (!BAVL_IsEmpty(&connections_tree)) {
         Connection *con = UPPER_OBJECT(BAVL_GetLast(&connections_tree), Connection, connections_tree_node);
+        if (!con) {
+            BLog(BLOG_WARNING, "Attempted to access NULL connection from tree");
+            break;
+        }
+        
         BAVL_Remove(&connections_tree, &con->connections_tree_node);
+        freed_count++;
+        
+        /* Safely free the connection structure */
+        free(con);
+    }
+    
+    if (freed_count > 0) {
+        BLog(BLOG_NOTICE, "Freed %d connections from tree", freed_count);
     }
 }
 
-static void tcp_remove(struct tcp_pcb* pcb_list)
+/**
+ * Improved TCP cleanup with error handling and validation
+ * @param pcb_list TCP PCB list to clean
+ * @param list_name Name of the list for logging
+ */
+static void tcp_remove_safe(struct tcp_pcb* pcb_list, const char *list_name)
 {
     struct tcp_pcb *pcb = pcb_list;
-    struct tcp_pcb *pcb2;
-
-    while(pcb != NULL)
-    {
-        pcb2 = pcb;
-        pcb = pcb->next;
-        tcp_abort(pcb2);
+    struct tcp_pcb *pcb_next;
+    int count = 0;
+    int errors = 0;
+    
+    if (!pcb_list) {
+        BLog(BLOG_DEBUG, "TCP list '%s' is empty or NULL", list_name ? list_name : "unknown");
+        return;
     }
+    
+    BLog(BLOG_NOTICE, "Cleaning up TCP connections in list: %s", list_name ? list_name : "unknown");
+    
+    while (pcb != NULL) {
+        /* Save next pointer before abort, as pcb may be freed by tcp_abort */
+        pcb_next = pcb->next;
+        
+        if (!pcb) {
+            BLog(BLOG_WARNING, "Detected NULL PCB in %s list during iteration", 
+                 list_name ? list_name : "unknown");
+            errors++;
+            break;
+        }
+        
+        /* Attempt to abort the TCP connection */
+        err_t abort_result = tcp_abort(pcb);
+        if (abort_result != ERR_OK) {
+            BLog(BLOG_WARNING, "tcp_abort failed with error %d for PCB in '%s' list", 
+                 abort_result, list_name ? list_name : "unknown");
+            errors++;
+        }
+        
+        count++;
+        pcb = pcb_next;
+    }
+    
+    BLog(BLOG_NOTICE, "TCP cleanup complete for '%s': aborted %d connections, %d errors", 
+         list_name ? list_name : "unknown", count, errors);
+}
+
+/**
+ * Legacy wrapper for backward compatibility
+ * Delegates to tcp_remove_safe with generic list name
+ */
+static void tcp_remove(struct tcp_pcb* pcb_list)
+{
+    tcp_remove_safe(pcb_list, "generic");
 }
 
 #endif
@@ -651,11 +708,12 @@ int main (int argc, char **argv)
     }
 
 #ifdef ANDROID
-    BLog(BLOG_NOTICE, "Free TCP connections");
-    tcp_remove(tcp_bound_pcbs);
-    tcp_remove(tcp_active_pcbs);
-    tcp_remove(tcp_tw_pcbs);
+    BLog(BLOG_NOTICE, "Starting comprehensive TCP connection cleanup");
+    tcp_remove_safe(tcp_bound_pcbs, "tcp_bound_pcbs");
+    tcp_remove_safe(tcp_active_pcbs, "tcp_active_pcbs");
+    tcp_remove_safe(tcp_tw_pcbs, "tcp_tw_pcbs");
     free_connections();
+    BLog(BLOG_NOTICE, "TCP connection cleanup completed");
 #endif
 
     BReactor_RemoveTimer(&ss, &tcp_timer);
