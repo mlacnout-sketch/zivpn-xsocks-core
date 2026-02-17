@@ -1,204 +1,189 @@
 package com.minizivpn.app
 
 import android.content.Context
-import android.os.Build
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
+import android.os.PowerManager
 import android.util.Log
-import androidx.annotation.Keep
-import kotlin.math.min
-
-/**
- * Background State enumeration
- */
-enum class BackgroundState(val nativeValue: Int) {
-    FOREGROUND(0),
-    BACKGROUND(1),
-    DOZE(2),
-    LOW_MEMORY(3),
-    BATTERY_SAVER(4);
-    
-    companion object {
-        fun fromNative(value: Int): BackgroundState {
-            return values().find { it.nativeValue == value } ?: FOREGROUND
-        }
-    }
-}
-
-/**
- * Process Priority enumeration
- */
-enum class ProcessPriority(val nativeValue: Int) {
-    CRITICAL(0),
-    HIGH(1),
-    NORMAL(2),
-    LOW(3),
-    BACKGROUND(4)
-}
+import androidx.work.*
+import java.util.concurrent.TimeUnit
 
 /**
  * Background Operation Manager
  * 
- * Manages native background processes, handles lifecycle,
- * and optimizes for battery and memory constraints.
+ * Manages background operations with WorkManager integration,
+ * battery awareness, and graceful shutdown handling.
  */
-@Keep
-object BackgroundOperationManager {
-    private const val TAG = "BGOpManager"
+class BackgroundOperationManager(private val context: Context) {
     
-    /* Native method stubs */
-    private external fun initBackgroundManager()
-    private external fun cleanupBackgroundManager()
-    private external fun setBackgroundState(state: Int)
-    private external fun getBackgroundState(): Int
-    private external fun registerProcess(pid: Int, priority: Int): Int
-    private external fun unregisterProcess(pid: Int): Int
-    private external fun setProcessPriority(pid: Int, priority: Int): Int
-    private external fun gracefulShutdown(pid: Int, timeoutMs: Int): Int
-    private external fun getMemoryStats(stats: IntArray): Int
-    private external fun isLowMemory(available: IntArray): Int
-    private external fun requestCleanup(severity: Int): Int
-    private external fun isDozeMode(): Int
-    private external fun stateToString(state: Int): String
+    companion object {
+        private const val TAG = "BgOpManager"
+        private const val WORK_TAG_BG_MONITOR = "bg_monitor"
+        private const val WORK_TAG_HEALTH_CHECK = "health_check"
+        
+        // Background state constants
+        const val STATE_FOREGROUND = 0
+        const val STATE_BACKGROUND = 1
+        const val STATE_DOZE = 2
+        const val STATE_LOW_MEMORY = 3
+        const val STATE_BATTERY_SAVER = 4
+        
+        // Process priority constants
+        const val PRIORITY_CRITICAL = 0
+        const val PRIORITY_HIGH = 1
+        const val PRIORITY_NORMAL = 2
+        const val PRIORITY_LOW = 3
+        const val PRIORITY_BACKGROUND = 4
+    }
     
-    private var initialized = false
-    private var currentState = BackgroundState.FOREGROUND
+    private val workManager = WorkManager.getInstance(context)
+    private val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    private val callbacks = mutableListOf<BackgroundStateCallback>()
+    
+    init {
+        Log.d(TAG, "BackgroundOperationManager initialized")
+    }
     
     /**
-     * Initialize background manager
+     * Initialize background monitoring
      */
-    fun initialize(context: Context) {
-        if (initialized) {
-            Log.d(TAG, "Background manager already initialized")
-            return
-        }
+    fun init() {
+        Log.d(TAG, "Initializing background monitoring")
         
+        // Initialize native background manager
+        initializeNativeManager()
+        
+        // Schedule background monitoring
+        scheduleBackgroundMonitoring()
+        
+        // Register battery receiver
+        registerBatteryReceiver()
+    }
+    
+    /**
+     * Initialize native background manager
+     */
+    private fun initializeNativeManager() {
         try {
-            initBackgroundManager()
-            initialized = true
-            Log.d(TAG, "Background operation manager initialized")
+            BackgroundManager.bgInit()
+            Log.d(TAG, "Native background manager initialized")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize background manager", e)
+            Log.e(TAG, "Failed to initialize native background manager: ${e.message}")
         }
     }
     
     /**
-     * Cleanup background manager
+     * Schedule background monitoring work
      */
-    fun cleanup() {
-        if (!initialized) return
+    private fun scheduleBackgroundMonitoring() {
+        val monitorWork = PeriodicWorkRequestBuilder<BackgroundMonitorWorker>(
+            15, TimeUnit.MINUTES
+        )
+            .addTag(WORK_TAG_BG_MONITOR)
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiresDeviceIdle(false)
+                    .setRequiresBatteryNotLow(false)
+                    .build()
+            )
+            .build()
         
-        try {
-            cleanupBackgroundManager()
-            initialized = false
-            Log.d(TAG, "Background operation manager cleaned up")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to cleanup background manager", e)
-        }
+        workManager.enqueueUniquePeriodicWork(
+            WORK_TAG_BG_MONITOR,
+            ExistingPeriodicWorkPolicy.KEEP,
+            monitorWork
+        )
+        
+        Log.d(TAG, "Scheduled background monitoring work")
     }
     
     /**
-     * Update background state based on system conditions
+     * Register battery status receiver
      */
-    fun updateBackgroundState(state: BackgroundState) {
-        if (!initialized) return
-        
-        if (state == currentState) {
-            return  /* No change */
-        }
-        
+    private fun registerBatteryReceiver() {
+        val batteryStatusFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        context.registerReceiver(
+            BatteryStatusReceiver(this),
+            batteryStatusFilter,
+            Context.RECEIVER_NOT_EXPORTED
+        )
+    }
+    
+    /**
+     * Update background state
+     */
+    fun setBackgroundState(state: Int) {
+        Log.d(TAG, "Setting background state: $state")
         try {
-            setBackgroundState(state.nativeValue)
-            currentState = state
-            Log.i(TAG, "Background state updated to ${state.name}")
+            BackgroundManager.bgSetState(state)
+            notifyStateChange(state)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to set background state", e)
+            Log.e(TAG, "Failed to set background state: ${e.message}")
         }
     }
     
     /**
      * Get current background state
      */
-    fun getCurrentState(): BackgroundState {
-        if (!initialized) return BackgroundState.FOREGROUND
-        
+    fun getBackgroundState(): Int {
         return try {
-            BackgroundState.fromNative(getBackgroundState())
+            BackgroundManager.bgGetState()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to get background state", e)
-            BackgroundState.FOREGROUND
+            Log.e(TAG, "Failed to get background state: ${e.message}")
+            STATE_FOREGROUND
         }
     }
     
     /**
      * Register process for background management
      */
-    fun registerProcess(pid: Int, priority: ProcessPriority = ProcessPriority.NORMAL): Boolean {
-        if (!initialized) {
-            Log.w(TAG, "Background manager not initialized")
-            return false
-        }
-        
+    fun registerProcess(pid: Int, priority: Int): Int {
+        Log.d(TAG, "Registering process $pid with priority $priority")
         return try {
-            val result = registerProcess(pid, priority.nativeValue)
-            if (result == 0) {
-                Log.d(TAG, "Process $pid registered with priority ${priority.name}")
-                true
-            } else {
-                Log.w(TAG, "Failed to register process $pid")
-                false
-            }
+            BackgroundManager.bgRegisterProcess(pid, priority)
         } catch (e: Exception) {
-            Log.e(TAG, "Error registering process $pid", e)
-            false
+            Log.e(TAG, "Failed to register process: ${e.message}")
+            -1
         }
     }
     
     /**
      * Unregister process
      */
-    fun unregisterProcess(pid: Int): Boolean {
-        if (!initialized) return false
-        
+    fun unregisterProcess(pid: Int): Int {
+        Log.d(TAG, "Unregistering process $pid")
         return try {
-            val result = unregisterProcess(pid)
-            if (result == 0) {
-                Log.d(TAG, "Process $pid unregistered")
-                true
-            } else {
-                false
-            }
+            BackgroundManager.bgUnregisterProcess(pid)
         } catch (e: Exception) {
-            Log.e(TAG, "Error unregistering process $pid", e)
-            false
+            Log.e(TAG, "Failed to unregister process: ${e.message}")
+            -1
         }
     }
     
     /**
      * Set process priority
      */
-    fun setProcessPriority(pid: Int, priority: ProcessPriority): Boolean {
-        if (!initialized) return false
-        
+    fun setProcessPriority(pid: Int, priority: Int): Int {
+        Log.d(TAG, "Setting process $pid priority to $priority")
         return try {
-            val result = setProcessPriority(pid, priority.nativeValue)
-            result == 0
+            BackgroundManager.bgSetPriority(pid, priority)
         } catch (e: Exception) {
-            Log.e(TAG, "Error setting process priority", e)
-            false
+            Log.e(TAG, "Failed to set process priority: ${e.message}")
+            -1
         }
     }
     
     /**
-     * Gracefully shutdown a process
+     * Gracefully shutdown process
      */
-    fun gracefulShutdown(pid: Int, timeoutMs: Int = 5000): Boolean {
-        if (!initialized) return false
-        
+    fun gracefulShutdown(pid: Int, timeoutMs: Int): Int {
+        Log.d(TAG, "Initiating graceful shutdown for process $pid (timeout=${timeoutMs}ms)")
         return try {
-            val result = gracefulShutdown(pid, timeoutMs)
-            result == 0
+            BackgroundManager.bgGracefulShutdown(pid, timeoutMs)
         } catch (e: Exception) {
-            Log.e(TAG, "Error during graceful shutdown", e)
-            false
+            Log.e(TAG, "Failed to graceful shutdown process: ${e.message}")
+            -1
         }
     }
     
@@ -206,135 +191,199 @@ object BackgroundOperationManager {
      * Get memory statistics
      */
     fun getMemoryStats(): Pair<Int, Int>? {
-        if (!initialized) return null
-        
         return try {
-            val stats = IntArray(2)
-            val result = getMemoryStats(stats)
-            if (result == 0) {
-                Pair(stats[0], stats[1])  /* RSS MB, VMS MB */
+            val stats = BackgroundManager.bgGetMemoryStats()
+            if (stats != null && stats.size >= 2) {
+                Pair(stats[0], stats[1])
             } else {
                 null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting memory stats", e)
+            Log.e(TAG, "Failed to get memory stats: ${e.message}")
             null
         }
     }
     
     /**
-     * Check if low memory condition exists
+     * Check if low memory condition
      */
     fun isLowMemory(): Boolean {
-        if (!initialized) return false
-        
         return try {
-            val available = IntArray(1)
-            val result = isLowMemory(available)
-            result == 1
+            BackgroundManager.bgIsLowMemory() == 1
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking low memory", e)
+            Log.e(TAG, "Failed to check low memory: ${e.message}")
             false
         }
     }
     
     /**
-     * Get available memory in MB
+     * Request cleanup with severity level
      */
-    fun getAvailableMemoryMB(): Int? {
-        if (!initialized) return null
-        
+    fun requestCleanup(severity: Int): Int {
+        Log.d(TAG, "Requesting cleanup with severity $severity")
         return try {
-            val available = IntArray(1)
-            val result = isLowMemory(available)
-            if (result != -1) {
-                available[0]
-            } else {
-                null
-            }
+            BackgroundManager.bgRequestCleanup(severity)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting available memory", e)
-            null
+            Log.e(TAG, "Failed to request cleanup: ${e.message}")
+            -1
         }
     }
     
     /**
-     * Request resource cleanup
-     * severity: 1-10 (1 = minimal, 10 = aggressive)
-     */
-    fun requestCleanup(severity: Int = 5): Boolean {
-        if (!initialized) return false
-        
-        val clampedSeverity = min(10, severity.coerceAtLeast(1))
-        
-        return try {
-            val result = requestCleanup(clampedSeverity)
-            if (result == 0) {
-                Log.d(TAG, "Resource cleanup requested (severity: $clampedSeverity)")
-                true
-            } else {
-                false
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error requesting cleanup", e)
-            false
-        }
-    }
-    
-    /**
-     * Check if system is in doze mode
+     * Check if in doze mode
      */
     fun isDozeMode(): Boolean {
-        if (!initialized) return false
-        
         return try {
-            isDozeMode() == 1
+            BackgroundManager.bgIsDozeMode() == 1
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking doze mode", e)
+            Log.e(TAG, "Failed to check doze mode: ${e.message}")
+            powerManager.isDeviceIdleMode
+        }
+    }
+    
+    /**
+     * Check if in battery saver mode
+     */
+    fun isBatterySaverMode(): Boolean {
+        return try {
+            powerManager.isPowerSaveMode
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to check battery saver: ${e.message}")
             false
         }
     }
     
     /**
-     * Get state as string for logging
+     * Check if battery is low
      */
-    fun getStateString(state: BackgroundState): String {
+    fun isBatteryLow(): Boolean {
         return try {
-            stateToString(state.nativeValue)
+            val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            val batteryStatus = context.registerReceiver(null, intentFilter)
+            val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+            val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+            val batteryPct = (level.toFloat() / scale.toFloat() * 100).toInt()
+            batteryPct < 20
         } catch (e: Exception) {
-            state.name
+            Log.e(TAG, "Failed to check battery: ${e.message}")
+            false
         }
     }
     
     /**
-     * Adapt performance based on current background state
+     * Register state callback
      */
-    fun adaptPerformance(context: Context) {
-        if (!initialized) return
-        
-        val state = getCurrentState()
-        val isLowMem = isLowMemory()
-        val isDoze = isDozeMode()
-        
-        Log.d(TAG, "Adapting performance - State: $state, LowMem: $isLowMem, Doze: $isDoze")
-        
-        when {
-            isDoze -> {
-                /* In doze mode - minimize operations */
-                requestCleanup(3)
-            }
-            isLowMem -> {
-                /* Low memory - aggressive cleanup */
-                requestCleanup(8)
-            }
-            state == BackgroundState.BACKGROUND -> {
-                /* In background - reduced operations */
-                requestCleanup(4)
-            }
-            state == BackgroundState.FOREGROUND -> {
-                /* In foreground - normal operation */
-                requestCleanup(1)
-            }
+    fun registerStateCallback(callback: BackgroundStateCallback) {
+        callbacks.add(callback)
+        Log.d(TAG, "Registered state callback")
+    }
+    
+    /**
+     * Unregister state callback
+     */
+    fun unregisterStateCallback(callback: BackgroundStateCallback) {
+        callbacks.remove(callback)
+        Log.d(TAG, "Unregistered state callback")
+    }
+    
+    /**
+     * Notify state change to all callbacks
+     */
+    private fun notifyStateChange(state: Int) {
+        for (callback in callbacks) {
+            callback.onStateChanged(state)
         }
     }
+    
+    /**
+     * Update battery status
+     */
+    fun onBatteryStatusChanged(level: Int, scale: Int, status: Int) {
+        val batteryPct = (level.toFloat() / scale.toFloat() * 100).toInt()
+        Log.d(TAG, "Battery status: ${batteryPct}%")
+        
+        when {
+            batteryPct < 15 -> setBackgroundState(STATE_BATTERY_SAVER)
+            isDozeMode() -> setBackgroundState(STATE_DOZE)
+            isLowMemory() -> setBackgroundState(STATE_LOW_MEMORY)
+        }
+    }
+    
+    /**
+     * Cleanup
+     */
+    fun cleanup() {
+        Log.d(TAG, "Cleaning up background operation manager")
+        try {
+            workManager.cancelAllWorkByTag(WORK_TAG_BG_MONITOR)
+            workManager.cancelAllWorkByTag(WORK_TAG_HEALTH_CHECK)
+            BackgroundManager.bgCleanup()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during cleanup: ${e.message}")
+        }
+    }
+}
+
+/**
+ * Background state callback interface
+ */
+interface BackgroundStateCallback {
+    fun onStateChanged(state: Int)
+}
+
+/**
+ * Background monitor worker
+ */
+class BackgroundMonitorWorker(context: Context, params: WorkerParameters) : 
+    Worker(context, params) {
+    
+    override fun doWork(): Result {
+        return try {
+            Log.d("BgMonitor", "Background monitoring check")
+            Result.success()
+        } catch (e: Exception) {
+            Log.e("BgMonitor", "Error during background monitoring: ${e.message}")
+            Result.retry()
+        }
+    }
+}
+
+/**
+ * Battery status receiver
+ */
+class BatteryStatusReceiver(private val manager: BackgroundOperationManager) :
+    android.content.BroadcastReceiver() {
+    
+    override fun onReceive(context: Context?, intent: Intent?) {
+        if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
+            val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+            val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+            
+            manager.onBatteryStatusChanged(level, scale, status)
+        }
+    }
+}
+
+/**
+ * Native background manager interface
+ */
+object BackgroundManager {
+    external fun bgInit()
+    external fun bgCleanup()
+    external fun bgSetState(state: Int)
+    external fun bgGetState(): Int
+    external fun bgRegisterProcess(pid: Int, priority: Int): Int
+    external fun bgUnregisterProcess(pid: Int): Int
+    external fun bgSetPriority(pid: Int, priority: Int): Int
+    external fun bgGracefulShutdown(pid: Int, timeoutMs: Int): Int
+    external fun bgGetMemoryStats(): IntArray?
+    external fun bgIsLowMemory(): Int
+    external fun bgRequestCleanup(severity: Int): Int
+    external fun bgIsDozeMode(): Int
+    external fun bgGetStateString(state: Int): String
+    external fun signalRegister(signum: Int): Int
+    external fun signalUnregister(signum: Int): Int
+    external fun signalBlock(signum: Int): Int
+    external fun signalUnblock(signum: Int): Int
 }

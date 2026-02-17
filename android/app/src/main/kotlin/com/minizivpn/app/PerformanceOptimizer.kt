@@ -2,252 +2,262 @@ package com.minizivpn.app
 
 import android.app.ActivityManager
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.os.BatteryManager
-import android.os.Build
 import android.os.Debug
 import android.util.Log
-import androidx.annotation.Keep
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
 import kotlin.math.min
 
 /**
  * Performance Optimizer
  * 
- * Optimizes native process performance based on device conditions,
- * battery state, memory pressure, and system constraints.
+ * Monitors and optimizes performance based on system constraints
  */
-@Keep
 class PerformanceOptimizer(private val context: Context) {
     
     companion object {
         private const val TAG = "PerfOptimizer"
-        private const val LOW_MEMORY_THRESHOLD_MB = 100
-        private const val CRITICAL_MEMORY_THRESHOLD_MB = 50
+        
+        // Memory thresholds (MB)
+        private const val MEMORY_CRITICAL = 50
+        private const val MEMORY_LOW = 100
+        private const val MEMORY_WARNING = 200
+        
+        // Thread pool settings
+        private const val MIN_THREADS = 2
+        private const val MAX_THREADS = 8
+        
+        // CPU throttling levels
+        private const val THROTTLE_NONE = 0
+        private const val THROTTLE_LOW = 1
+        private const val THROTTLE_MEDIUM = 2
+        private const val THROTTLE_HIGH = 3
     }
     
-    private val isOptimizing = AtomicBoolean(false)
-    private var lastOptimizationTime = 0L
-    private val optimizationIntervalMs = 5000  /* 5 seconds */
+    private val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    private var currentThrottleLevel = THROTTLE_NONE
+    private var optimalThreadCount = getOptimalThreadCount()
     
     /**
-     * Perform performance optimization based on system state
+     * Get optimal thread count based on CPU cores and memory
      */
-    fun optimize() {
-        if (!isOptimizing.compareAndSet(false, true)) {
-            return  /* Already optimizing */
-        }
-        
-        try {
-            val now = System.currentTimeMillis()
-            if (now - lastOptimizationTime < optimizationIntervalMs) {
-                return  /* Too soon */
-            }
-            
-            lastOptimizationTime = now
-            
-            /* Analyze system state */
-            val batteryState = getBatteryState()
-            val memoryState = getMemoryState()
-            val thermalState = getThermalState()
-            
-            /* Update background state based on conditions */
-            updateBackgroundState(batteryState, memoryState, thermalState)
-            
-            /* Perform cleanup if needed */
-            if (memoryState.isLowMemory) {
-                performMemoryCleanup(memoryState)
-            }
-            
-            /* Adjust process priorities */
-            adjustProcessPriorities(batteryState, memoryState)
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error during optimization", e)
-        } finally {
-            isOptimizing.set(false)
-        }
-    }
-    
-    /**
-     * Get current battery state
-     */
-    private fun getBatteryState(): BatteryState {
-        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        
-        val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: 0
-        val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: 100
-        val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: BatteryManager.BATTERY_STATUS_UNKNOWN
-        val plugged = intent?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0
-        
-        val batteryPct = (level * 100) / max(1, scale)
-        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || 
-                         status == BatteryManager.BATTERY_STATUS_FULL
-        val isPlugged = plugged != 0
-        
-        return BatteryState(
-            level = batteryPct,
-            isCharging = isCharging,
-            isPlugged = isPlugged
-        )
-    }
-    
-    /**
-     * Get current memory state
-     */
-    private fun getMemoryState(): MemoryState {
-        val runtime = Runtime.getRuntime()
-        val totalMemory = runtime.totalMemory() / (1024 * 1024)
-        val freeMemory = runtime.freeMemory() / (1024 * 1024)
-        val usedMemory = totalMemory - freeMemory
-        
-        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    private fun getOptimalThreadCount(): Int {
+        val cpuCount = Runtime.getRuntime().availableProcessors()
         val memInfo = ActivityManager.MemoryInfo()
         activityManager.getMemoryInfo(memInfo)
         
-        val availableMem = memInfo.availMem / (1024 * 1024)
-        val isLowMemory = memInfo.lowMemory || availableMem < LOW_MEMORY_THRESHOLD_MB
-        val isCriticalMemory = availableMem < CRITICAL_MEMORY_THRESHOLD_MB
+        val totalMemMb = memInfo.totalMem / (1024 * 1024)
         
-        return MemoryState(
-            totalMemoryMB = totalMemory,
-            usedMemoryMB = usedMemory,
-            freeMemoryMB = freeMemory,
-            availableMemoryMB = availableMem,
-            isLowMemory = isLowMemory,
-            isCriticalMemory = isCriticalMemory
+        return when {
+            totalMemMb < 2048 -> max(MIN_THREADS, cpuCount - 2)
+            totalMemMb < 4096 -> cpuCount - 1
+            else -> cpuCount
+        }.coerceIn(MIN_THREADS, MAX_THREADS)
+    }
+    
+    /**
+     * Get recommended thread pool size
+     */
+    fun getRecommendedThreadPoolSize(): Int {
+        val memoryStatus = getMemoryStatus()
+        
+        return when {
+            memoryStatus.isLow -> min(optimalThreadCount, 2)
+            memoryStatus.isCritical -> 1
+            currentThrottleLevel == THROTTLE_HIGH -> max(MIN_THREADS, optimalThreadCount / 2)
+            currentThrottleLevel == THROTTLE_MEDIUM -> (optimalThreadCount * 0.75).toInt()
+            else -> optimalThreadCount
+        }
+    }
+    
+    /**
+     * Get memory status
+     */
+    fun getMemoryStatus(): MemoryStatus {
+        val memInfo = ActivityManager.MemoryInfo()
+        activityManager.getMemoryInfo(memInfo)
+        
+        val availableMb = memInfo.availMem / (1024 * 1024)
+        val totalMb = memInfo.totalMem / (1024 * 1024)
+        val usedMb = totalMb - availableMb
+        val usagePercent = (usedMb.toFloat() / totalMb.toFloat() * 100).toInt()
+        
+        val isCritical = availableMb < MEMORY_CRITICAL
+        val isLow = availableMb < MEMORY_LOW
+        val isWarning = availableMb < MEMORY_WARNING
+        
+        return MemoryStatus(
+            totalMb = totalMb,
+            usedMb = usedMb,
+            availableMb = availableMb,
+            usagePercent = usagePercent,
+            isCritical = isCritical,
+            isLow = isLow,
+            isWarning = isWarning
         )
     }
     
     /**
-     * Get thermal state (API 29+)
+     * Get native heap status
      */
-    private fun getThermalState(): ThermalState {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            return ThermalState(thermalStatus = 0)  /* THERMAL_STATUS_NONE */
+    fun getNativeHeapStatus(): NativeHeapStatus {
+        val nativeHeap = Debug.getNativeHeap()
+        
+        var totalSize = 0L
+        var totalAllocated = 0L
+        var totalFree = 0L
+        
+        for (stat in nativeHeap) {
+            totalSize += stat.sizeMb.toLong()
+            totalAllocated += stat.allocatedMb.toLong()
+            totalFree += stat.freeMb.toLong()
         }
         
-        val powerManager = context.getSystemService(Context.POWER_SERVICE) 
-            as? android.os.PowerManager ?: return ThermalState(0)
-        
-        val thermalStatus = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
-                val method = powerManager.javaClass.getMethod("getCurrentThermalStatus")
-                method.invoke(powerManager) as Int
-            } catch (e: Exception) {
-                0
-            }
+        val fragmentation = if (totalSize > 0) {
+            ((totalFree.toFloat() / totalSize.toFloat()) * 100).toInt()
         } else {
             0
         }
         
-        return ThermalState(thermalStatus = thermalStatus)
-    }
-    
-    /**
-     * Update background state based on system conditions
-     */
-    private fun updateBackgroundState(battery: BatteryState, memory: MemoryState, thermal: ThermalState) {
-        val state = when {
-            memory.isCriticalMemory -> BackgroundState.LOW_MEMORY
-            battery.level < 20 && !battery.isPlugged -> BackgroundState.BATTERY_SAVER
-            thermal.thermalStatus >= 2 -> BackgroundState.BACKGROUND  /* Throttling or critical */
-            memory.isLowMemory -> BackgroundState.LOW_MEMORY
-            else -> BackgroundState.FOREGROUND
-        }
-        
-        BackgroundOperationManager.updateBackgroundState(state)
-    }
-    
-    /**
-     * Perform memory cleanup
-     */
-    private fun performMemoryCleanup(memory: MemoryState) {
-        val severity = when {
-            memory.isCriticalMemory -> 9
-            memory.availableMemoryMB < 80 -> 7
-            memory.availableMemoryMB < 120 -> 5
-            else -> 3
-        }
-        
-        Log.i(TAG, "Performing memory cleanup (severity: $severity, available: ${memory.availableMemoryMB}MB)")
-        
-        BackgroundOperationManager.requestCleanup(severity)
-        
-        /* Force garbage collection for critical memory */
-        if (memory.isCriticalMemory) {
-            System.gc()
-        }
-    }
-    
-    /**
-     * Adjust process priorities based on system state
-     */
-    private fun adjustProcessPriorities(battery: BatteryState, memory: MemoryState) {
-        val priority = when {
-            memory.isCriticalMemory -> ProcessPriority.BACKGROUND
-            battery.level < 15 && !battery.isPlugged -> ProcessPriority.LOW
-            memory.isLowMemory -> ProcessPriority.LOW
-            battery.isCharging || battery.isPlugged -> ProcessPriority.HIGH
-            else -> ProcessPriority.NORMAL
-        }
-        
-        Log.d(TAG, "Adjusted process priority to ${priority.name}")
-    }
-    
-    /**
-     * Get optimization metrics
-     */
-    fun getMetrics(): OptimizationMetrics {
-        val battery = getBatteryState()
-        val memory = getMemoryState()
-        val thermal = getThermalState()
-        
-        return OptimizationMetrics(
-            batteryLevel = battery.level,
-            memoryUsage = memory.usedMemoryMB,
-            availableMemory = memory.availableMemoryMB,
-            thermalStatus = thermal.thermalStatus
+        return NativeHeapStatus(
+            totalMb = totalSize.toInt(),
+            allocatedMb = totalAllocated.toInt(),
+            freeMb = totalFree.toInt(),
+            fragmentationPercent = fragmentation
         )
     }
     
     /**
-     * Data class for battery state
+     * Update CPU throttling level
      */
-    data class BatteryState(
-        val level: Int,
-        val isCharging: Boolean,
-        val isPlugged: Boolean
+    fun updateThrottleLevel(cpuUsagePercent: Int) {
+        val newLevel = when {
+            cpuUsagePercent > 90 -> THROTTLE_HIGH
+            cpuUsagePercent > 75 -> THROTTLE_MEDIUM
+            cpuUsagePercent > 50 -> THROTTLE_LOW
+            else -> THROTTLE_NONE
+        }
+        
+        if (newLevel != currentThrottleLevel) {
+            currentThrottleLevel = newLevel
+            Log.d(TAG, "CPU throttle level changed to: $newLevel (usage: ${cpuUsagePercent}%)")
+        }
+    }
+    
+    /**
+     * Get recommended buffer size
+     */
+    fun getRecommendedBufferSize(): Int {
+        val memStatus = getMemoryStatus()
+        
+        return when {
+            memStatus.isCritical -> 4 * 1024           // 4 KB
+            memStatus.isLow -> 8 * 1024                // 8 KB
+            memStatus.isWarning -> 16 * 1024           // 16 KB
+            currentThrottleLevel >= THROTTLE_MEDIUM -> 32 * 1024  // 32 KB
+            else -> 64 * 1024                          // 64 KB
+        }
+    }
+    
+    /**
+     * Should enable aggressive GC
+     */
+    fun shouldEnableAggressiveGc(): Boolean {
+        val memStatus = getMemoryStatus()
+        return memStatus.isWarning || currentThrottleLevel >= THROTTLE_MEDIUM
+    }
+    
+    /**
+     * Get recommended batch size for operations
+     */
+    fun getRecommendedBatchSize(): Int {
+        return when {
+            currentThrottleLevel == THROTTLE_HIGH -> 10
+            currentThrottleLevel == THROTTLE_MEDIUM -> 50
+            currentThrottleLevel == THROTTLE_LOW -> 100
+            else -> 200
+        }
+    }
+    
+    /**
+     * Get CPU info
+     */
+    fun getCpuInfo(): CpuInfo {
+        val cpuCount = Runtime.getRuntime().availableProcessors()
+        
+        return CpuInfo(
+            cpuCount = cpuCount,
+            throttleLevel = currentThrottleLevel,
+            optimalThreadCount = optimalThreadCount
+        )
+    }
+    
+    /**
+     * Request garbage collection
+     */
+    fun requestGarbageCollection() {
+        Log.d(TAG, "Requesting garbage collection")
+        System.gc()
+    }
+    
+    /**
+     * Get optimization recommendations
+     */
+    fun getOptimizationRecommendations(): List<String> {
+        val recommendations = mutableListOf<String>()
+        val memStatus = getMemoryStatus()
+        val nativeHeap = getNativeHeapStatus()
+        
+        if (memStatus.isCritical) {
+            recommendations.add("CRITICAL: Aggressive memory cleanup required")
+            recommendations.add("Consider reducing thread pool size")
+            recommendations.add("Enable compression for cached data")
+        }
+        
+        if (memStatus.isLow) {
+            recommendations.add("Memory usage high - reduce buffer sizes")
+            recommendations.add("Enable periodic garbage collection")
+        }
+        
+        if (nativeHeap.fragmentationPercent > 40) {
+            recommendations.add("High native heap fragmentation - consider compaction")
+        }
+        
+        if (currentThrottleLevel >= THROTTLE_MEDIUM) {
+            recommendations.add("CPU throttling active - reduce intensive operations")
+        }
+        
+        return recommendations
+    }
+    
+    /**
+     * Memory status data class
+     */
+    data class MemoryStatus(
+        val totalMb: Long,
+        val usedMb: Long,
+        val availableMb: Long,
+        val usagePercent: Int,
+        val isCritical: Boolean,
+        val isLow: Boolean,
+        val isWarning: Boolean
     )
     
     /**
-     * Data class for memory state
+     * Native heap status
      */
-    data class MemoryState(
-        val totalMemoryMB: Long,
-        val usedMemoryMB: Long,
-        val freeMemoryMB: Long,
-        val availableMemoryMB: Long,
-        val isLowMemory: Boolean,
-        val isCriticalMemory: Boolean
+    data class NativeHeapStatus(
+        val totalMb: Int,
+        val allocatedMb: Int,
+        val freeMb: Int,
+        val fragmentationPercent: Int
     )
     
     /**
-     * Data class for thermal state
+     * CPU info
      */
-    data class ThermalState(
-        val thermalStatus: Int
-    )
-    
-    /**
-     * Data class for optimization metrics
-     */
-    data class OptimizationMetrics(
-        val batteryLevel: Int,
-        val memoryUsage: Long,
-        val availableMemory: Long,
-        val thermalStatus: Int
+    data class CpuInfo(
+        val cpuCount: Int,
+        val throttleLevel: Int,
+        val optimalThreadCount: Int
     )
 }
