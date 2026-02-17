@@ -337,13 +337,13 @@ interface BackgroundStateCallback {
 class BackgroundMonitorWorker(context: Context, params: WorkerParameters) : 
     Worker(context, params) {
     
-    override fun doWork(): Result {
+    override fun doWork(): ListenableWorker.Result {
         return try {
             Log.d("BgMonitor", "Background monitoring check")
-            Result.success()
+            ListenableWorker.Result.success()
         } catch (e: Exception) {
             Log.e("BgMonitor", "Error during background monitoring: ${e.message}")
-            Result.retry()
+            ListenableWorker.Result.retry()
         }
     }
 }

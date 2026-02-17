@@ -100,17 +100,13 @@ class PerformanceOptimizer(private val context: Context) {
      * Get native heap status
      */
     fun getNativeHeapStatus(): NativeHeapStatus {
-        val nativeHeap = Debug.getNativeHeap()
+        val totalSize = Debug.getNativeHeapSize()
+        val totalAllocated = Debug.getNativeHeapAllocatedSize()
+        val totalFree = Debug.getNativeHeapFreeSize()
         
-        var totalSize = 0L
-        var totalAllocated = 0L
-        var totalFree = 0L
-        
-        for (stat in nativeHeap) {
-            totalSize += stat.sizeMb.toLong()
-            totalAllocated += stat.allocatedMb.toLong()
-            totalFree += stat.freeMb.toLong()
-        }
+        val totalSizeMb = (totalSize / (1024 * 1024)).toInt()
+        val totalAllocatedMb = (totalAllocated / (1024 * 1024)).toInt()
+        val totalFreeMb = (totalFree / (1024 * 1024)).toInt()
         
         val fragmentation = if (totalSize > 0) {
             ((totalFree.toFloat() / totalSize.toFloat()) * 100).toInt()
@@ -119,9 +115,9 @@ class PerformanceOptimizer(private val context: Context) {
         }
         
         return NativeHeapStatus(
-            totalMb = totalSize.toInt(),
-            allocatedMb = totalAllocated.toInt(),
-            freeMb = totalFree.toInt(),
+            totalMb = totalSizeMb,
+            allocatedMb = totalAllocatedMb,
+            freeMb = totalFreeMb,
             fragmentationPercent = fragmentation
         )
     }
