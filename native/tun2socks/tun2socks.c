@@ -193,6 +193,9 @@ struct {
     int udpgw_max_connections;
     int udpgw_connection_buffer_size;
     int udpgw_transparent_dns;
+    int tcp_snd_buf;
+    int tcp_wnd;
+    int socks_buf;
 #ifdef ANDROID
     int tun_fd;
     int tun_mtu;
@@ -589,7 +592,7 @@ int main (int argc, char **argv)
         }
 
         // init udpgw client
-        if (!SocksUdpGwClient_Init(&udpgw_client, udp_mtu, DEFAULT_UDPGW_MAX_CONNECTIONS, options.udpgw_connection_buffer_size, UDPGW_KEEPALIVE_TIME,
+        if (!SocksUdpGwClient_Init(&udpgw_client, udp_mtu, options.udpgw_max_connections, options.udpgw_connection_buffer_size, UDPGW_KEEPALIVE_TIME,
                                    socks_server_addr, socks_auth_info, socks_num_auth_info,
                                    udpgw_remote_server_addr, UDPGW_RECONNECT_TIME, &ss, NULL, udpgw_client_handler_received
         )) {
@@ -737,6 +740,9 @@ void print_help (const char *name)
         "        [--udpgw-max-connections <number>]\n"
         "        [--udpgw-connection-buffer-size <number>]\n"
         "        [--udpgw-transparent-dns]\n"
+        "        [--tcp-snd-buf <bytes>]\n"
+        "        [--tcp-wnd <bytes>]\n"
+        "        [--socks-buf <bytes>]\n"
         "Address format is a.b.c.d:port (IPv4) or [addr]:port (IPv6).\n",
         name
     );
@@ -784,6 +790,9 @@ int parse_arguments (int argc, char *argv[])
     options.udpgw_max_connections = DEFAULT_UDPGW_MAX_CONNECTIONS;
     options.udpgw_connection_buffer_size = DEFAULT_UDPGW_CONNECTION_BUFFER_SIZE;
     options.udpgw_transparent_dns = 0;
+    options.tcp_snd_buf = TCP_WND;
+    options.tcp_wnd = TCP_WND;
+    options.socks_buf = CLIENT_SOCKS_RECV_BUF_SIZE;
 
     int i;
     for (i = 1; i < argc; i++) {
@@ -1008,6 +1017,39 @@ int parse_arguments (int argc, char *argv[])
         else if (!strcmp(arg, "--udpgw-transparent-dns")) {
             options.udpgw_transparent_dns = 1;
         }
+        else if (!strcmp(arg, "--tcp-snd-buf")) {
+            if (1 >= argc - i) {
+                fprintf(stderr, "%s: requires an argument\n", arg);
+                return 0;
+            }
+            if ((options.tcp_snd_buf = atoi(argv[i + 1])) <= 0) {
+                fprintf(stderr, "%s: wrong argument\n", arg);
+                return 0;
+            }
+            i++;
+        }
+        else if (!strcmp(arg, "--tcp-wnd")) {
+            if (1 >= argc - i) {
+                fprintf(stderr, "%s: requires an argument\n", arg);
+                return 0;
+            }
+            if ((options.tcp_wnd = atoi(argv[i + 1])) <= 0) {
+                fprintf(stderr, "%s: wrong argument\n", arg);
+                return 0;
+            }
+            i++;
+        }
+        else if (!strcmp(arg, "--socks-buf")) {
+            if (1 >= argc - i) {
+                fprintf(stderr, "%s: requires an argument\n", arg);
+                return 0;
+            }
+            if ((options.socks_buf = atoi(argv[i + 1])) <= 0) {
+                fprintf(stderr, "%s: wrong argument\n", arg);
+                return 0;
+            }
+            i++;
+        }
         else {
             fprintf(stderr, "unknown option: %s\n", arg);
             return 0;
@@ -1051,6 +1093,16 @@ int parse_arguments (int argc, char *argv[])
 int process_arguments (void)
 {
     ASSERT(!password_file_contents)
+
+    if (options.tcp_snd_buf != TCP_WND) {
+        BLog(BLOG_WARNING, "--tcp-snd-buf=%d ignored; this build uses fixed TCP_WND=%d", options.tcp_snd_buf, TCP_WND);
+    }
+    if (options.tcp_wnd != TCP_WND) {
+        BLog(BLOG_WARNING, "--tcp-wnd=%d ignored; this build uses fixed TCP_WND=%d", options.tcp_wnd, TCP_WND);
+    }
+    if (options.socks_buf != CLIENT_SOCKS_RECV_BUF_SIZE) {
+        BLog(BLOG_WARNING, "--socks-buf=%d ignored; this build uses fixed CLIENT_SOCKS_RECV_BUF_SIZE=%d", options.socks_buf, CLIENT_SOCKS_RECV_BUF_SIZE);
+    }
 
     // resolve netif ipaddr
     if (!BIPAddr_Resolve(&netif_ipaddr, options.netif_ipaddr, 0)) {
