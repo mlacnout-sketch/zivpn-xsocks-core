@@ -1465,6 +1465,7 @@ sifdefaultroute(int pd, u32_t l, u32_t g)
 {
   PPPControl *pc = &pppControl[pd];
   int st = 1;
+  ip_addr_t mask;
 
   LWIP_UNUSED_ARG(l);
   LWIP_UNUSED_ARG(g);
@@ -1474,9 +1475,16 @@ sifdefaultroute(int pd, u32_t l, u32_t g)
     PPPDEBUG(LOG_WARNING, ("sifup[%d]: bad parms\n", pd));
   } else {
     netif_set_default(&pc->netif);
-  }
 
-  /* TODO: check how PPP handled the netMask, previously not set by ipSetDefault */
+    /* We want to make sure the netmask is set to 255.255.255.255 so that
+     * we don't accidentally route traffic for the local subnet to this interface
+     * (which might be the case if GetMask() returned a wide mask like /24 or /8).
+     * This is especially important for default routes. */
+    IP4_ADDR(&mask, 255, 255, 255, 255);
+    netif_set_netmask(&pc->netif, &mask);
+    /* Update the stored netmask as well */
+    ip_addr_copy(pc->addrs.netmask, mask);
+  }
 
   return st;
 }
