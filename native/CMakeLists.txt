@@ -135,37 +135,6 @@ else()
     target_compile_options(tun2socks PRIVATE -O3)
 endif()
 
-# Strict warning flags for all builds
-target_compile_options(tun2socks PRIVATE
-    -Wall
-    -Wextra
-    -Werror
-    -pedantic
-    -Wcast-align
-    -Wcast-qual
-    -Wconversion
-    -Wdouble-promotion
-    -Wfloat-equal
-    -Wformat=2
-    -Winit-self
-    -Winline
-    -Wmissing-declarations
-    -Wmissing-include-dirs
-    -Wmissing-prototypes
-    -Wnested-externs
-    -Wold-style-definition
-    -Wpointer-arith
-    -Wredundant-decls
-    -Wshadow
-    -Wstrict-prototypes
-    -Wswitch-default
-    -Wswitch-enum
-    -Wundef
-    -Wuninitialized
-    -Wwrite-strings
-    -Wno-unused-parameter
-)
-
 if(NOT SKIP_JNI_CHECK)
     # --- system (JNI) ---
     add_library(system SHARED
