@@ -239,7 +239,7 @@ class MainActivity: FlutterActivity() {
                 prefs.putString("flutter.log_level", call.argument<String>("log_level") ?: "info")
                 prefs.putString("flutter.ping_target", call.argument<String>("ping_target") ?: "http://www.gstatic.com/generate_204")
                 prefs.putString("flutter.apps_list", call.argument<String>("apps_list") ?: "")
-                prefs.putString("flutter.upstream_dns", call.argument<String>("upstream_dns") ?: "208.67.222.222")
+                prefs.putString("flutter.upstream_dns", call.argument<String>("upstream_dns") ?: "1.1.1.1")
                 prefs.putString("flutter.native_perf_profile", call.argument<String>("native_perf_profile") ?: "balanced")
                 prefs.putString("flutter.pdnsd_min_ttl", call.argument<String>("pdnsd_min_ttl") ?: "15m")
                 prefs.putString("flutter.pdnsd_max_ttl", call.argument<String>("pdnsd_max_ttl") ?: "1w")
@@ -262,7 +262,8 @@ class MainActivity: FlutterActivity() {
                 prefs.putInt("flutter.pdnsd_cache_entries", call.argument<Int>("pdnsd_cache_entries") ?: 2048)
                 prefs.putInt("flutter.pdnsd_timeout_sec", call.argument<Int>("pdnsd_timeout_sec") ?: 10)
                 prefs.putInt("flutter.pdnsd_verbosity", call.argument<Int>("pdnsd_verbosity") ?: 2)
-                
+                prefs.putInt("flutter.smart_score", call.argument<Int>("smart_score") ?: -1)
+
                 prefs.apply()
 
                 sendToLog("Config saved. Ready to start VPN.")

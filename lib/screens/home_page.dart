@@ -319,6 +319,8 @@ class _HomePageState extends State<HomePage> {
         String recvConn = prefs.getString('hysteria_recv_conn') ?? "131072";
         final profile = prefs.getString('native_perf_profile') ?? "balanced";
 
+        int smartScore = -1;
+
         if (profile == "smart") {
            try {
              _logs.add("[SMART] Probing network...");
@@ -327,6 +329,7 @@ class _HomePageState extends State<HomePage> {
                 recvWin = smartConfig['recv_win'].toString();
                 recvConn = smartConfig['recv_conn'].toString();
                 final score = smartConfig['score'];
+                smartScore = int.tryParse(score.toString()) ?? -1;
                 _logs.add("[SMART] Network Score: $score/100. Applied dynamic tuning.");
              }
            } catch (e) {
@@ -353,11 +356,13 @@ class _HomePageState extends State<HomePage> {
           "filter_apps": prefs.getBool('filter_apps') ?? false,
           "bypass_mode": prefs.getBool('bypass_mode') ?? false,
           "apps_list": prefs.getString('apps_list') ?? "",
+          "upstream_dns": prefs.getString('upstream_dns') ?? "1.1.1.1",
           "log_level": prefs.getString('log_level') ?? "info",
           "core_count": (prefs.getInt('core_count') ?? 4),
           "cpu_wakelock": prefs.getBool('cpu_wakelock') ?? false,
           "udpgw_transparent_dns": prefs.getBool('udpgw_transparent_dns') ?? false,
           "native_perf_profile": profile,
+          "smart_score": smartScore,
           "pdnsd_port": prefs.getInt('pdnsd_port') ?? 8091,
           "pdnsd_cache_entries": prefs.getInt('pdnsd_cache_entries') ?? 2048,
           "pdnsd_timeout_sec": prefs.getInt('pdnsd_timeout_sec') ?? 10,

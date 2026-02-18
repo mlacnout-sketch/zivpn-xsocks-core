@@ -146,6 +146,7 @@ if(NOT SKIP_JNI_CHECK)
     # --- system (JNI) ---
     add_library(system SHARED
         system/system.cpp
+        system/smart_mode.c
     )
 
     target_include_directories(system PRIVATE libancillary)

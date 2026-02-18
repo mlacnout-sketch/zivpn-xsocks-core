@@ -328,7 +328,7 @@ class ZivpnService : VpnService() {
             val cacheDir = File(cacheDir, "pdnsd_cache")
             if (!cacheDir.exists()) cacheDir.mkdirs()
             
-            val upstreamDns = getPrefString(prefs, "upstream_dns", "208.67.222.222")
+            val upstreamDns = getPrefString(prefs, "upstream_dns", "1.1.1.1")
             val profile = getPrefString(prefs, "native_perf_profile", "balanced")
 
             var tcpSndBuf = getPrefIntFlexible(prefs, "tcp_snd_buf", 65535)
@@ -339,6 +339,7 @@ class ZivpnService : VpnService() {
             var pdnsdPermCache = getPrefIntFlexible(prefs, "pdnsd_cache_entries", 2048)
             var pdnsdTimeout = getPrefIntFlexible(prefs, "pdnsd_timeout_sec", 10)
             var pdnsdVerbosity = getPrefIntFlexible(prefs, "pdnsd_verbosity", 2)
+            val smartScore = getPrefIntFlexible(prefs, "smart_score", -1)
 
             if (profile == "throughput") {
                 tcpSndBuf = 65535
@@ -358,27 +359,60 @@ class ZivpnService : VpnService() {
                 pdnsdPermCache = 2048
                 pdnsdTimeout = 5
                 pdnsdVerbosity = 1
+            } else if (profile == "smart") {
+                try {
+                    val smartTuning = NativeSystem.getSmartTuning(smartScore)
+                    if (smartTuning.size >= 8) {
+                        tcpSndBuf = smartTuning[0]
+                        tcpWnd = smartTuning[1]
+                        socksBuf = smartTuning[2]
+                        udpgwMaxConn = smartTuning[3]
+                        udpgwBufSize = smartTuning[4]
+                        pdnsdPermCache = smartTuning[5]
+                        pdnsdTimeout = smartTuning[6]
+                        pdnsdVerbosity = smartTuning[7]
+                    }
+                } catch (e: Throwable) {
+                    // Fallback to balanced defaults when native smart tuning fails.
+                    tcpSndBuf = 65535
+                    tcpWnd = 65535
+                    socksBuf = 65536
+                    udpgwMaxConn = 512
+                    udpgwBufSize = 32
+                    pdnsdPermCache = 2048
+                    pdnsdTimeout = 10
+                    pdnsdVerbosity = 2
+                    logToApp("Smart native tuning failed: ${e.message}")
+                }
             }
+
+            val basePdnsdTuning = PdnsdTuning(
+                permCache = pdnsdPermCache,
+                timeout = pdnsdTimeout,
+                minTtl = getPrefString(prefs, "pdnsd_min_ttl", "15m"),
+                maxTtl = getPrefString(prefs, "pdnsd_max_ttl", "1w"),
+                queryMethod = getPrefString(prefs, "pdnsd_query_method", "tcp_only"),
+                verbosity = pdnsdVerbosity
+            )
+            val effectivePdnsdTuning = Pdnsd.resolveSmartTuning(profile, smartScore, basePdnsdTuning)
 
             tcpSndBuf = clamp(tcpSndBuf, 4096, 65535)
             tcpWnd = clamp(tcpWnd, 4096, 65535)
             socksBuf = clamp(socksBuf, 4096, 524288)
             udpgwMaxConn = clamp(udpgwMaxConn, 16, 4096)
             udpgwBufSize = clamp(udpgwBufSize, 4, 256)
-            pdnsdPermCache = clamp(pdnsdPermCache, 256, 32768)
-            pdnsdTimeout = clamp(pdnsdTimeout, 3, 30)
-            pdnsdVerbosity = clamp(pdnsdVerbosity, 0, 3)
+
+            pdnsdPermCache = clamp(effectivePdnsdTuning.permCache, 256, 32768)
+            pdnsdTimeout = clamp(effectivePdnsdTuning.timeout, 3, 30)
+            pdnsdVerbosity = clamp(effectivePdnsdTuning.verbosity, 0, 3)
 
             val pdnsdConf = Pdnsd.writeConfig(
                 context = this,
                 listenPort = pdnsdPort,
                 upstreamDns = upstreamDns,
-                tuning = PdnsdTuning(
+                tuning = effectivePdnsdTuning.copy(
                     permCache = pdnsdPermCache,
                     timeout = pdnsdTimeout,
-                    minTtl = getPrefString(prefs, "pdnsd_min_ttl", "15m"),
-                    maxTtl = getPrefString(prefs, "pdnsd_max_ttl", "1w"),
-                    queryMethod = getPrefString(prefs, "pdnsd_query_method", "tcp_only"),
                     verbosity = pdnsdVerbosity
                 )
             )
@@ -416,7 +450,7 @@ class ZivpnService : VpnService() {
                 }
             }
 
-            logToApp("Native profile=$profile tcpWnd=$tcpWnd socksBuf=$socksBuf udpgwMax=$udpgwMaxConn pdnsdCache=$pdnsdPermCache")
+            logToApp("Native profile=$profile smartScore=$smartScore tcpWnd=$tcpWnd socksBuf=$socksBuf udpgwMax=$udpgwMaxConn pdnsdCache=$pdnsdPermCache pdnsdTimeout=$pdnsdTimeout pdnsdQuery=${effectivePdnsdTuning.queryMethod} pdnsdMinTtl=${effectivePdnsdTuning.minTtl} pdnsdMaxTtl=${effectivePdnsdTuning.maxTtl}")
 
             val tunProc = ProcessBuilder(tunCmd).directory(filesDir).start()
             processes.add(tunProc)

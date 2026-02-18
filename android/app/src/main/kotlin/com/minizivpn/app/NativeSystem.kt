@@ -20,5 +20,8 @@ class NativeSystem {
 
         @JvmStatic
         external fun getABI(): String
+
+        @JvmStatic
+        external fun getSmartTuning(score: Int): IntArray
     }
 }

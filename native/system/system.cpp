@@ -19,6 +19,8 @@
 #include <sys/wait.h>
 #include <ancillary.h>
 
+#include "smart_mode.h"
+
 
 #define LOGI(...) do { __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__); } while(0)
 #define LOGW(...) do { __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__); } while(0)
@@ -71,6 +73,32 @@ jniclose(JNIEnv *env, jobject thiz, jint fd) {
     close(fd);
 }
 
+
+static jintArray
+getSmartTuning(JNIEnv *env, jobject thiz, jint score) {
+    SmartModeTuning tuning;
+    smart_mode_get_tuning((int)score, &tuning);
+
+    jint values[8] = {
+        (jint)tuning.tcp_snd_buf,
+        (jint)tuning.tcp_wnd,
+        (jint)tuning.socks_buf,
+        (jint)tuning.udpgw_max_conn,
+        (jint)tuning.udpgw_buf_size,
+        (jint)tuning.pdnsd_perm_cache,
+        (jint)tuning.pdnsd_timeout,
+        (jint)tuning.pdnsd_verbosity
+    };
+
+    jintArray result = env->NewIntArray(8);
+    if (!result) {
+        return NULL;
+    }
+
+    env->SetIntArrayRegion(result, 0, 8, values);
+    return result;
+}
+
 static jint
 sendfd(JNIEnv *env, jobject thiz, jint tun_fd) {
     int fd;
@@ -111,7 +139,9 @@ static JNINativeMethod method_table[] = {
     { "exec", "(Ljava/lang/String;)V",
         (void*) exec },
     { "getABI", "()Ljava/lang/String;",
-        (void*) getABI }
+        (void*) getABI },
+    { "getSmartTuning", "(I)[I",
+        (void*) getSmartTuning }
 };
 
 static int
