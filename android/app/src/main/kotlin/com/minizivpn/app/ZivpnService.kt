@@ -14,6 +14,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import android.content.pm.ServiceInfo
 import java.net.InetAddress
+import java.net.Inet4Address
 import java.net.Proxy
 import java.net.InetSocketAddress
 import java.util.LinkedList
@@ -268,18 +269,20 @@ class ZivpnService : VpnService() {
                 val serverHost = getPrefString(prefs, "server_ip", "")
                 if (serverHost.isNotEmpty()) {
                     logToApp("Resolving server: $serverHost")
-                    val resolvedIp = try {
-                        InetAddress.getByName(serverHost).hostAddress
-                    } catch (e: Exception) {
-                        serverHost
-                    }
-                    
-                    logToApp("Excluding server IP: $resolvedIp")
-                    val dynamicRoutes = RoutingUtils.calculateDynamicRoutes(resolvedIp)
-                    for (route in dynamicRoutes) {
-                        try {
-                            builder.addRoute(route.first, route.second)
-                        } catch (e: Exception) {}
+                    val resolvedIpv4 = resolveServerIpv4(serverHost)
+
+                    if (resolvedIpv4 != null) {
+                        logToApp("Excluding server IPv4: $resolvedIpv4")
+                        val dynamicRoutes = RoutingUtils.calculateDynamicRoutes(resolvedIpv4)
+                        for (route in dynamicRoutes) {
+                            try {
+                                builder.addRoute(route.first, route.second)
+                            } catch (e: Exception) {}
+                        }
+                    } else {
+                        logToApp("Server resolved to IPv6-only. Using default split IPv4 routes.")
+                        builder.addRoute("0.0.0.0", 1)
+                        builder.addRoute("128.0.0.0", 1)
                     }
                 } else {
                     builder.addRoute("0.0.0.0", 1)
@@ -319,6 +322,20 @@ class ZivpnService : VpnService() {
                 stopSelf()
             }
         }.start()
+    }
+
+
+    private fun resolveServerIpv4(serverHost: String): String? {
+        return try {
+            if (serverHost.matches(Regex("^\\d{1,3}(?:\\.\\d{1,3}){3}$"))) {
+                serverHost
+            } else {
+                val all = InetAddress.getAllByName(serverHost)
+                all.firstOrNull { it is Inet4Address }?.hostAddress
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun startNativeEngines(fd: Int, mtu: Int, logLevel: String, prefs: android.content.SharedPreferences, pdnsdPort: Int) {

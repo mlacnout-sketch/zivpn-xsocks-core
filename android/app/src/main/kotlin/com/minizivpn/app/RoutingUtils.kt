@@ -11,29 +11,29 @@ object RoutingUtils {
      */
     fun calculateDynamicRoutes(excludeIp: String): List<Pair<String, Int>> {
         val routes = mutableListOf<Pair<String, Int>>()
-        
+
         try {
             val ipAddr = InetAddress.getByName(excludeIp)
             val ipBytes = ipAddr.address
-            val ipLong = bytesToLong(ipBytes)
 
-            // Kita gunakan pendekatan membagi dunia menjadi dua (0.0.0.0/1 dan 128.0.0.0/1)
-            // Dan kemudian kita potong-potong di sekitar IP target.
-            // Namun cara paling aman dan dinamis adalah menggunakan split route standard
-            // dan membiarkan addDisallowedApplication menangani bypass aplikasi.
-            
-            // Jika kita ingin benar-benar dinamis mengecualikan IP:
-            // Kita bagi range 0.0.0.0 - 255.255.255.255 menjadi blok-blok CIDR
-            // yang tidak mengandung ipLong.
-            
+            // Routing table yang dibangun di service ini adalah IPv4-only.
+            // Jika resolve menghasilkan IPv6 (contoh DNS64 64:ff9b::/96),
+            // jangan dipaksa masuk kalkulasi IPv4 karena hasilnya salah.
+            if (ipBytes.size != 4) {
+                return defaultSplitRoutes()
+            }
+
+            val ipLong = bytesToLong(ipBytes)
             fillRoutes(0, 4294967295L, ipLong, routes)
-            
         } catch (e: Exception) {
-            // Fallback jika gagal: gunakan dua belahan dunia
-            return listOf("0.0.0.0" to 1, "128.0.0.0" to 1)
+            return defaultSplitRoutes()
         }
-        
+
         return routes
+    }
+
+    private fun defaultSplitRoutes(): List<Pair<String, Int>> {
+        return listOf("0.0.0.0" to 1, "128.0.0.0" to 1)
     }
 
     private fun fillRoutes(start: Long, end: Long, exclude: Long, routes: MutableList<Pair<String, Int>>) {
