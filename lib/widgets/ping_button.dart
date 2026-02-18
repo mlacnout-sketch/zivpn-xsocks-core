@@ -11,7 +11,8 @@ class PingButton extends StatefulWidget {
   State<PingButton> createState() => _PingButtonState();
 }
 
-class _PingButtonState extends State<PingButton> with SingleTickerProviderStateMixin {
+class _PingButtonState extends State<PingButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   final ValueNotifier<String> _result = ValueNotifier("");
   bool _isPinging = false;
@@ -41,8 +42,8 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
 
     try {
       final res = await _performPing().timeout(
-        const Duration(seconds: 15), 
-        onTimeout: () => "Timeout"
+        const Duration(seconds: 15),
+        onTimeout: () => "Timeout",
       );
       if (mounted) _result.value = res;
     } catch (e) {
@@ -58,8 +59,10 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
 
   Future<String> _performPing() async {
     final prefs = await SharedPreferences.getInstance();
-    String target = (prefs.getString('ping_target') ?? "http://clients3.google.com/generate_204").trim();
-    
+    String target = (prefs.getString('ping_target') ??
+            "http://clients3.google.com/generate_204")
+        .trim();
+
     if (target.isEmpty) target = "http://clients3.google.com/generate_204";
     if (!target.startsWith("http")) target = "http://$target";
 
@@ -83,7 +86,9 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
     } catch (e) {
       // 1.5. Fallback: Gstatic Ping (Alternative Endpoint)
       try {
-        final request = await client.getUrl(Uri.parse("http://www.gstatic.com/generate_204"));
+        final request = await client.getUrl(
+          Uri.parse("http://www.gstatic.com/generate_204"),
+        );
         final response = await request.close();
         await response.drain();
         if (response.statusCode == 204) return "Gstatic OK";
@@ -92,17 +97,23 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
       // 2. Fallback: TCP Handshake (Layer 4)
       try {
         final sw = Stopwatch()..start();
-        final socket = await Socket.connect('1.1.1.1', 80, timeout: const Duration(seconds: 3));
+        final socket = await Socket.connect(
+          '1.1.1.1',
+          80,
+          timeout: const Duration(seconds: 3),
+        );
         sw.stop();
         socket.destroy();
         return "TCP ${sw.elapsedMilliseconds} ms";
       } catch (_) {
         // 3. Last Resort: Package HTTP (High Level)
         try {
-           final response = await http.get(Uri.parse("http://1.1.1.1")).timeout(const Duration(seconds: 5));
-           if (response.statusCode == 200) return "HTTP OK";
-        } catch(_) {}
-        
+          final response = await http
+              .get(Uri.parse("http://1.1.1.1"))
+              .timeout(const Duration(seconds: 5));
+          if (response.statusCode == 200) return "HTTP OK";
+        } catch (_) {}
+
         return "Timeout";
       }
     } finally {
@@ -113,10 +124,12 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
   Color _getColor(String res) {
     if (res == "Pinging...") return Colors.white;
     if (res.contains("ms")) {
-      final msStr = res.split(' ')[0] == "TCP" ? res.split(' ')[1] : res.split(' ')[0];
+      final msStr =
+          res.split(' ')[0] == "TCP" ? res.split(' ')[1] : res.split(' ')[0];
       final ms = int.tryParse(msStr) ?? 999;
-      
-      if (res.startsWith("TCP")) return Colors.cyanAccent; // Always cyan for TCP to distinguish
+
+      if (res.startsWith("TCP"))
+        return Colors.cyanAccent; // Always cyan for TCP to distinguish
       if (ms < 150) return Colors.greenAccent;
       if (ms < 300) return Colors.yellow;
     }
@@ -148,14 +161,17 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
             if (value.isNotEmpty) ...[
               const SizedBox(height: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: _getColor(value).withValues(alpha: 0.3),
-                    width: 1
-                  )
+                    width: 1,
+                  ),
                 ),
                 child: Text(
                   value,
@@ -166,7 +182,7 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
                   ),
                 ),
               ),
-            ]
+            ],
           ],
         );
       },

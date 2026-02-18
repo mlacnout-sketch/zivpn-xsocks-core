@@ -6,13 +6,16 @@ import '../models/app_version.dart';
 
 class UpdateRepository {
   static const _platform = MethodChannel('com.minizivpn.app/core');
-  final String apiUrl = "https://api.github.com/repos/mlacnout-sketch/zivpn-xsocks-core/releases";
+  final String apiUrl =
+      "https://api.github.com/repos/mlacnout-sketch/zivpn-xsocks-core/releases";
 
   Future<AppVersion?> fetchUpdate() async {
     // Strategy 1: Native VPN Binding (Best for bypassing exclusions)
     try {
       print("Checking update via Native VPN Binding...");
-      final responseBody = await _platform.invokeMethod('checkUpdateNative', {'url': apiUrl});
+      final responseBody = await _platform.invokeMethod('checkUpdateNative', {
+        'url': apiUrl,
+      });
       if (responseBody != null && responseBody != "ERR") {
         return await _processResponse(responseBody);
       }
@@ -45,13 +48,17 @@ class UpdateRepository {
     return null;
   }
 
-  Future<File?> downloadUpdate(AppVersion version, File targetFile, Function(double) onProgress) async {
+  Future<File?> downloadUpdate(
+    AppVersion version,
+    File targetFile,
+    Function(double) onProgress,
+  ) async {
     // Strategy 1: Native VPN Binding
     try {
       onProgress(0.1);
       final result = await _platform.invokeMethod('downloadUpdateNative', {
         'url': version.apkUrl,
-        'path': targetFile.path
+        'path': targetFile.path,
       });
       if (result == "OK") {
         onProgress(1.0);
@@ -106,7 +113,11 @@ class UpdateRepository {
     return null;
   }
 
-  Future<void> _downloadWithSocks(String url, File targetFile, Function(double) onProgress) async {
+  Future<void> _downloadWithSocks(
+    String url,
+    File targetFile,
+    Function(double) onProgress,
+  ) async {
     final client = HttpClient();
     client.findProxy = (uri) => "SOCKS 127.0.0.1:7777";
     client.userAgent = "MiniZivpn-Updater";
@@ -129,32 +140,32 @@ class UpdateRepository {
   }
 
   Future<AppVersion?> _processResponse(String jsonStr) async {
-      try {
-        final List releases = json.decode(jsonStr);
-        final packageInfo = await PackageInfo.fromPlatform();
-        final currentVersion = packageInfo.version;
-        
-        for (var release in releases) {
-          final tagName = release['tag_name'].toString();
-          if (_isNewer(tagName, currentVersion)) {
-            final assets = release['assets'] as List?;
-            if (assets == null) continue;
-            final asset = assets.firstWhere(
-              (a) => a['name'].toString().endsWith('.apk'),
-              orElse: () => null
+    try {
+      final List releases = json.decode(jsonStr);
+      final packageInfo = await PackageInfo.fromPlatform();
+      final currentVersion = packageInfo.version;
+
+      for (var release in releases) {
+        final tagName = release['tag_name'].toString();
+        if (_isNewer(tagName, currentVersion)) {
+          final assets = release['assets'] as List?;
+          if (assets == null) continue;
+          final asset = assets.firstWhere(
+            (a) => a['name'].toString().endsWith('.apk'),
+            orElse: () => null,
+          );
+          if (asset != null) {
+            return AppVersion(
+              name: tagName,
+              apkUrl: asset['browser_download_url'],
+              apkSize: asset['size'],
+              description: release['body'] ?? "",
             );
-            if (asset != null) {
-              return AppVersion(
-                name: tagName,
-                apkUrl: asset['browser_download_url'],
-                apkSize: asset['size'],
-                description: release['body'] ?? "",
-              );
-            }
           }
         }
-      } catch (_) {}
-      return null;
+      }
+    } catch (_) {}
+    return null;
   }
 
   bool _isNewer(String latestTag, String currentVersion) {
@@ -163,7 +174,9 @@ class UpdateRepository {
       final localVersion = _extractVersionParts(currentVersion);
       if (remoteVersion.isEmpty || localVersion.isEmpty) return false;
       return _compareVersionParts(remoteVersion, localVersion) > 0;
-    } catch (_) { return false; }
+    } catch (_) {
+      return false;
+    }
   }
 
   List<int> _extractVersionParts(String value) {

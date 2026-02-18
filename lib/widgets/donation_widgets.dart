@@ -7,7 +7,10 @@ const String _kSaweriaUrl = "https://saweria.co/Damnwhoknows";
 
 Future<void> _launchSaweria() async {
   try {
-    await launchUrl(Uri.parse(_kSaweriaUrl), mode: LaunchMode.externalApplication);
+    await launchUrl(
+      Uri.parse(_kSaweriaUrl),
+      mode: LaunchMode.externalApplication,
+    );
   } catch (e) {
     debugPrint("Gagal buka saweria: $e");
   }
@@ -24,7 +27,7 @@ class SiOrenBanner extends StatefulWidget {
 }
 
 class _SiOrenBannerState extends State<SiOrenBanner> {
-  bool _isVisible = false; 
+  bool _isVisible = false;
 
   @override
   void initState() {
@@ -57,13 +60,16 @@ class _SiOrenBannerState extends State<SiOrenBanner> {
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.orange.withValues(alpha: 0.5), width: 2), // OREN LEBIH TEBAL
+                border: Border.all(
+                  color: Colors.orange.withValues(alpha: 0.5),
+                  width: 2,
+                ), // OREN LEBIH TEBAL
                 boxShadow: [
                   BoxShadow(
                     color: Colors.orange.withValues(alpha: 0.15),
                     blurRadius: 15,
                     offset: const Offset(0, 4),
-                  )
+                  ),
                 ],
               ),
               child: Column(
@@ -73,27 +79,34 @@ class _SiOrenBannerState extends State<SiOrenBanner> {
                   const Row(
                     children: [
                       Text(
-                        "🐈 CAPEK SAMA SI OREN?", 
+                        "🐈 CAPEK SAMA SI OREN?",
                         style: TextStyle(
-                          color: Colors.orangeAccent, 
-                          fontWeight: FontWeight.w900, 
+                          color: Colors.orangeAccent,
+                          fontWeight: FontWeight.w900,
                           fontSize: 16,
-                          letterSpacing: 1.2
-                        )
+                          letterSpacing: 1.2,
+                        ),
                       ),
                       Spacer(),
-                      Text("✖️", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        "✖️",
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  
+
                   // Body Text
                   const Text(
                     "Daripada buang waktu nonton iklan judi slot 30 detik, mending traktir dev kopi sachet biar update lancar.",
-                    style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Action Buttons
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -104,7 +117,7 @@ class _SiOrenBannerState extends State<SiOrenBanner> {
                           foregroundColor: Colors.grey,
                           textStyle: const TextStyle(fontSize: 11),
                         ),
-                        child: const Text("🤡 Skip, gw suka iklan"), 
+                        child: const Text("🤡 Skip, gw suka iklan"),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton.icon(
@@ -112,19 +125,27 @@ class _SiOrenBannerState extends State<SiOrenBanner> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orangeAccent,
                           foregroundColor: Colors.black87,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           elevation: 4,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                         ),
                         icon: const Text("☕", style: TextStyle(fontSize: 18)),
-                        label: const Text("Traktir Kopi", style: TextStyle(fontWeight: FontWeight.bold)),
+                        label: const Text(
+                          "Traktir Kopi",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ],
-                  )
+                  ),
                 ],
               ),
             ),
-            
+
             // Decorative Circle (Meme Vibe)
             Positioned(
               right: -10,
@@ -136,7 +157,9 @@ class _SiOrenBannerState extends State<SiOrenBanner> {
                   shape: BoxShape.circle,
                   color: Colors.orange.withValues(alpha: 0.1),
                 ),
-                child: const Center(child: Text("🍊", style: TextStyle(fontSize: 24))),
+                child: const Center(
+                  child: Text("🍊", style: TextStyle(fontSize: 24)),
+                ),
               ),
             ),
           ],
@@ -150,7 +173,10 @@ class _SiOrenBannerState extends State<SiOrenBanner> {
 // 2. DIALOG SARKAS (FINAL BOSS)
 // ==========================================
 // Returns true if dialog shown, false if skipped by RNG
-bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}) {
+bool showSarcasticDialog(
+  BuildContext context, {
+  required VoidCallback onProceed,
+}) {
   // ALGORITMA PROBABILITAS: 40% Muncul
   if (Random().nextInt(100) > 40) {
     return false; // Skip dialog, langsung proceed di logic pemanggil
@@ -178,11 +204,17 @@ bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 decoration: BoxDecoration(
                   color: Colors.purpleAccent.withValues(alpha: 0.1),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
                 ),
-                child: const Text("🤑", textAlign: TextAlign.center, style: TextStyle(fontSize: 56)),
+                child: const Text(
+                  "🤑",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 56),
+                ),
               ),
-              
+
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -190,9 +222,9 @@ bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}
                     const Text(
                       "Wait, Mau Cabut?",
                       style: TextStyle(
-                        fontSize: 20, 
-                        fontWeight: FontWeight.bold, 
-                        color: Colors.white
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -200,13 +232,13 @@ bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}
                       "Koneksi lancar? Hemat waktu tanpa iklan? \nItu semua murni hasil begadang dev.\n\nMau support biar admin gak tipes ngoding fitur baru?",
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.white60, 
-                        fontSize: 14, 
-                        height: 1.5
+                        color: Colors.white60,
+                        fontSize: 14,
+                        height: 1.5,
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     // Main Action (Donasi)
                     SizedBox(
                       width: double.infinity,
@@ -215,9 +247,13 @@ bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}
                           backgroundColor: Colors.purpleAccent,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                           elevation: 8,
-                          shadowColor: Colors.purpleAccent.withValues(alpha: 0.4),
+                          shadowColor: Colors.purpleAccent.withValues(
+                            alpha: 0.4,
+                          ),
                         ),
                         onPressed: () {
                           Navigator.pop(context);
@@ -227,27 +263,34 @@ bool showSarcasticDialog(BuildContext context, {required VoidCallback onProceed}
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text("Support Dev ", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            Text(
+                              "Support Dev ",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             Text("💖", style: TextStyle(fontSize: 18)),
                           ],
                         ),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 12),
-                    
+
                     // Villain Action (Skip)
                     TextButton(
                       onPressed: () {
                         Navigator.pop(context);
                         onProceed();
                       },
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.grey,
-                      ),
+                      style: TextButton.styleFrom(foregroundColor: Colors.grey),
                       child: const Text(
                         "🗿 Skip, saya tim gratisan sejati",
-                        style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ),
                   ],

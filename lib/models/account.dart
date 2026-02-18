@@ -24,12 +24,6 @@ class Account {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'ip': ip,
-      'auth': auth,
-      'obfs': obfs,
-      'usage': usage,
-    };
+    return {'name': name, 'ip': ip, 'auth': auth, 'obfs': obfs, 'usage': usage};
   }
 }

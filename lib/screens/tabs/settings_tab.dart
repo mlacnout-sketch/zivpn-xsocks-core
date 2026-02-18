@@ -109,16 +109,18 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 
   Future<void> _handleBackup() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Creating backup...')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Creating backup...')));
     final file = await _backupRepo.createBackup();
     if (file != null && mounted) {
-      await Share.shareXFiles([XFile(file.path)], text: 'MiniZIVPN Config Backup');
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: 'MiniZIVPN Config Backup');
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Backup failed')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Backup failed')));
     }
   }
 
@@ -128,11 +130,13 @@ class _SettingsTabState extends State<SettingsTab> {
       allowedExtensions: ['zip'],
     );
     if (result != null && result.files.single.path != null) {
-      final success = await _backupRepo.restoreBackup(File(result.files.single.path!));
+      final success = await _backupRepo.restoreBackup(
+        File(result.files.single.path!),
+      );
       if (mounted && success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Restore successful.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Restore successful.')));
         _loadSettings();
         widget.onRestoreSuccess?.call();
       }
@@ -148,10 +152,12 @@ class _SettingsTabState extends State<SettingsTab> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _mtuCtrl.text = (prefs.getInt('mtu') ?? 1500).toString();
-      _pingTargetCtrl.text = prefs.getString('ping_target') ?? 'http://www.gstatic.com/generate_204';
+      _pingTargetCtrl.text = prefs.getString('ping_target') ??
+          'http://www.gstatic.com/generate_204';
       _pingIntervalCtrl.text = (prefs.getInt('ping_interval') ?? 3).toString();
       _udpgwPortCtrl.text = prefs.getString('udpgw_port') ?? '7300';
-      _udpgwMaxConnCtrl.text = prefs.getString('udpgw_max_connections') ?? '512';
+      _udpgwMaxConnCtrl.text =
+          prefs.getString('udpgw_max_connections') ?? '512';
       _udpgwBufSizeCtrl.text = prefs.getString('udpgw_buffer_size') ?? '32';
       _dnsCtrl.text = prefs.getString('upstream_dns') ?? '208.67.222.222';
       _appsListCtrl.text = prefs.getString('apps_list') ?? '';
@@ -159,13 +165,18 @@ class _SettingsTabState extends State<SettingsTab> {
       _tcpWndCtrl.text = prefs.getString('tcp_wnd') ?? '65535';
       _socksBufCtrl.text = prefs.getString('socks_buf') ?? '65536';
       _pdnsdPortCtrl.text = (prefs.getInt('pdnsd_port') ?? 8091).toString();
-      _pdnsdCacheCtrl.text = (prefs.getInt('pdnsd_cache_entries') ?? 2048).toString();
-      _pdnsdTimeoutCtrl.text = (prefs.getInt('pdnsd_timeout_sec') ?? 10).toString();
+      _pdnsdCacheCtrl.text =
+          (prefs.getInt('pdnsd_cache_entries') ?? 2048).toString();
+      _pdnsdTimeoutCtrl.text =
+          (prefs.getInt('pdnsd_timeout_sec') ?? 10).toString();
       _pdnsdMinTtlCtrl.text = prefs.getString('pdnsd_min_ttl') ?? '15m';
       _pdnsdMaxTtlCtrl.text = prefs.getString('pdnsd_max_ttl') ?? '1w';
-      _pdnsdVerbosityCtrl.text = (prefs.getInt('pdnsd_verbosity') ?? 2).toString();
-      _hysteriaRecvWinCtrl.text = prefs.getString('hysteria_recv_window') ?? '327680';
-      _hysteriaConnCtrl.text = prefs.getString('hysteria_recv_conn') ?? '131072';
+      _pdnsdVerbosityCtrl.text =
+          (prefs.getInt('pdnsd_verbosity') ?? 2).toString();
+      _hysteriaRecvWinCtrl.text =
+          prefs.getString('hysteria_recv_window') ?? '327680';
+      _hysteriaConnCtrl.text =
+          prefs.getString('hysteria_recv_conn') ?? '131072';
 
       _cpuWakelock = prefs.getBool('cpu_wakelock') ?? false;
       _enableUdpgw = prefs.getBool('enable_udpgw') ?? true;
@@ -181,27 +192,55 @@ class _SettingsTabState extends State<SettingsTab> {
 
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    String val(TextEditingController c, String d) => c.text.isEmpty ? d : c.text;
+    String val(TextEditingController c, String d) =>
+        c.text.isEmpty ? d : c.text;
 
     await prefs.setInt('mtu', int.tryParse(val(_mtuCtrl, '1500')) ?? 1500);
-    await prefs.setString('ping_target', val(_pingTargetCtrl, 'http://www.gstatic.com/generate_204'));
-    await prefs.setInt('ping_interval', int.tryParse(val(_pingIntervalCtrl, '3')) ?? 3);
+    await prefs.setString(
+      'ping_target',
+      val(_pingTargetCtrl, 'http://www.gstatic.com/generate_204'),
+    );
+    await prefs.setInt(
+      'ping_interval',
+      int.tryParse(val(_pingIntervalCtrl, '3')) ?? 3,
+    );
     await prefs.setString('udpgw_port', val(_udpgwPortCtrl, '7300'));
-    await prefs.setString('udpgw_max_connections', val(_udpgwMaxConnCtrl, '512'));
+    await prefs.setString(
+      'udpgw_max_connections',
+      val(_udpgwMaxConnCtrl, '512'),
+    );
     await prefs.setString('udpgw_buffer_size', val(_udpgwBufSizeCtrl, '32'));
     await prefs.setString('upstream_dns', val(_dnsCtrl, '208.67.222.222'));
     await prefs.setString('apps_list', _appsListCtrl.text);
     await prefs.setString('tcp_snd_buf', val(_tcpSndBufCtrl, '65535'));
     await prefs.setString('tcp_wnd', val(_tcpWndCtrl, '65535'));
     await prefs.setString('socks_buf', val(_socksBufCtrl, '65536'));
-    await prefs.setInt('pdnsd_port', int.tryParse(val(_pdnsdPortCtrl, '8091')) ?? 8091);
-    await prefs.setInt('pdnsd_cache_entries', int.tryParse(val(_pdnsdCacheCtrl, '2048')) ?? 2048);
-    await prefs.setInt('pdnsd_timeout_sec', int.tryParse(val(_pdnsdTimeoutCtrl, '10')) ?? 10);
+    await prefs.setInt(
+      'pdnsd_port',
+      int.tryParse(val(_pdnsdPortCtrl, '8091')) ?? 8091,
+    );
+    await prefs.setInt(
+      'pdnsd_cache_entries',
+      int.tryParse(val(_pdnsdCacheCtrl, '2048')) ?? 2048,
+    );
+    await prefs.setInt(
+      'pdnsd_timeout_sec',
+      int.tryParse(val(_pdnsdTimeoutCtrl, '10')) ?? 10,
+    );
     await prefs.setString('pdnsd_min_ttl', val(_pdnsdMinTtlCtrl, '15m'));
     await prefs.setString('pdnsd_max_ttl', val(_pdnsdMaxTtlCtrl, '1w'));
-    await prefs.setInt('pdnsd_verbosity', int.tryParse(val(_pdnsdVerbosityCtrl, '2')) ?? 2);
-    await prefs.setString('hysteria_recv_window', val(_hysteriaRecvWinCtrl, '327680'));
-    await prefs.setString('hysteria_recv_conn', val(_hysteriaConnCtrl, '131072'));
+    await prefs.setInt(
+      'pdnsd_verbosity',
+      int.tryParse(val(_pdnsdVerbosityCtrl, '2')) ?? 2,
+    );
+    await prefs.setString(
+      'hysteria_recv_window',
+      val(_hysteriaRecvWinCtrl, '327680'),
+    );
+    await prefs.setString(
+      'hysteria_recv_conn',
+      val(_hysteriaConnCtrl, '131072'),
+    );
 
     await prefs.setBool('cpu_wakelock', _cpuWakelock);
     await prefs.setBool('enable_udpgw', _enableUdpgw);
@@ -215,9 +254,9 @@ class _SettingsTabState extends State<SettingsTab> {
 
     _loadSettings();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Settings Saved')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Settings Saved')));
     }
   }
 
@@ -271,7 +310,10 @@ class _SettingsTabState extends State<SettingsTab> {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        Text('Core Settings', style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+        Text(
+          'Core Settings',
+          style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 4),
         Text(
           'Sesuaikan konfigurasi core agar stabil dengan sistem perangkat.',
@@ -282,8 +324,16 @@ class _SettingsTabState extends State<SettingsTab> {
           title: 'Network',
           icon: Icons.network_check,
           children: [
-            _buildTextInput(_mtuCtrl, 'MTU (Default: 1500)', Icons.settings_ethernet),
-            _buildTextInput(_pingIntervalCtrl, 'Check Interval (sec)', Icons.timer),
+            _buildTextInput(
+              _mtuCtrl,
+              'MTU (Default: 1500)',
+              Icons.settings_ethernet,
+            ),
+            _buildTextInput(
+              _pingIntervalCtrl,
+              'Check Interval (sec)',
+              Icons.timer,
+            ),
             _buildTextInput(
               _pingTargetCtrl,
               'Target Ping (URL/IP)',
@@ -299,14 +349,30 @@ class _SettingsTabState extends State<SettingsTab> {
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               title: const Text('UDPGW Transparent DNS'),
-              subtitle: const Text('Tambahkan --udpgw-transparent-dns di tun2socks'),
+              subtitle: const Text(
+                'Tambahkan --udpgw-transparent-dns di tun2socks',
+              ),
               value: _udpgwTransparentDns,
               onChanged: (val) => setState(() => _udpgwTransparentDns = val),
             ),
             if (_enableUdpgw) ...[
-              _buildTextInput(_udpgwPortCtrl, 'Udp Gateway Port', Icons.door_sliding),
-              _buildTextInput(_udpgwMaxConnCtrl, 'Max UDP Connections', Icons.connect_without_contact, onChanged: _onConfigChanged),
-              _buildTextInput(_udpgwBufSizeCtrl, 'UDP Buffer (Packets)', Icons.shopping_bag, onChanged: _onConfigChanged),
+              _buildTextInput(
+                _udpgwPortCtrl,
+                'Udp Gateway Port',
+                Icons.door_sliding,
+              ),
+              _buildTextInput(
+                _udpgwMaxConnCtrl,
+                'Max UDP Connections',
+                Icons.connect_without_contact,
+                onChanged: _onConfigChanged,
+              ),
+              _buildTextInput(
+                _udpgwBufSizeCtrl,
+                'UDP Buffer (Packets)',
+                Icons.shopping_bag,
+                onChanged: _onConfigChanged,
+              ),
             ],
           ],
         ),
@@ -340,7 +406,9 @@ class _SettingsTabState extends State<SettingsTab> {
               decoration: InputDecoration(
                 labelText: 'Apps List (Package names)',
                 prefixIcon: const Icon(Icons.list),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 filled: true,
                 fillColor: AppColors.card,
               ),
@@ -359,12 +427,42 @@ class _SettingsTabState extends State<SettingsTab> {
               value: _cpuWakelock,
               onChanged: (val) => setState(() => _cpuWakelock = val),
             ),
-            _buildTextInput(_tcpSndBufCtrl, 'TCP Send Buffer', Icons.upload_file, onChanged: _onConfigChanged),
-            _buildTextInput(_tcpWndCtrl, 'TCP Window Size', Icons.download_for_offline, onChanged: _onConfigChanged),
-            _buildTextInput(_socksBufCtrl, 'SOCKS Buffer', Icons.memory, onChanged: _onConfigChanged),
-            _buildTextInput(_hysteriaRecvWinCtrl, 'Hysteria Recv Window', Icons.speed, onChanged: _onConfigChanged),
-            _buildTextInput(_hysteriaConnCtrl, 'Hysteria Recv Win Conn', Icons.network_check, onChanged: _onConfigChanged),
-            _buildTextInput(_dnsCtrl, 'Upstream DNS', Icons.dns, isNumber: false),
+            _buildTextInput(
+              _tcpSndBufCtrl,
+              'TCP Send Buffer',
+              Icons.upload_file,
+              onChanged: _onConfigChanged,
+            ),
+            _buildTextInput(
+              _tcpWndCtrl,
+              'TCP Window Size',
+              Icons.download_for_offline,
+              onChanged: _onConfigChanged,
+            ),
+            _buildTextInput(
+              _socksBufCtrl,
+              'SOCKS Buffer',
+              Icons.memory,
+              onChanged: _onConfigChanged,
+            ),
+            _buildTextInput(
+              _hysteriaRecvWinCtrl,
+              'Hysteria Recv Window',
+              Icons.speed,
+              onChanged: _onConfigChanged,
+            ),
+            _buildTextInput(
+              _hysteriaConnCtrl,
+              'Hysteria Recv Win Conn',
+              Icons.network_check,
+              onChanged: _onConfigChanged,
+            ),
+            _buildTextInput(
+              _dnsCtrl,
+              'Upstream DNS',
+              Icons.dns,
+              isNumber: false,
+            ),
             _buildDropdownTile(
               'Native Performance Profile',
               'Preset tuning tun2socks + pdnsd',
@@ -390,11 +488,36 @@ class _SettingsTabState extends State<SettingsTab> {
           icon: Icons.storage,
           children: [
             _buildTextInput(_pdnsdPortCtrl, 'PDNSD Listen Port', Icons.numbers),
-            _buildTextInput(_pdnsdCacheCtrl, 'PDNSD Cache Entries', Icons.storage, onChanged: _onConfigChanged),
-            _buildTextInput(_pdnsdTimeoutCtrl, 'PDNSD Timeout (sec)', Icons.timer_outlined, onChanged: _onConfigChanged),
-            _buildTextInput(_pdnsdMinTtlCtrl, 'PDNSD Min TTL (contoh: 15m)', Icons.hourglass_top, isNumber: false),
-            _buildTextInput(_pdnsdMaxTtlCtrl, 'PDNSD Max TTL (contoh: 1w)', Icons.hourglass_bottom, isNumber: false),
-            _buildTextInput(_pdnsdVerbosityCtrl, 'PDNSD Verbosity (0-3)', Icons.tune, onChanged: _onConfigChanged),
+            _buildTextInput(
+              _pdnsdCacheCtrl,
+              'PDNSD Cache Entries',
+              Icons.storage,
+              onChanged: _onConfigChanged,
+            ),
+            _buildTextInput(
+              _pdnsdTimeoutCtrl,
+              'PDNSD Timeout (sec)',
+              Icons.timer_outlined,
+              onChanged: _onConfigChanged,
+            ),
+            _buildTextInput(
+              _pdnsdMinTtlCtrl,
+              'PDNSD Min TTL (contoh: 15m)',
+              Icons.hourglass_top,
+              isNumber: false,
+            ),
+            _buildTextInput(
+              _pdnsdMaxTtlCtrl,
+              'PDNSD Max TTL (contoh: 1w)',
+              Icons.hourglass_bottom,
+              isNumber: false,
+            ),
+            _buildTextInput(
+              _pdnsdVerbosityCtrl,
+              'PDNSD Verbosity (0-3)',
+              Icons.tune,
+              onChanged: _onConfigChanged,
+            ),
             _buildDropdownTile(
               'PDNSD Query Method',
               'tcp_only biasanya paling aman untuk tunnel',
@@ -437,7 +560,7 @@ class _SettingsTabState extends State<SettingsTab> {
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
-        )
+        ),
       ],
     );
   }
@@ -536,7 +659,12 @@ class _SettingsTabState extends State<SettingsTab> {
       trailing: DropdownButton<String>(
         value: value,
         items: items
-            .map((item) => DropdownMenuItem(value: item, child: Text(item.toUpperCase())))
+            .map(
+              (item) => DropdownMenuItem(
+                value: item,
+                child: Text(item.toUpperCase()),
+              ),
+            )
             .toList(),
         onChanged: onChanged,
       ),

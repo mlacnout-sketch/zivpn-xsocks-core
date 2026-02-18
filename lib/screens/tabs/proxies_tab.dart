@@ -41,9 +41,15 @@ class _ProxiesTabState extends State<ProxiesTab> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         title: Row(
           children: [
-            Icon(isEditing ? Icons.edit_note : Icons.add_circle_outline, color: AppColors.primary),
+            Icon(
+              isEditing ? Icons.edit_note : Icons.add_circle_outline,
+              color: AppColors.primary,
+            ),
             const SizedBox(width: 12),
-            Text(isEditing ? "Edit Account" : "Add Account", style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              isEditing ? "Edit Account" : "Add Account",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: SingleChildScrollView(
@@ -53,7 +59,11 @@ class _ProxiesTabState extends State<ProxiesTab> {
               const SizedBox(height: 8),
               _buildModernInput(nameCtrl, "Account Name", Icons.label_outline),
               const SizedBox(height: 16),
-              _buildModernInput(ipCtrl, "Server IP / Domain", Icons.dns_outlined),
+              _buildModernInput(
+                ipCtrl,
+                "Server IP / Domain",
+                Icons.dns_outlined,
+              ),
               const SizedBox(height: 16),
               _buildModernInput(authCtrl, "Password", Icons.vpn_key_outlined),
             ],
@@ -72,7 +82,9 @@ class _ProxiesTabState extends State<ProxiesTab> {
               foregroundColor: Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             onPressed: () {
               final name = nameCtrl.text.trim();
@@ -108,7 +120,11 @@ class _ProxiesTabState extends State<ProxiesTab> {
     );
   }
 
-  Widget _buildModernInput(TextEditingController ctrl, String label, IconData icon) {
+  Widget _buildModernInput(
+    TextEditingController ctrl,
+    String label,
+    IconData icon,
+  ) {
     return TextField(
       controller: ctrl,
       style: const TextStyle(color: Colors.white),
@@ -118,10 +134,22 @@ class _ProxiesTabState extends State<ProxiesTab> {
         prefixIcon: Icon(icon, color: AppColors.primary.withValues(alpha: 0.7)),
         filled: true,
         fillColor: AppColors.inputFill,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.primary),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
       ),
     );
   }
@@ -136,7 +164,12 @@ class _ProxiesTabState extends State<ProxiesTab> {
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: widget.accounts.isEmpty
-          ? const Center(child: Text("No accounts saved", style: TextStyle(color: Colors.grey)))
+          ? const Center(
+              child: Text(
+                "No accounts saved",
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
           : ListView.builder(
               padding: const EdgeInsets.all(20),
               itemCount: widget.accounts.length,
@@ -149,7 +182,9 @@ class _ProxiesTabState extends State<ProxiesTab> {
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
-                    side: isSelected ? const BorderSide(color: AppColors.primary, width: 2) : BorderSide.none,
+                    side: isSelected
+                        ? const BorderSide(color: AppColors.primary, width: 2)
+                        : BorderSide.none,
                   ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(12),
@@ -173,18 +208,27 @@ class _ProxiesTabState extends State<ProxiesTab> {
                       children: [
                         Text(
                           acc.ip,
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.black26,
-                            borderRadius: BorderRadius.circular(4)
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             "Used: ${FormatUtils.formatBytes(usage)}",
-                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey,
+                            ),
                           ),
                         ),
                       ],
@@ -192,7 +236,10 @@ class _ProxiesTabState extends State<ProxiesTab> {
                     trailing: PopupMenuButton(
                       itemBuilder: (ctx) => [
                         const PopupMenuItem(value: 'edit', child: Text("Edit")),
-                        const PopupMenuItem(value: 'del', child: Text("Delete")),
+                        const PopupMenuItem(
+                          value: 'del',
+                          child: Text("Delete"),
+                        ),
                       ],
                       onSelected: (val) {
                         if (val == 'edit') {

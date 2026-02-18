@@ -32,7 +32,9 @@ class MiniZivpnApp extends StatelessWidget {
         cardTheme: CardThemeData(
           color: AppColors.card,
           elevation: 4,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       ),
       home: const HomePage(),
