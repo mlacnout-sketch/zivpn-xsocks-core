@@ -16,9 +16,6 @@ class NativeSystem {
         external fun sendfd(tunFd: Int): Int
 
         @JvmStatic
-        external fun exec(cmd: String)
-
-        @JvmStatic
         external fun getABI(): String
     }
 }

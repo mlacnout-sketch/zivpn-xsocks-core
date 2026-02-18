@@ -46,27 +46,6 @@ getABI(JNIEnv *env, jobject thiz) {
 }
 
 static void
-exec(JNIEnv *env, jobject thiz, jstring cmd) {
-    const char *str = env->GetStringUTFChars(cmd, 0);
-
-    pid_t pid = fork();
-    if (pid == -1) {
-        LOGE("fork failed: %s", strerror(errno));
-    } else if (pid == 0) {
-        // Child process
-        char *argv[] = { (char*)"sh", (char*)"-c", (char*)str, NULL };
-        execvp("sh", argv);
-        _exit(127); // Should not be reached unless execvp fails
-    } else {
-        // Parent process
-        int status;
-        waitpid(pid, &status, 0);
-    }
-
-    env->ReleaseStringUTFChars(cmd, str);
-}
-
-static void
 jniclose(JNIEnv *env, jobject thiz, jint fd) {
     close(fd);
 }
@@ -108,8 +87,6 @@ static JNINativeMethod method_table[] = {
         (void*) jniclose },
     { "sendfd", "(I)I",
         (void*) sendfd },
-    { "exec", "(Ljava/lang/String;)V",
-        (void*) exec },
     { "getABI", "()Ljava/lang/String;",
         (void*) getABI }
 };

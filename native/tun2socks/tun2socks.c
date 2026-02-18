@@ -216,6 +216,8 @@ struct tcp_client {
     uint8_t buf[TCP_WND];
     int buf_used;
     char *socks_username;
+    struct BSocksClient_auth_info socks_auth_info[2];
+    size_t socks_num_auth_info;
     BSocksClient socks_client;
     int socks_up;
     int socks_closed;
@@ -1732,12 +1734,26 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
         if (!client->socks_username) {
             goto fail1;
         }
-        socks_auth_info[1].password.username = client->socks_username;
-        socks_auth_info[1].password.username_len = strlen(client->socks_username);
+    }
+
+    // setup auth info
+    client->socks_num_auth_info = socks_num_auth_info;
+    for (size_t i = 0; i < socks_num_auth_info; i++) {
+        client->socks_auth_info[i] = socks_auth_info[i];
+    }
+
+    if (client->socks_username) {
+        for (size_t i = 0; i < client->socks_num_auth_info; i++) {
+            if (client->socks_auth_info[i].auth_type == SOCKS_METHOD_USERNAME_PASSWORD) {
+                client->socks_auth_info[i].password.username = client->socks_username;
+                client->socks_auth_info[i].password.username_len = strlen(client->socks_username);
+                break;
+            }
+        }
     }
 
     // init SOCKS
-    if (!BSocksClient_Init(&client->socks_client, socks_server_addr, socks_auth_info, socks_num_auth_info,
+    if (!BSocksClient_Init(&client->socks_client, socks_server_addr, client->socks_auth_info, client->socks_num_auth_info,
                            addr, (BSocksClient_handler)client_socks_handler, client, &ss)) {
         BLog(BLOG_ERROR, "listener accept: BSocksClient_Init failed");
         goto fail1;
