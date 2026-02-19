@@ -68,11 +68,12 @@ class AutoPilotService extends ChangeNotifier {
 
   late MethodChannel _methodChannel;
   final ShizukuApi _shizuku = ShizukuApi();
-  final StreamController<AutoPilotState> _stateController = StreamController<AutoPilotState>.broadcast();
-  
+  final StreamController<AutoPilotState> _stateController =
+      StreamController<AutoPilotState>.broadcast();
+
   AutoPilotConfig _config = const AutoPilotConfig();
   AutoPilotState _currentState = const AutoPilotState();
-  
+
   Timer? _timer;
   int _consecutiveResets = 0;
   int _watchdogRefreshCounter = 0;
@@ -101,10 +102,10 @@ class AutoPilotService extends ChangeNotifier {
     _isInitializing = true;
     try {
       _methodChannel = const MethodChannel('com.minizivpn.app/core');
-      
+
       await _loadConfig();
       await _notificationService.init();
-      
+
       _isInitialized = true;
       debugPrint('[AutoPilotService] Initialization complete');
     } catch (e) {
@@ -132,7 +133,8 @@ class AutoPilotService extends ChangeNotifier {
         recoveryWaitSeconds: prefs.getInt('recoveryWaitSeconds') ?? 10,
         autoHealthCheck: prefs.getBool('autoHealthCheck') ?? false,
         enablePingStabilizer: prefs.getBool('enablePingStabilizer') ?? false,
-        stabilizerSizeMb: (prefs.getInt('stabilizerSizeMb') ?? 1).clamp(1, _maxStabilizerSizeMb),
+        stabilizerSizeMb: (prefs.getInt('stabilizerSizeMb') ?? 1)
+            .clamp(1, _maxStabilizerSizeMb),
         maxConsecutiveResets: prefs.getInt('maxConsecutiveResets') ?? 5,
         pingDestination: _normalizePingDestination(
           prefs.getString('pingDestination'),
@@ -146,20 +148,22 @@ class AutoPilotService extends ChangeNotifier {
   Future<void> updateConfig(AutoPilotConfig newConfig) async {
     final wasRunning = isRunning;
     if (wasRunning) stop();
-    
+
     _config = newConfig;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('checkIntervalSeconds', _config.checkIntervalSeconds);
-    await prefs.setInt('connectionTimeoutSeconds', _config.connectionTimeoutSeconds);
+    await prefs.setInt(
+        'connectionTimeoutSeconds', _config.connectionTimeoutSeconds);
     await prefs.setInt('maxFailCount', _config.maxFailCount);
-    await prefs.setInt('airplaneModeDelaySeconds', _config.airplaneModeDelaySeconds);
+    await prefs.setInt(
+        'airplaneModeDelaySeconds', _config.airplaneModeDelaySeconds);
     await prefs.setInt('recoveryWaitSeconds', _config.recoveryWaitSeconds);
     await prefs.setBool('autoHealthCheck', _config.autoHealthCheck);
     await prefs.setBool('enablePingStabilizer', _config.enablePingStabilizer);
     await prefs.setInt('stabilizerSizeMb', _config.stabilizerSizeMb);
     await prefs.setInt('maxConsecutiveResets', _config.maxConsecutiveResets);
     await prefs.setString('pingDestination', _config.pingDestination);
-    
+
     if (wasRunning) start();
     notifyListeners();
   }
@@ -189,7 +193,7 @@ class AutoPilotService extends ChangeNotifier {
         failCount: 0,
         message: 'Lexpesawat siap di latar belakang',
       ));
-      
+
       notifyListeners();
     } catch (e) {
       _updateState(_currentState.copyWith(
@@ -226,7 +230,8 @@ class AutoPilotService extends ChangeNotifier {
           failCount: newFailCount,
           lastCheck: lastCheck,
           hasInternet: false,
-          message: 'No internet detected (Attempt $newFailCount/${_config.maxFailCount})',
+          message:
+              'No internet detected (Attempt $newFailCount/${_config.maxFailCount})',
         ));
 
         if (newFailCount >= _config.maxFailCount) {
@@ -288,9 +293,10 @@ class AutoPilotService extends ChangeNotifier {
           .get(Uri.parse(_config.pingDestination))
           .timeout(Duration(seconds: _config.connectionTimeoutSeconds));
       final elapsed = DateTime.now().difference(startTime).inMilliseconds;
-      
-      final isConnected = response.statusCode == 204 || response.statusCode == 200;
-      
+
+      final isConnected =
+          response.statusCode == 204 || response.statusCode == 200;
+
       final pingEntry = PingLogEntry(
         timestamp: startTime,
         status: PingStatus.success,
@@ -298,30 +304,33 @@ class AutoPilotService extends ChangeNotifier {
         statusCode: response.statusCode,
         destination: _config.pingDestination,
       );
-      
+
       _addPingLog(pingEntry);
       _logToNative("PING ${response.statusCode} (${elapsed}ms)");
       await _notificationService.showPingNotification(pingEntry);
-      
+
       if (_lastFailureTime != null) {
-        await _notificationService.showRecoveryNotification(pingEntry, DateTime.now().difference(_lastFailureTime!));
+        await _notificationService.showRecoveryNotification(
+            pingEntry, DateTime.now().difference(_lastFailureTime!));
         _lastFailureTime = null;
       }
-      
+
       return isConnected;
     } catch (e) {
       final pingEntry = PingLogEntry(
         timestamp: DateTime.now(),
-        status: e.toString().contains('TimeoutException') ? PingStatus.timeout : PingStatus.failed,
+        status: e.toString().contains('TimeoutException')
+            ? PingStatus.timeout
+            : PingStatus.failed,
         destination: _config.pingDestination,
         errorMessage: e.toString(),
       );
-      
+
       _addPingLog(pingEntry);
       _logToNative("PING FAILED: ${e.toString().split('\n').first}");
       await _notificationService.showPingNotification(pingEntry);
       _lastFailureTime ??= DateTime.now();
-      
+
       return false;
     }
   }
@@ -356,7 +365,9 @@ class AutoPilotService extends ChangeNotifier {
         status: AutoPilotStatus.running,
         failCount: recovered ? 0 : _currentState.failCount,
         hasInternet: recovered,
-        message: recovered ? 'Recovery successful' : 'Recovery completed, but internet unstable',
+        message: recovered
+            ? 'Recovery successful'
+            : 'Recovery completed, but internet unstable',
       ));
     } catch (e) {
       _updateState(_currentState.copyWith(
@@ -368,11 +379,13 @@ class AutoPilotService extends ChangeNotifier {
 
   Future<void> _runPingStabilizer() async {
     final ioc = HttpClient();
-    ioc.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+    ioc.badCertificateCallback =
+        (X509Certificate cert, String host, int port) => true;
     final client = IOClient(ioc);
-    
+
     try {
-      final totalChunks = _config.stabilizerSizeMb.clamp(1, _maxStabilizerSizeMb);
+      final totalChunks =
+          _config.stabilizerSizeMb.clamp(1, _maxStabilizerSizeMb);
       for (int i = 0; i < totalChunks; i++) {
         if (!isRunning) break;
         try {
@@ -380,18 +393,21 @@ class AutoPilotService extends ChangeNotifier {
           final baseUrl = _stabilizerUrls[i % _stabilizerUrls.length];
           // Append cache-busting timestamp
           final separator = baseUrl.contains('?') ? '&' : '?';
-          final url = '$baseUrl${separator}t=${DateTime.now().millisecondsSinceEpoch}';
-          
+          final url =
+              '$baseUrl${separator}t=${DateTime.now().millisecondsSinceEpoch}';
+
           final request = http.Request('GET', Uri.parse(url));
-          final response = await client.send(request).timeout(_stabilizerChunkTimeout);
-          
+          final response =
+              await client.send(request).timeout(_stabilizerChunkTimeout);
+
           // Consume the stream to ensure download happens
           await for (final _ in response.stream) {
             if (!isRunning) break;
           }
-          _logToNative("Stabilizer chunk ${i + 1}/$totalChunks downloaded from ${Uri.parse(baseUrl).host}");
+          _logToNative(
+              "Stabilizer chunk ${i + 1}/$totalChunks downloaded from ${Uri.parse(baseUrl).host}");
         } catch (e) {
-           _logToNative("Stabilizer chunk ${i + 1} error: $e");
+          _logToNative("Stabilizer chunk ${i + 1} error: $e");
         }
       }
     } finally {
@@ -406,11 +422,14 @@ class AutoPilotService extends ChangeNotifier {
     final svcAction = enabled ? 'disable' : 'enable';
 
     // Preserve Hotspot: Exclude 'wifi' and 'bluetooth' from airplane mode radios
-    const preserveHotspotCommand = 'settings put global airplane_mode_radios cell,nfc,wimax';
+    const preserveHotspotCommand =
+        'settings put global airplane_mode_radios cell,nfc,wimax';
 
     if (enabled) {
       try {
-        await _shizuku.runCommand(preserveHotspotCommand).timeout(_shizukuCommandTimeout);
+        await _shizuku
+            .runCommand(preserveHotspotCommand)
+            .timeout(_shizukuCommandTimeout);
       } catch (_) {}
     }
 
@@ -424,7 +443,7 @@ class AutoPilotService extends ChangeNotifier {
               .replaceAll('{stateValue}', stateValue.toString())
               .replaceAll('{stateBool}', stateBool)
               .replaceAll('{svcAction}', svcAction);
-          
+
           await _shizuku.runCommand(command).timeout(_shizukuCommandTimeout);
         }
         return; // Success
@@ -434,14 +453,15 @@ class AutoPilotService extends ChangeNotifier {
         continue; // Try next method
       }
     }
-    
+
     throw 'Unable to toggle airplane mode: $lastError';
   }
 
   Future<void> _logToNative(String message) async {
     try {
       if (_isInitialized) {
-        await _methodChannel.invokeMethod('logMessage', {'message': "[AutoPilot] $message"});
+        await _methodChannel
+            .invokeMethod('logMessage', {'message': "[AutoPilot] $message"});
       }
     } catch (e) {
       debugPrint("Failed to log to native: $e");
@@ -450,7 +470,7 @@ class AutoPilotService extends ChangeNotifier {
 
   void _updateState(AutoPilotState newState) {
     if (newState.message != null && newState.message != _currentState.message) {
-        _logToNative(newState.message!);
+      _logToNative(newState.message!);
     }
     _currentState = newState;
     _stateController.add(newState);
@@ -462,5 +482,6 @@ class AutoPilotService extends ChangeNotifier {
     if (_pingLogs.length > 100) _pingLogs.removeLast();
   }
 
-  List<PingLogEntry> getRecentPingLogs({int limit = 10}) => _pingLogs.take(limit).toList();
+  List<PingLogEntry> getRecentPingLogs({int limit = 10}) =>
+      _pingLogs.take(limit).toList();
 }

@@ -1,8 +1,8 @@
 /// PING status enumeration
 enum PingStatus {
-  success,    // ✓ 200/204 response
-  failed,     // ✗ Network/DNS failure
-  timeout;    // ✗ Timeout exceeded
+  success, // ✓ 200/204 response
+  failed, // ✗ Network/DNS failure
+  timeout; // ✗ Timeout exceeded
 
   String get emoji {
     switch (this) {
@@ -28,11 +28,11 @@ enum PingStatus {
 
 /// Latency quality classification
 enum LatencyQuality {
-  excellent,   // 0-100 ms
-  good,        // 100-200 ms
-  acceptable,  // 200-400 ms
-  slow,        // 400-5000 ms
-  timeout;     // 5000+ ms
+  excellent, // 0-100 ms
+  good, // 100-200 ms
+  acceptable, // 200-400 ms
+  slow, // 400-5000 ms
+  timeout; // 5000+ ms
 
   String get displayName {
     switch (this) {
@@ -69,7 +69,7 @@ enum LatencyQuality {
 class PingLogEntry {
   final DateTime timestamp;
   final PingStatus status;
-  final int? latencyMs;  // milliseconds for successful pings
+  final int? latencyMs; // milliseconds for successful pings
   final int? statusCode; // HTTP status code (200/204)
   final String destination;
   final String? errorMessage;
@@ -86,8 +86,8 @@ class PingLogEntry {
   /// Get latency quality classification
   LatencyQuality get latencyQuality {
     if (status != PingStatus.success || latencyMs == null) {
-      return status == PingStatus.timeout 
-          ? LatencyQuality.timeout 
+      return status == PingStatus.timeout
+          ? LatencyQuality.timeout
           : LatencyQuality.excellent;
     }
 

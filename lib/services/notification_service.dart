@@ -5,12 +5,14 @@ import '../models/ping_log_entry.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
-  static const MethodChannel _platform = MethodChannel('com.minizivpn.app/service');
-  
+  static const MethodChannel _platform =
+      MethodChannel('com.minizivpn.app/service');
+
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _notifications =
+      FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
 
   Future<void> init() async {
@@ -26,10 +28,12 @@ class NotificationService {
     );
 
     await _notifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(androidChannel);
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidSettings);
 
     await _notifications.initialize(initSettings);
@@ -57,7 +61,8 @@ class NotificationService {
     );
   }
 
-  Future<void> showRecoveryNotification(PingLogEntry successEntry, Duration downtime) async {
+  Future<void> showRecoveryNotification(
+      PingLogEntry successEntry, Duration downtime) async {
     if (!_isInitialized) await init();
 
     final minutesDown = downtime.inSeconds > 60
@@ -108,7 +113,8 @@ class NotificationService {
     await _notifications.show(1001, title, body, notificationDetails);
   }
 
-  Future<void> showProgress(int id, int progress, int total, String title, String body) async {
+  Future<void> showProgress(
+      int id, int progress, int total, String title, String body) async {
     if (!_isInitialized) await init();
 
     final androidDetails = AndroidNotificationDetails(

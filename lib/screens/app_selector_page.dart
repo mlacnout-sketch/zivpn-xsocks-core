@@ -13,7 +13,7 @@ class AppSelectorPage extends StatefulWidget {
 
 class _AppSelectorPageState extends State<AppSelectorPage> {
   static const platform = MethodChannel('com.minizivpn.app/core');
-  
+
   List<Map<String, String>> _allApps = [];
   List<Map<String, String>> _filteredApps = [];
   final Set<String> _selectedPackages = {};
@@ -30,7 +30,8 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
 
   Future<void> _loadApps() async {
     try {
-      final List<dynamic> apps = await platform.invokeMethod('getInstalledApps');
+      final List<dynamic> apps =
+          await platform.invokeMethod('getInstalledApps');
       if (mounted) {
         setState(() {
           _allApps = apps.map((e) => Map<String, String>.from(e)).toList();
@@ -53,7 +54,7 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
     setState(() {
       _filteredApps = _allApps.where((app) {
         return app['name']!.toLowerCase().contains(query) ||
-               app['package']!.toLowerCase().contains(query);
+            app['package']!.toLowerCase().contains(query);
       }).toList();
     });
   }
@@ -78,7 +79,8 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
               decoration: InputDecoration(
                 hintText: "Search apps...",
                 prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
                 fillColor: AppColors.card,
               ),
@@ -97,7 +99,8 @@ class _AppSelectorPageState extends State<AppSelectorPage> {
 
                 return CheckboxListTile(
                   title: Text(app['name']!),
-                  subtitle: Text(pkg, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  subtitle: Text(pkg,
+                      style: const TextStyle(fontSize: 10, color: Colors.grey)),
                   value: isSelected,
                   activeColor: AppColors.primary,
                   onChanged: (val) {
