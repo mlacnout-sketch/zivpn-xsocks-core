@@ -519,8 +519,17 @@ class MainActivity: FlutterActivity() {
 
                 val icon = Icon.createWithBitmap(bitmap)
 
+                // Ensure channel exists
+                val channelId = "ping_notifications"
+                val manager = getSystemService(NotificationManager::class.java)
+                if (manager != null) {
+                    val channel = NotificationChannel(channelId, "AutoPilot Status", NotificationManager.IMPORTANCE_LOW)
+                    channel.setShowBadge(false)
+                    manager.createNotificationChannel(channel)
+                }
+
                 // Build notification
-                val builder = Notification.Builder(this, "AutoPilotWatchdogChannel")
+                val builder = Notification.Builder(this, channelId)
                     .setSmallIcon(icon)
                     .setContentTitle(title)
                     .setContentText(body)
