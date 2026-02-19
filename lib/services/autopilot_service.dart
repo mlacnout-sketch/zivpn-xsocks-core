@@ -59,7 +59,6 @@ class AutoPilotService extends ChangeNotifier {
     return withHttps.toString();
   }
 
-  late MethodChannel _methodChannel;
   final ShizukuApi _shizuku = ShizukuApi();
   final StreamController<AutoPilotState> _stateController = StreamController<AutoPilotState>.broadcast();
   
@@ -94,8 +93,6 @@ class AutoPilotService extends ChangeNotifier {
 
     _isInitializing = true;
     try {
-      _methodChannel = const MethodChannel('com.minizivpn.app/service');
-      
       await _loadConfig();
       await _notificationService.init();
       
