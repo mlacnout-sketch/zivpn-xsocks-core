@@ -8,9 +8,20 @@ class UpdateRepository {
   static const _platform = MethodChannel('com.minizivpn.app/core');
   final String apiUrl = "https://api.github.com/repos/mlacnout-sketch/zivpn-xsocks-core/releases";
 
+  Future<String> _getDeviceAbi() async {
+    try {
+      final String? abi = await _platform.invokeMethod('getABI');
+      return abi ?? "arm64-v8a";
+    } catch (e) {
+      print("Failed to get ABI: $e");
+      return "arm64-v8a";
+    }
+  }
+
   // Use Native Bridge to bypass VPN exclusions/routing issues
   Future<AppVersion?> fetchUpdate() async {
     try {
+      print("Checking for updates via Native Bridge (SOCKS5 Loopback)...");
       final responseBody = await _platform.invokeMethod('checkUpdateNative', {'url': apiUrl});
       if (responseBody != null) {
         return await _processResponse(responseBody);
@@ -23,7 +34,8 @@ class UpdateRepository {
 
   Future<File?> downloadUpdate(AppVersion version, File targetFile, Function(double) onProgress) async {
     try {
-      // Notify start (Native download is blocking/indeterminate for now)
+      print("Downloading update: ${version.name} for ${version.apkUrl}");
+      // Notify start
       onProgress(0.1);
       
       final result = await _platform.invokeMethod('downloadUpdateNative', {
@@ -48,8 +60,9 @@ class UpdateRepository {
       final List releases = json.decode(jsonStr);
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = packageInfo.version;
+      final deviceAbi = await _getDeviceAbi();
       
-      print("Current App: $currentVersion");
+      print("Update Check: Current=$currentVersion, ABI=$deviceAbi");
       
       for (var release in releases) {
         final tagName = release['tag_name'].toString();
@@ -57,12 +70,28 @@ class UpdateRepository {
           final assets = release['assets'] as List?;
           if (assets == null) continue;
 
-          final asset = assets.firstWhere(
-            (a) => a['content_type'] == 'application/vnd.android.package-archive' || a['name'].toString().endsWith('.apk'),
+          // ABI Filtering Strategy:
+          // 1. Look for assets containing the specific device ABI (e.g., 'arm64-v8a')
+          // 2. Fallback to 'universal' or any APK if only one is available
+          var asset = assets.firstWhere(
+            (a) {
+              final name = a['name'].toString().toLowerCase();
+              return name.endsWith('.apk') && name.contains(deviceAbi.toLowerCase());
+            },
+            orElse: () => null
+          );
+
+          // Second pass: Universal or simple APK
+          asset ??= assets.firstWhere(
+            (a) {
+              final name = a['name'].toString().toLowerCase();
+              return name.endsWith('.apk') && (name.contains('universal') || !name.contains('arm'));
+            },
             orElse: () => null
           );
 
           if (asset != null) {
+            print("Found matching update: $tagName (${asset['name']})");
             return AppVersion(
               name: tagName,
               apkUrl: asset['browser_download_url'],
@@ -72,6 +101,7 @@ class UpdateRepository {
           }
         }
       }
+      print("No newer version found for ABI: $deviceAbi");
       return null;
   }
 

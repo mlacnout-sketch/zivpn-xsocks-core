@@ -20,7 +20,9 @@ void main() {
           .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
         log.add(methodCall);
         if (methodCall.method == 'checkUpdateNative') {
-          return '[{"tag_name": "1.0.1", "assets": [{"content_type": "application/vnd.android.package-archive", "browser_download_url": "http://example.com/app.apk", "size": 1024}]}]';
+          return '[{"tag_name": "1.0.1", "assets": [{"name": "app-arm64-v8a.apk", "content_type": "application/vnd.android.package-archive", "browser_download_url": "http://example.com/app.apk", "size": 1024}]}]';
+        } else if (methodCall.method == 'getABI') {
+          return 'arm64-v8a';
         }
         return null;
       });

@@ -14,11 +14,9 @@ if [ -z "$FAILED_RUNS" ]; then
 fi
 
 COUNT=$(echo "$FAILED_RUNS" | wc -l)
-echo "🗑️ Found $COUNT failed runs. Deleting..."
+echo "🗑️ Found $COUNT failed runs. Deleting in parallel (8 threads)..."
 
-for RUN_ID in $FAILED_RUNS; do
-    echo "  - Deleting run $RUN_ID..."
-    gh run delete "$RUN_ID"
-done
+# Delete in parallel
+echo "$FAILED_RUNS" | xargs -I {} -P 8 sh -c "echo '  - Deleting run {}...'; gh run delete {}"
 
 echo "✨ Cleanup complete."

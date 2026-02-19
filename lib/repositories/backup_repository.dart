@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 
 class BackupRepository {
+  static const String _backupMagic = "ZIVPN_BKP_V1";
+  static const String _xorKey = "turbo_socks_2026";
+
   Future<File?> createBackup() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -14,26 +17,34 @@ class BackupRepository {
       // 1. Collect all SharedPreferences
       final keys = prefs.getKeys();
       for (String key in keys) {
-        // Skip ephemeral keys
-        if (key == 'vpn_running' || key == 'vpn_start_time') continue;
+        // Skip ephemeral or binary keys
+        if (key == 'vpn_running' || key == 'vpn_start_time' || key.startsWith('libuz_')) continue;
         
         final val = prefs.get(key);
         allPrefs[key] = val;
       }
 
-      // 2. Prepare Config JSON
-      final configJson = jsonEncode(allPrefs);
+      // 2. Prepare Config JSON with Metadata
+      final backupData = {
+        'magic': _backupMagic,
+        'timestamp': DateTime.now().toIso8601String(),
+        'app_version': '1.0.27',
+        'data': allPrefs,
+      };
+      
+      final configJson = jsonEncode(backupData);
+      
+      // 3. Encrypt JSON (Simple XOR for basic security against casual inspection)
+      final encryptedBytes = _xorCipher(utf8.encode(configJson));
 
-      // 3. Create ZIP Archive
+      // 4. Create ZIP Archive
       final archive = Archive();
+      archive.addFile(ArchiveFile('vault.bin', encryptedBytes.length, encryptedBytes));
       
-      // Add config.json
-      archive.addFile(ArchiveFile('config.json', configJson.length, utf8.encode(configJson)));
-      
-      // 4. Save ZIP to temp
+      // 5. Save ZIP to temp
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      final fileName = "minizivpn_backup_$timestamp.zip";
+      final fileName = "zivpn_backup_$timestamp.zip";
       final zipFile = File('${tempDir.path}/$fileName');
       
       final encoder = ZipEncoder();
@@ -53,18 +64,33 @@ class BackupRepository {
       final bytes = await backupFile.readAsBytes();
       final archive = ZipDecoder().decodeBytes(bytes);
       
-      // Find config.json
-      final ArchiveFile? configFile = archive.findFile('config.json');
-      if (configFile == null) return false;
+      // Find vault.bin (Encrypted) or config.json (Old Legacy)
+      final ArchiveFile? vaultFile = archive.findFile('vault.bin');
+      final ArchiveFile? legacyFile = archive.findFile('config.json');
       
-      final content = utf8.decode(configFile.content as List<int>);
-      final Map<String, dynamic> prefsData = jsonDecode(content);
+      String content;
+      if (vaultFile != null) {
+        final decryptedBytes = _xorCipher(vaultFile.content as List<int>);
+        content = utf8.decode(decryptedBytes);
+      } else if (legacyFile != null) {
+        content = utf8.decode(legacyFile.content as List<int>);
+      } else {
+        return false;
+      }
+
+      final Map<String, dynamic> backupJson = jsonDecode(content);
+      
+      // Validate Magic if using new format
+      if (vaultFile != null && backupJson['magic'] != _backupMagic) {
+        print("Invalid backup format");
+        return false;
+      }
+
+      final Map<String, dynamic> prefsData = vaultFile != null 
+          ? Map<String, dynamic>.from(backupJson['data']) 
+          : backupJson;
       
       final prefs = await SharedPreferences.getInstance();
-      
-      // Clear current prefs or merge? Ideally clear relevant ones first to avoid ghost data.
-      // But clearing everything might wipe 'vpn_running' state if app crashed.
-      // We overwrite keys present in backup.
       
       for (var entry in prefsData.entries) {
         final key = entry.key;
@@ -82,5 +108,14 @@ class BackupRepository {
       print("Restore failed: $e");
       return false;
     }
+  }
+
+  List<int> _xorCipher(List<int> input) {
+    final keyBytes = utf8.encode(_xorKey);
+    final output = List<int>.filled(input.length, 0);
+    for (int i = 0; i < input.length; i++) {
+      output[i] = input[i] ^ keyBytes[i % keyBytes.length];
+    }
+    return output;
   }
 }
