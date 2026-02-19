@@ -89,11 +89,20 @@ class ZivpnService : VpnService() {
         }
     }
 
-    private fun logToApp(msg: String) {
-        val intent = Intent(ACTION_LOG)
-        intent.putExtra("message", msg)
-        sendBroadcast(intent)
-        Log.d("ZIVPN-Core", msg)
+    private var currentLogLevel = "info"
+
+    private fun logToApp(msg: String, level: String = "info") {
+        // Log Level Hierarchy: debug > info > error > silent
+        val levelPriority = mapOf("debug" to 3, "info" to 2, "error" to 1, "silent" to 0)
+        val configPriority = levelPriority[currentLogLevel] ?: 2
+        val msgPriority = levelPriority[level] ?: 2
+
+        if (msgPriority <= configPriority && configPriority > 0) {
+            val intent = Intent(ACTION_LOG)
+            intent.putExtra("message", msg)
+            sendBroadcast(intent)
+        }
+        Log.d("ZIVPN-Core", "[$level] $msg")
     }
 
     private fun captureProcessLog(process: Process, name: String) {
@@ -102,10 +111,12 @@ class ZivpnService : VpnService() {
                 val reader = BufferedReader(InputStreamReader(process.inputStream))
                 var line: String?
                 while (reader.readLine().also { line = it } != null) {
-                    logToApp("[$name] $line")
+                    // Internal core logs are treated as 'info' unless they contain error patterns
+                    val level = if (line?.lowercase()?.contains("error") == true) "error" else "info"
+                    logToApp("[$name] $line", level)
                 }
             } catch (e: Exception) {
-                logToApp("[$name] Log stream closed: ${e.message}")
+                logToApp("[$name] Log stream closed: ${e.message}", "debug")
             }
         }.start()
         
@@ -114,7 +125,7 @@ class ZivpnService : VpnService() {
                 val reader = BufferedReader(InputStreamReader(process.errorStream))
                 var line: String?
                 while (reader.readLine().also { line = it } != null) {
-                    logToApp("[$name-ERR] $line")
+                    logToApp("[$name-ERR] $line", "error")
                 }
             } catch (e: Exception) {}
         }.start()
@@ -230,9 +241,10 @@ class ZivpnService : VpnService() {
 
         Thread {
             try {
-                Log.i("ZIVPN-Tun", "Initializing ZIVPN (native tun2socks)...")
-                
                 val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+                currentLogLevel = getPrefString(prefs, "log_level", "info")
+                
+                logToApp("Initializing ZIVPN (native tun2socks)...", "info")
                 
                 val ip = getPrefString(prefs, "server_ip", "")
                 val range = getPrefString(prefs, "server_range", "")
@@ -424,8 +436,14 @@ class ZivpnService : VpnService() {
 
             Thread.sleep(1000)
             if (NativeSystem.sendfd(fd) == 0) {
-                logToApp("VPN Engine Running.")
+                logToApp("VPN Engine Running.", "info")
                 prefs.edit().putBoolean("flutter.vpn_running", true).apply()
+                
+                // Trigger AutoPilot auto-start if configured
+                logToApp("Signaling AutoPilot to start...", "debug")
+                val autoPilotIntent = Intent(ACTION_LOG).apply { putExtra("message", "[SYSTEM] START_AUTOPILOT") }
+                sendBroadcast(autoPilotIntent)
+
                 val pingInterval = prefs.getInt("ping_interval", 3)
                 val rawTarget = getPrefString(prefs, "ping_target", "http://connectivitycheck.gstatic.com/generate_204")
                 val finalTarget = if (rawTarget.startsWith("http")) rawTarget else "http://$rawTarget"
@@ -536,6 +554,10 @@ class ZivpnService : VpnService() {
         val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
         prefs.edit().putBoolean("flutter.vpn_running", false).apply()
         
+        // Ensure ping notification is removed
+        val stopIconIntent = Intent(ACTION_LOG).apply { putExtra("message", "[SYSTEM] STOP_PING_ICON") }
+        sendBroadcast(stopIconIntent)
+
         stopForeground(true)
         stopSelf()
     }

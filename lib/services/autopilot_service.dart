@@ -102,7 +102,22 @@ class AutoPilotService extends ChangeNotifier {
     _isInitializing = true;
     try {
       _methodChannel = const MethodChannel('com.minizivpn.app/core');
+      final serviceChannel = const MethodChannel('com.minizivpn.app/service');
       
+      serviceChannel.setMethodCallHandler((call) async {
+        if (call.method == 'autoStartAutoPilot') {
+          debugPrint('[AutoPilotService] Auto-start signal received');
+          // Only start if autoHealthCheck is enabled or similar user preference
+          if (_config.autoHealthCheck && !isRunning) {
+            try {
+              await start();
+            } catch (e) {
+              debugPrint('[AutoPilotService] Auto-start failed: $e');
+            }
+          }
+        }
+      });
+
       await _loadConfig();
       await _notificationService.init();
       
@@ -206,6 +221,11 @@ class AutoPilotService extends ChangeNotifier {
     _timer?.cancel();
     isRunning = false;
     _watchdogRefreshCounter = 0;
+
+    // Explicitly clear the native notification icon
+    const MethodChannel('com.minizivpn.app/service').invokeMethod('stopPingIcon').catchError((e) {
+      debugPrint('[AutoPilotService] Failed to stop ping icon: $e');
+    });
 
     _updateState(_currentState.copyWith(
       status: AutoPilotStatus.idle,

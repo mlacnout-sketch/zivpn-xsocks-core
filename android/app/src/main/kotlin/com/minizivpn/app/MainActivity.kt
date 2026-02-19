@@ -57,7 +57,30 @@ class MainActivity: FlutterActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val log = intent?.getStringExtra("message")
             if (log != null) {
-                sendToLog(log)
+                if (log.startsWith("[SYSTEM] ")) {
+                    handleSystemSignal(log.substring(9))
+                } else {
+                    sendToLog(log)
+                }
+            }
+        }
+    }
+
+    private fun handleSystemSignal(signal: String) {
+        Log.d("ZIVPN-System", "Signal received: $signal")
+        when (signal) {
+            "START_AUTOPILOT" -> {
+                // Signal Flutter to start AutoPilot
+                uiHandler.post {
+                    val flutterEngine = this.flutterEngine
+                    if (flutterEngine != null) {
+                        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.minizivpn.app/service")
+                            .invokeMethod("autoStartAutoPilot", null)
+                    }
+                }
+            }
+            "STOP_PING_ICON" -> {
+                cancelPingNotification()
             }
         }
     }
@@ -431,6 +454,10 @@ class MainActivity: FlutterActivity() {
                         result.error("NOTIFICATION_UPDATE_FAILED", "Failed to update ping icon notification", null)
                     }
                 }
+                "stopPingIcon" -> {
+                    cancelPingNotification()
+                    result.success(true)
+                }
                 "minimizeApp" -> {
                     moveTaskToBack(true)
                     result.success("Minimized")
@@ -564,6 +591,12 @@ class MainActivity: FlutterActivity() {
             }
         }
         return false
+    }
+
+    private fun cancelPingNotification() {
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager?.cancel(1001)
+        Log.d("ZIVPN-Bitmap", "Ping icon notification cancelled")
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
