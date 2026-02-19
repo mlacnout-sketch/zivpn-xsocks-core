@@ -799,7 +799,7 @@ inline static void *realloc_or_cleanup(void *ptr,size_t size)
 
 /* These functions will be used in case a TCP query might fail and we want to try again using UDP. */
 
-# define tentative_tcp_query(st) ((st)->qm==TCP_UDP && ((st)->state==QS_TCPWRITE || ((st)->state==QS_TCPREAD && (st)->iolen==0)))
+# define tentative_tcp_query(st) (((st)->qm==TCP_UDP || (st)->qm==TCP_ONLY) && ((st)->state==QS_TCPWRITE || ((st)->state==QS_TCPREAD && (st)->iolen==0)))
 
 inline static void switch_to_udp(query_stat_t *st)
 {
@@ -994,9 +994,11 @@ static int p_query_sm(query_stat_t *st)
 		close(st->sock);
 	tcp_failed:
 #if !defined(NO_TCP_QUERIES) && !defined(NO_UDP_QUERIES)
-		if(st->qm==TCP_UDP) {
+		if(st->qm==TCP_UDP || st->qm==TCP_ONLY) {
 			switch_to_udp(st);
-			DEBUG_PDNSDA_MSG("TCP query to %s failed. Trying to use UDP.\n", PDNSDA2STR(PDNSD_A(st)));
+			DEBUG_PDNSDA_MSG("TCP query to %s failed (%s). Trying UDP fallback.\n",
+					 PDNSDA2STR(PDNSD_A(st)),
+					 st->s_errno?strerror(st->s_errno):"unknown");
 			goto tryagain;
 		}
 #endif
