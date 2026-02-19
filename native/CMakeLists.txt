@@ -164,9 +164,13 @@ if(NOT SKIP_JNI_CHECK)
     target_compile_options(system PRIVATE -O3)
 
     # For android_getCpuFamily - Only include if running within NDK context
-    if(ANDROID_NDK_REVISION OR ANDROID_PLATFORM)
-        include(AndroidNdkModules)
-        android_ndk_import_module_cpufeatures()
+    if(ANDROID)
+        # Manual import of cpufeatures for NDK r27+
+        if(NOT TARGET cpufeatures)
+            add_library(cpufeatures STATIC "${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c")
+            target_include_directories(cpufeatures PUBLIC "${ANDROID_NDK}/sources/android/cpufeatures")
+        endif()
+
         target_link_libraries(system ancillary log dl cpufeatures)
         target_compile_definitions(system PRIVATE HAVE_CPU_FEATURES)
     else()
