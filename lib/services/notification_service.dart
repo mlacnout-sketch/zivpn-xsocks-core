@@ -145,6 +145,18 @@ class NotificationService {
     await _notifications.show(id, title, body, details);
   }
 
+
+  Future<void> cancelPingNotification() async {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        await _platform.invokeMethod('cancelPingIcon').timeout(const Duration(seconds: 2));
+      } catch (e) {
+        debugPrint('[NotificationService] Failed to cancel ping icon via platform: $e');
+      }
+    }
+    await _notifications.cancel(1001);
+  }
+
   Future<void> cancel(int id) async {
     await _notifications.cancel(id);
   }

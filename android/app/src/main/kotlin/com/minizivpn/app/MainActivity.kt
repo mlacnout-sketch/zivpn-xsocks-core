@@ -410,6 +410,9 @@ class MainActivity: FlutterActivity() {
                     stopService(serviceIntent)
                     result.success("Stopped")
                 }
+                "cancelPingIcon" -> {
+                    result.success(cancelPingNotification())
+                }
                 "updatePingIcon" -> {
                     val text = call.argument<String>("text") ?: "?"
                     val title = call.argument<String>("title") ?: "PING Monitor"
@@ -427,6 +430,17 @@ class MainActivity: FlutterActivity() {
                 }
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    private fun cancelPingNotification(): Boolean {
+        return try {
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager?.cancel(1001)
+            true
+        } catch (e: Exception) {
+            Log.e("AutoPilot", "Failed to cancel ping notification", e)
+            false
         }
     }
 

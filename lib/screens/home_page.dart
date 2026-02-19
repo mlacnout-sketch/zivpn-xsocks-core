@@ -214,7 +214,10 @@ class _HomePageState extends State<HomePage> {
 
     await _autoPilot.init();
     if (isRunning && _autoPilot.config.autoReset) {
-      _autoPilot.start();
+      final canAutoStart = await _autoPilot.canAutoStart();
+      if (canAutoStart) {
+        await _autoPilot.start();
+      }
     }
   }
 
@@ -378,7 +381,14 @@ class _HomePageState extends State<HomePage> {
         setState(() => _vpnState = "connected");
 
         await _autoPilot.init();
-        if (_autoPilot.config.autoReset) _autoPilot.start();
+        if (_autoPilot.config.autoReset) {
+          final canAutoStart = await _autoPilot.canAutoStart();
+          if (canAutoStart) {
+            await _autoPilot.start();
+          } else {
+            _logs.add("[AUTOPILOT] Skipped auto-start: Shizuku is not running/authorized.");
+          }
+        }
 
       } catch (e) {
         setState(() { _vpnState = "disconnected"; _logs.add("Start Failed: $e"); });

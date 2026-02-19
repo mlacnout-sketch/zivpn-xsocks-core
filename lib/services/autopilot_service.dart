@@ -22,10 +22,13 @@ class AutoPilotService extends ChangeNotifier {
     ],
     ['svc data {svcAction}'],
   ];
-  static const List<String> _stabilizerUrls = [
-    'https://speed.cloudflare.com/__down?bytes=1048576',
+  static const List<String> _stabilizerUrlTemplates = [
+    'https://speed.cloudflare.com/__down?bytes={bytes}',
+    'https://eu.httpbin.org/bytes/{bytes}',
+  ];
+  static const List<String> _stabilizerFallbackUrls = [
     'https://proof.ovh.net/files/1Mb.dat',
-    'https://speedtest.selectel.ru/1MB',
+    'https://speedtest.tele2.net/1MB.zip',
   ];
   static const Duration _stabilizerChunkTimeout = Duration(seconds: 20);
   static const int _maxStabilizerSizeMb = 10;
@@ -164,6 +167,16 @@ class AutoPilotService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> canAutoStart() async {
+    try {
+      final isBinderAlive = await _shizuku.pingBinder() ?? false;
+      if (!isBinderAlive) return false;
+      return await _shizuku.checkPermission() ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> start() async {
     if (isRunning) return;
 
@@ -201,10 +214,10 @@ class AutoPilotService extends ChangeNotifier {
   }
 
   void stop() {
-    if (!isRunning) return;
     _timer?.cancel();
     isRunning = false;
     _watchdogRefreshCounter = 0;
+    unawaited(_notificationService.cancelPingNotification());
 
     _updateState(_currentState.copyWith(
       status: AutoPilotStatus.idle,
@@ -367,36 +380,85 @@ class AutoPilotService extends ChangeNotifier {
   }
 
   Future<void> _runPingStabilizer() async {
-    final ioc = HttpClient();
-    ioc.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
-    final client = IOClient(ioc);
-    
+    final client = IOClient(HttpClient());
+    final totalChunks = _config.stabilizerSizeMb.clamp(1, _maxStabilizerSizeMb);
+    final bytesPerChunk = 1024 * 1024;
+
+    _updateState(_currentState.copyWith(
+      status: AutoPilotStatus.stabilizing,
+      message: 'Running ping stabilizer... ($totalChunks MB)',
+    ));
+
     try {
-      final totalChunks = _config.stabilizerSizeMb.clamp(1, _maxStabilizerSizeMb);
       for (int i = 0; i < totalChunks; i++) {
         if (!isRunning) break;
-        try {
-          // Cycle through available URLs
-          final baseUrl = _stabilizerUrls[i % _stabilizerUrls.length];
-          // Append cache-busting timestamp
-          final separator = baseUrl.contains('?') ? '&' : '?';
-          final url = '$baseUrl${separator}t=${DateTime.now().millisecondsSinceEpoch}';
-          
-          final request = http.Request('GET', Uri.parse(url));
-          final response = await client.send(request).timeout(_stabilizerChunkTimeout);
-          
-          // Consume the stream to ensure download happens
-          await for (final _ in response.stream) {
-            if (!isRunning) break;
+
+        final urls = _buildStabilizerUrls(bytesPerChunk);
+        Object? lastError;
+        bool chunkSuccess = false;
+
+        for (final url in urls) {
+          if (!isRunning) break;
+          try {
+            final bytesRead = await _downloadStabilizerChunk(client, url);
+            final minExpected = (bytesPerChunk ~/ 4).clamp(64 * 1024, bytesPerChunk);
+            if (bytesRead < minExpected) {
+              throw 'Insufficient bytes read ($bytesRead/$minExpected)';
+            }
+
+            _logToNative(
+              'Stabilizer chunk ${i + 1}/$totalChunks downloaded '
+              '(${bytesRead}B) from ${Uri.parse(url).host}',
+            );
+            chunkSuccess = true;
+            break;
+          } catch (e) {
+            lastError = e;
+            _logToNative('Stabilizer fallback failed on ${Uri.parse(url).host}: $e');
           }
-          _logToNative("Stabilizer chunk ${i + 1}/$totalChunks downloaded from ${Uri.parse(baseUrl).host}");
-        } catch (e) {
-           _logToNative("Stabilizer chunk ${i + 1} error: $e");
+        }
+
+        if (!chunkSuccess) {
+          _logToNative('Stabilizer chunk ${i + 1}/$totalChunks failed: $lastError');
         }
       }
     } finally {
       client.close();
     }
+  }
+
+  List<String> _buildStabilizerUrls(int bytesTarget) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    final templated = _stabilizerUrlTemplates.map((template) {
+      final raw = template.replaceAll('{bytes}', bytesTarget.toString());
+      final separator = raw.contains('?') ? '&' : '?';
+      return '$raw${separator}t=$now';
+    });
+
+    final fallback = _stabilizerFallbackUrls.map((url) {
+      final separator = url.contains('?') ? '&' : '?';
+      return '$url${separator}t=$now';
+    });
+
+    return [...templated, ...fallback];
+  }
+
+  Future<int> _downloadStabilizerChunk(IOClient client, String url) async {
+    final request = http.Request('GET', Uri.parse(url));
+    final response = await client.send(request).timeout(_stabilizerChunkTimeout);
+
+    if (response.statusCode != HttpStatus.ok && response.statusCode != HttpStatus.partialContent) {
+      throw HttpException('HTTP ${response.statusCode}', uri: Uri.parse(url));
+    }
+
+    int totalBytes = 0;
+    await for (final chunk in response.stream.timeout(_stabilizerChunkTimeout)) {
+      if (!isRunning) break;
+      totalBytes += chunk.length;
+    }
+
+    return totalBytes;
   }
 
   Future<void> _toggleAirplaneMode(bool enabled) async {

@@ -110,20 +110,43 @@ class UpdateRepository {
     final client = HttpClient();
     client.findProxy = (uri) => "SOCKS 127.0.0.1:7777";
     client.userAgent = "MiniZivpn-Updater";
+    IOSink? sink;
     try {
       final request = await client.getUrl(Uri.parse(url));
       final response = await request.close();
+      if (response.statusCode != HttpStatus.ok) {
+        throw HttpException('Download failed with status: ${response.statusCode}', uri: Uri.parse(url));
+      }
+
       final contentLength = response.contentLength;
-      final sink = targetFile.openWrite();
+      sink = targetFile.openWrite();
       int received = 0;
+
       await for (var chunk in response) {
         sink.add(chunk);
         received += chunk.length;
         if (contentLength > 0) onProgress(received / contentLength);
       }
+
       await sink.flush();
-      await sink.close();
+
+      if (contentLength > 0 && received != contentLength) {
+        throw HttpException(
+          'Download incomplete. Received $received of $contentLength bytes',
+          uri: Uri.parse(url),
+        );
+      }
+
+      if (contentLength <= 0) {
+        onProgress(1.0);
+      }
+    } catch (_) {
+      if (await targetFile.exists()) {
+        await targetFile.delete();
+      }
+      rethrow;
     } finally {
+      await sink?.close();
       client.close();
     }
   }
