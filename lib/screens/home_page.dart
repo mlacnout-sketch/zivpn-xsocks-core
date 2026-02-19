@@ -358,6 +358,7 @@ class _HomePageState extends State<HomePage> {
           "cpu_wakelock": prefs.getBool('cpu_wakelock') ?? false,
           "udpgw_transparent_dns": prefs.getBool('udpgw_transparent_dns') ?? false,
           "native_perf_profile": profile,
+          "upstream_dns": prefs.getString('upstream_dns') ?? "8.8.8.8",
           "pdnsd_port": prefs.getInt('pdnsd_port') ?? 8091,
           "pdnsd_cache_entries": prefs.getInt('pdnsd_cache_entries') ?? 2048,
           "pdnsd_timeout_sec": prefs.getInt('pdnsd_timeout_sec') ?? 10,
