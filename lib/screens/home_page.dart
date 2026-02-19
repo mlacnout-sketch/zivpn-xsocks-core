@@ -214,9 +214,9 @@ class _HomePageState extends State<HomePage> {
 
     await _autoPilot.init();
     if (isRunning && _autoPilot.config.autoReset) {
-      final canAutoStart = await _autoPilot.canAutoStart();
-      if (canAutoStart) {
-        await _autoPilot.start();
+      final started = await _autoPilot.tryAutoStart();
+      if (!started) {
+        _logs.add("[AUTOPILOT] Auto-start skipped on restore: Shizuku not ready/authorized.");
       }
     }
   }
@@ -382,11 +382,11 @@ class _HomePageState extends State<HomePage> {
 
         await _autoPilot.init();
         if (_autoPilot.config.autoReset) {
-          final canAutoStart = await _autoPilot.canAutoStart();
-          if (canAutoStart) {
-            await _autoPilot.start();
-          } else {
+          final started = await _autoPilot.tryAutoStart();
+          if (!started) {
             _logs.add("[AUTOPILOT] Skipped auto-start: Shizuku is not running/authorized.");
+          } else {
+            _logs.add("[AUTOPILOT] Auto-start enabled (Shizuku ready).");
           }
         }
 

@@ -34,6 +34,8 @@ class AutoPilotService extends ChangeNotifier {
   static const int _maxStabilizerSizeMb = 10;
   static const Duration _shizukuCommandTimeout = Duration(seconds: 4);
   static const int _watchdogPriorityRefreshInterval = 5;
+  static const int _autoStartShizukuRetryCount = 4;
+  static const Duration _autoStartShizukuRetryDelay = Duration(milliseconds: 500);
 
   static final AutoPilotService _instance = AutoPilotService._internal();
 
@@ -167,24 +169,50 @@ class AutoPilotService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> canAutoStart() async {
+  Future<bool> canAutoStart({
+    int retryCount = _autoStartShizukuRetryCount,
+    Duration retryDelay = _autoStartShizukuRetryDelay,
+  }) async {
     try {
-      final isBinderAlive = await _shizuku.pingBinder() ?? false;
-      if (!isBinderAlive) return false;
-      return await _shizuku.checkPermission() ?? false;
+      for (int i = 0; i < retryCount; i++) {
+        final isBinderAlive = await _shizuku.pingBinder() ?? false;
+        if (isBinderAlive) {
+          return await _shizuku.checkPermission() ?? false;
+        }
+        if (i < retryCount - 1) {
+          await Future.delayed(retryDelay);
+        }
+      }
+      return false;
     } catch (_) {
       return false;
     }
   }
 
-  Future<void> start() async {
+  Future<bool> tryAutoStart() async {
+    final canStart = await canAutoStart();
+    if (!canStart || isRunning) return false;
+
+    try {
+      await start(requestPermissionIfNeeded: false);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> start({bool requestPermissionIfNeeded = true}) async {
     if (isRunning) return;
 
     try {
       final isBinderAlive = await _shizuku.pingBinder() ?? false;
       if (!isBinderAlive) throw 'Shizuku service is not running.';
 
-      if (!(await _shizuku.checkPermission() ?? false)) {
+      final hasPermission = await _shizuku.checkPermission() ?? false;
+      if (!hasPermission) {
+        if (!requestPermissionIfNeeded) {
+          throw 'Shizuku Permission Not Granted';
+        }
         final granted = await _shizuku.requestPermission() ?? false;
         if (!granted) throw 'Shizuku Permission Denied';
       }
