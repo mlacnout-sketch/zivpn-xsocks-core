@@ -377,6 +377,18 @@ class AutoPilotService extends ChangeNotifier {
     ));
 
     try {
+      // Final pre-reset check: If internet is actually back, skip reset
+      if (await _hasInternetConnection()) {
+        _consecutiveResets = 0;
+        _updateState(_currentState.copyWith(
+          status: AutoPilotStatus.running,
+          failCount: 0,
+          hasInternet: true,
+          message: 'Internet recovered just before reset, skipping.',
+        ));
+        return;
+      }
+
       await _toggleAirplaneMode(true);
       await Future.delayed(Duration(seconds: _config.airplaneModeDelaySeconds));
       await _toggleAirplaneMode(false);
@@ -389,13 +401,14 @@ class AutoPilotService extends ChangeNotifier {
 
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.running,
-        failCount: recovered ? 0 : _currentState.failCount,
+        failCount: 0, // CRITICAL: Reset fail count even if not recovered to avoid instant loop
         hasInternet: recovered,
-        message: recovered ? 'Recovery successful' : 'Recovery completed, but internet unstable',
+        message: recovered ? 'Recovery successful' : 'Recovery completed, but internet unstable. Waiting for next cycle.',
       ));
     } catch (e) {
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.error,
+        failCount: 0, // Reset on error to prevent loop
         message: 'Recovery failed: $e',
       ));
     }
