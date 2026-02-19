@@ -32,6 +32,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.Icon
 import android.app.Notification
 import android.app.NotificationManager
+import android.app.NotificationChannel
 
 /**
  * ZIVPN Turbo Main Activity
@@ -551,7 +552,6 @@ class MainActivity: FlutterActivity() {
                 )
                 builder.setContentIntent(pendingIntent)
 
-                val manager = getSystemService(NotificationManager::class.java)
                 manager?.notify(1001, builder.build()) // ID 1001 for Ping Icon
                 return true
             } catch (e: Exception) {
