@@ -167,36 +167,39 @@ class MainActivity: FlutterActivity() {
                 val urlStr = call.argument<String>("url")
                 Thread {
                     try {
-                        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-                        var targetNet: android.net.Network? = null
-                        for (net in cm.allNetworks) {
-                            val caps = cm.getNetworkCapabilities(net)
-                            if (caps != null && caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) {
-                                targetNet = net
-                                break
-                            }
-                        }
-                        if (targetNet == null) targetNet = cm.activeNetwork
-
-                        if (targetNet != null) {
-                            val url = java.net.URL(urlStr)
-                            val conn = targetNet.openConnection(url) as java.net.HttpURLConnection
-                            conn.connectTimeout = 15000
-                            conn.readTimeout = 15000
-                            conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater")
-                            
+                        val url = java.net.URL(urlStr)
+                        // Strategy: Use SOCKS5 Proxy to loop traffic back through the VPN tunnel.
+                        val proxy = java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress("127.0.0.1", 7777))
+                        val conn = url.openConnection(proxy) as java.net.HttpURLConnection
+                        conn.connectTimeout = 15000
+                        conn.readTimeout = 15000
+                        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        
+                        val responseCode = conn.responseCode
+                        val stream = if (responseCode >= 400) conn.errorStream else conn.inputStream
+                        val reader = java.io.BufferedReader(java.io.InputStreamReader(stream))
+                        val sb = StringBuilder()
+                        var line: String?
+                        while (reader.readLine().also { line = it } != null) sb.append(line)
+                        reader.close()
+                        
+                        uiHandler.post { result.success(sb.toString()) }
+                    } catch (e: Exception) {
+                        Log.e("ZIVPN-Updater", "SOCKS5 Check failed: ${e.message}")
+                        // Fallback to direct if SOCKS5 fails (VPN not active)
+                        try {
+                            val conn = java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection
+                            conn.connectTimeout = 10000
+                            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                             val reader = java.io.BufferedReader(java.io.InputStreamReader(conn.inputStream))
                             val sb = StringBuilder()
                             var line: String?
                             while (reader.readLine().also { line = it } != null) sb.append(line)
                             reader.close()
-                            
                             uiHandler.post { result.success(sb.toString()) }
-                        } else {
-                            uiHandler.post { result.error("NO_NET", "No network", null) }
+                        } catch (e2: Exception) {
+                            uiHandler.post { result.error("ERR", e2.message, null) }
                         }
-                    } catch (e: Exception) {
-                        uiHandler.post { result.error("ERR", e.message, null) }
                     }
                 }.start()
             } else if (call.method == "downloadUpdateNative") {
@@ -204,38 +207,38 @@ class MainActivity: FlutterActivity() {
                 val destPath = call.argument<String>("path")
                 Thread {
                     try {
-                        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-                        var targetNet: android.net.Network? = null
-                        for (net in cm.allNetworks) {
-                            val caps = cm.getNetworkCapabilities(net)
-                            if (caps != null && caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) {
-                                targetNet = net
-                                break
-                            }
+                        if (urlStr == null || destPath == null) {
+                            uiHandler.post { result.error("FAIL", "Invalid args", null) }
+                            return@Thread
                         }
-                        if (targetNet == null) targetNet = cm.activeNetwork
-
-                        if (targetNet != null && urlStr != null && destPath != null) {
-                            val url = java.net.URL(urlStr)
-                            val conn = targetNet.openConnection(url) as java.net.HttpURLConnection
+                        val url = java.net.URL(urlStr)
+                        val proxy = java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress("127.0.0.1", 7777))
+                        var conn = url.openConnection(proxy) as java.net.HttpURLConnection
+                        conn.connectTimeout = 30000
+                        conn.readTimeout = 30000
+                        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        
+                        var input: java.io.InputStream
+                        try {
+                            input = conn.inputStream
+                        } catch (e: Exception) {
+                            Log.e("ZIVPN-Updater", "SOCKS5 Download failed, trying direct: ${e.message}")
+                            conn = url.openConnection() as java.net.HttpURLConnection
                             conn.connectTimeout = 30000
-                            conn.readTimeout = 30000
-                            conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater")
-                            
-                            val input = conn.inputStream
-                            val output = java.io.FileOutputStream(destPath)
-                            val buffer = ByteArray(4096)
-                            var bytesRead: Int
-                            while (input.read(buffer).also { bytesRead = it } != -1) {
-                                output.write(buffer, 0, bytesRead)
-                            }
-                            output.close()
-                            input.close()
-                            
-                            uiHandler.post { result.success("OK") }
-                        } else {
-                            uiHandler.post { result.error("FAIL", "Invalid args or no net", null) }
+                            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                            input = conn.inputStream
                         }
+
+                        val output = java.io.FileOutputStream(destPath)
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            output.write(buffer, 0, bytesRead)
+                        }
+                        output.close()
+                        input.close()
+                        
+                        uiHandler.post { result.success("OK") }
                     } catch (e: Exception) {
                         uiHandler.post { result.error("ERR", e.message, null) }
                     }
