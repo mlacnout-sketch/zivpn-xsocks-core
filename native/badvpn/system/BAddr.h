@@ -453,10 +453,10 @@ void BIPAddr_Print (BIPAddr *addr, char *out)
 {
     switch (addr->type) {
         case BADDR_TYPE_NONE:
-            sprintf(out, "(none)");
+            snprintf(out, BIPADDR_MAX_PRINT_LEN, "(none)");
             break;
         case BADDR_TYPE_IPV4:
-            sprintf(out, "%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8,
+            snprintf(out, BIPADDR_MAX_PRINT_LEN, "%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8,
                 *((uint8_t *)&addr->ipv4 + 0),
                 *((uint8_t *)&addr->ipv4 + 1),
                 *((uint8_t *)&addr->ipv4 + 2),
@@ -465,7 +465,7 @@ void BIPAddr_Print (BIPAddr *addr, char *out)
             break;
         case BADDR_TYPE_IPV6: {
             const char *ptr = (const char *)addr->ipv6;
-            sprintf(out,
+            snprintf(out, BIPADDR_MAX_PRINT_LEN,
                 "%"PRIx16":%"PRIx16":%"PRIx16":%"PRIx16":"
                 "%"PRIx16":%"PRIx16":%"PRIx16":%"PRIx16,
                 badvpn_read_be16(ptr + 0),
@@ -596,22 +596,28 @@ void BAddr_Print (BAddr *addr, char *out)
     
     switch (addr->type) {
         case BADDR_TYPE_NONE:
-            sprintf(out, "(none)");
+            snprintf(out, BADDR_MAX_PRINT_LEN, "(none)");
             break;
         case BADDR_TYPE_IPV4:
             BIPAddr_InitIPv4(&ipaddr, addr->ipv4.ip);
             BIPAddr_Print(&ipaddr, out);
-            sprintf(out + strlen(out), ":%"PRIu16, ntoh16(addr->ipv4.port));
+            {
+                int len = strlen(out);
+                snprintf(out + len, BADDR_MAX_PRINT_LEN - len, ":%"PRIu16, ntoh16(addr->ipv4.port));
+            }
             break;
         case BADDR_TYPE_IPV6:
             BIPAddr_InitIPv6(&ipaddr, addr->ipv6.ip);
             BIPAddr_Print(&ipaddr, out);
-            sprintf(out + strlen(out), ":%"PRIu16, ntoh16(addr->ipv6.port));
+            {
+                int len = strlen(out);
+                snprintf(out + len, BADDR_MAX_PRINT_LEN - len, ":%"PRIu16, ntoh16(addr->ipv6.port));
+            }
             break;
         #ifdef BADVPN_LINUX
         case BADDR_TYPE_PACKET:
             ASSERT(addr->packet.header_type == BADDR_PACKET_HEADER_TYPE_ETHERNET)
-            sprintf(out, "proto=%"PRIu16",ifindex=%d,htype=eth,ptype=%d,addr=%02"PRIx8":%02"PRIx8":%02"PRIx8":%02"PRIx8":%02"PRIx8":%02"PRIx8,
+            snprintf(out, BADDR_MAX_PRINT_LEN, "proto=%"PRIu16",ifindex=%d,htype=eth,ptype=%d,addr=%02"PRIx8":%02"PRIx8":%02"PRIx8":%02"PRIx8":%02"PRIx8":%02"PRIx8,
                     addr->packet.phys_proto, (int)addr->packet.interface_index, (int)addr->packet.packet_type,
                     addr->packet.phys_addr[0], addr->packet.phys_addr[1], addr->packet.phys_addr[2],
                     addr->packet.phys_addr[3], addr->packet.phys_addr[4], addr->packet.phys_addr[5]);

@@ -23,10 +23,10 @@ object Pdnsd {
 
         val configFile = File(context.filesDir, "pdnsd.conf")
 
-        // Handle IP or IP:PORT format. Default to 443 if no port specified.
+        // Handle IP or IP:PORT format. Default to 53 if no port specified.
         val parts = upstreamDns.split(":")
-        val ip = parts[0].ifEmpty { "208.67.222.222" }
-        val port = if (parts.size > 1) parts[1] else "443"
+        val ip = parts[0].ifEmpty { "8.8.8.8" }
+        val port = if (parts.size > 1) parts[1] else "53"
 
         val conf = """
             global {

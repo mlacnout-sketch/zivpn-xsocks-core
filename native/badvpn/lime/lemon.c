@@ -1272,9 +1272,9 @@ void ErrorMsg(const char *filename, int lineno, const char *format, ...){
   va_start(ap, format);
   /* Prepare a prefix to be prepended to every output line */
   if( lineno>0 ){
-    sprintf(prefix,"%.*s:%d: ",PREFIXLIMIT-10,filename,lineno);
+    snprintf(prefix,sizeof(prefix),"%.*s:%d: ",PREFIXLIMIT-10,filename,lineno);
   }else{
-    sprintf(prefix,"%.*s: ",PREFIXLIMIT-10,filename);
+    snprintf(prefix,sizeof(prefix),"%.*s: ",PREFIXLIMIT-10,filename);
   }
   prefixsize = strlen(prefix);
   availablewidth = LINEWIDTH - prefixsize;
@@ -2758,7 +2758,7 @@ struct lemon *lemp;
     while( cfp ){
       char buf[20];
       if( cfp->dot==cfp->rp->nrhs ){
-        sprintf(buf,"(%d)",cfp->rp->index);
+        snprintf(buf,sizeof(buf),"(%d)",cfp->rp->index);
         fprintf(fp,"    %5s ",buf);
       }else{
         fprintf(fp,"          ");
@@ -2793,6 +2793,7 @@ int modemask;
   char *pathlist;
   char *path,*cp;
   char c;
+  int n;
   extern int access();
 
 #ifdef __WIN32__
@@ -2803,21 +2804,23 @@ int modemask;
   if( cp ){
     c = *cp;
     *cp = 0;
-    path = (char *)malloc( strlen(argv0) + strlen(name) + 2 );
-    if( path ) sprintf(path,"%s/%s",argv0,name);
+    n = strlen(argv0) + strlen(name) + 2;
+    path = (char *)malloc( n );
+    if( path ) snprintf(path,n,"%s/%s",argv0,name);
     *cp = c;
   }else{
     extern char *getenv();
     pathlist = getenv("PATH");
     if( pathlist==0 ) pathlist = ".:/bin:/usr/bin";
-    path = (char *)malloc( strlen(pathlist)+strlen(name)+2 );
+    n = strlen(pathlist)+strlen(name)+2;
+    path = (char *)malloc( n );
     if( path!=0 ){
       while( *pathlist ){
         cp = strchr(pathlist,':');
         if( cp==0 ) cp = &pathlist[strlen(pathlist)];
         c = *cp;
         *cp = 0;
-        sprintf(path,"%s/%s",pathlist,name);
+        snprintf(path,n,"%s/%s",pathlist,name);
         *cp = c;
         if( c==0 ) pathlist = "";
         else pathlist = &cp[1];
@@ -3062,7 +3065,7 @@ PRIVATE char *append_str(char *zText, int n, int p1, int p2){
   while( n-- > 0 ){
     c = *(zText++);
     if( c=='%' && zText[0]=='d' ){
-      sprintf(zInt, "%d", p1);
+      snprintf(zInt, sizeof(zInt), "%d", p1);
       p1 = p2;
       strcpy(&z[used], zInt);
       used += strlen(&z[used]);

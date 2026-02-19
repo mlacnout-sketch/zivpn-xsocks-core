@@ -362,27 +362,28 @@ void ipaddr6_print_addr (struct ipv6_addr addr, char *out_buf)
         }
     }
     
+    int total_len = 0;
     if (largest_len > 1) {
         for (int i = 0; i < largest_start; i++) {
             uint16_t block = ((uint16_t)addr.bytes[2 * i] << 8) | addr.bytes[2 * i + 1];
-            out_buf += sprintf(out_buf, "%"PRIx16":", block);
+            total_len += snprintf(out_buf + total_len, IPADDR6_PRINT_MAX - total_len, "%"PRIx16":", block);
         }
         if (largest_start == 0) {
-            out_buf += sprintf(out_buf, ":");
+            total_len += snprintf(out_buf + total_len, IPADDR6_PRINT_MAX - total_len, ":");
         }
         
         for (int i = largest_start + largest_len; i < 8; i++) {
             uint16_t block = ((uint16_t)addr.bytes[2 * i] << 8) | addr.bytes[2 * i + 1];
-            out_buf += sprintf(out_buf, ":%"PRIx16, block);
+            total_len += snprintf(out_buf + total_len, IPADDR6_PRINT_MAX - total_len, ":%"PRIx16, block);
         }
         if (largest_start + largest_len == 8) {
-            out_buf += sprintf(out_buf, ":");
+            total_len += snprintf(out_buf + total_len, IPADDR6_PRINT_MAX - total_len, ":");
         }
     } else {
         const char *prefix = "";
         for (int i = 0; i < 8; i++) {
             uint16_t block = ((uint16_t)addr.bytes[2 * i] << 8) | addr.bytes[2 * i + 1];
-            out_buf += sprintf(out_buf, "%s%"PRIx16, prefix, block);
+            total_len += snprintf(out_buf + total_len, IPADDR6_PRINT_MAX - total_len, "%s%"PRIx16, prefix, block);
             prefix = ":";
         }
     }
@@ -394,7 +395,8 @@ void ipaddr6_print_ifaddr (struct ipv6_ifaddr addr, char *out_buf)
     ASSERT(addr.prefix <= 128)
     
     ipaddr6_print_addr(addr.addr, out_buf);
-    sprintf(out_buf + strlen(out_buf), "/%d", addr.prefix);
+    int len = strlen(out_buf);
+    snprintf(out_buf + len, IPADDR6_PRINT_MAX - len, "/%d", addr.prefix);
 }
 
 #endif

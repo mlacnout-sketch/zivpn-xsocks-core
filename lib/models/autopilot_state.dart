@@ -1,10 +1,13 @@
 enum AutoPilotStatus {
-  stopped,
+  idle,
+  running,
   monitoring,
   checking,
+  recovering,
   resetting,
   stabilizing,
   error,
+  stopped,
 }
 
 class AutoPilotState {
@@ -15,11 +18,11 @@ class AutoPilotState {
   final bool hasInternet;
 
   const AutoPilotState({
-    required this.status,
-    required this.failCount,
+    this.status = AutoPilotStatus.idle,
+    this.failCount = 0,
     this.message,
     this.lastCheck,
-    required this.hasInternet,
+    this.hasInternet = false,
   });
 
   AutoPilotState copyWith({

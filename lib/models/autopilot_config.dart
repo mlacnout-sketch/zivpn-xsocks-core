@@ -4,19 +4,23 @@ class AutoPilotConfig {
   final int maxFailCount;
   final int airplaneModeDelaySeconds;
   final int recoveryWaitSeconds;
-  final bool enableStabilizer;
-  final bool autoReset; // Added back
+  final bool autoHealthCheck;
+  final bool enablePingStabilizer;
   final int stabilizerSizeMb;
+  final int maxConsecutiveResets;
+  final String pingDestination;
 
   const AutoPilotConfig({
     this.checkIntervalSeconds = 15,
     this.connectionTimeoutSeconds = 5,
     this.maxFailCount = 3,
-    this.airplaneModeDelaySeconds = 2,
+    this.airplaneModeDelaySeconds = 3,
     this.recoveryWaitSeconds = 10,
-    this.enableStabilizer = false,
-    this.autoReset = false, // Default false
+    this.autoHealthCheck = false,
+    this.enablePingStabilizer = false,
     this.stabilizerSizeMb = 1,
+    this.maxConsecutiveResets = 5,
+    this.pingDestination = 'http://connectivitycheck.gstatic.com/generate_204',
   });
 
   AutoPilotConfig copyWith({
@@ -25,9 +29,11 @@ class AutoPilotConfig {
     int? maxFailCount,
     int? airplaneModeDelaySeconds,
     int? recoveryWaitSeconds,
-    bool? enableStabilizer,
-    bool? autoReset,
+    bool? autoHealthCheck,
+    bool? enablePingStabilizer,
     int? stabilizerSizeMb,
+    int? maxConsecutiveResets,
+    String? pingDestination,
   }) {
     return AutoPilotConfig(
       checkIntervalSeconds: checkIntervalSeconds ?? this.checkIntervalSeconds,
@@ -35,9 +41,11 @@ class AutoPilotConfig {
       maxFailCount: maxFailCount ?? this.maxFailCount,
       airplaneModeDelaySeconds: airplaneModeDelaySeconds ?? this.airplaneModeDelaySeconds,
       recoveryWaitSeconds: recoveryWaitSeconds ?? this.recoveryWaitSeconds,
-      enableStabilizer: enableStabilizer ?? this.enableStabilizer,
-      autoReset: autoReset ?? this.autoReset,
+      autoHealthCheck: autoHealthCheck ?? this.autoHealthCheck,
+      enablePingStabilizer: enablePingStabilizer ?? this.enablePingStabilizer,
       stabilizerSizeMb: stabilizerSizeMb ?? this.stabilizerSizeMb,
+      maxConsecutiveResets: maxConsecutiveResets ?? this.maxConsecutiveResets,
+      pingDestination: pingDestination ?? this.pingDestination,
     );
   }
 }
