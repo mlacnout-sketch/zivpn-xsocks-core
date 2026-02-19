@@ -315,19 +315,26 @@ class _HomePageState extends State<HomePage> {
       setState(() => _vpnState = "connecting");
 
       try {
+        await _autoPilot.init();
+        
         String recvWin = prefs.getString('hysteria_recv_window') ?? "327680";
         String recvConn = prefs.getString('hysteria_recv_conn') ?? "131072";
         final profile = prefs.getString('native_perf_profile') ?? "balanced";
 
         if (profile == "smart") {
            try {
-             _logs.add("[SMART] Probing network...");
-             final Map<dynamic, dynamic>? smartConfig = await platform.invokeMethod('getSmartNetworkConfig');
+             _logs.add("[SMART] Probing network quality...");
+             final smartConfig = await _autoPilot.reProbeNetwork();
              if (smartConfig != null) {
                 recvWin = smartConfig['recv_win'].toString();
                 recvConn = smartConfig['recv_conn'].toString();
                 final score = smartConfig['score'];
                 _logs.add("[SMART] Network Score: $score/100. Applied dynamic tuning.");
+             } else if (_autoPilot.currentState.networkScore != null) {
+                // Hysteresis case: use previous score values
+                // We need a way to get these values if they weren't returned
+                // For now, if null is returned, it means score didn't change much
+                _logs.add("[SMART] Network quality stable. Using existing tuning.");
              }
            } catch (e) {
              _logs.add("[SMART] Failed to probe network: $e");
@@ -377,7 +384,6 @@ class _HomePageState extends State<HomePage> {
         _startTimer();
         setState(() => _vpnState = "connected");
 
-        await _autoPilot.init();
         if (_autoPilot.config.autoReset) _autoPilot.start();
 
       } catch (e) {

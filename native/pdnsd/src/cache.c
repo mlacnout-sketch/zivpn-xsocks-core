@@ -2469,8 +2469,8 @@ static int dump_cent(int fd, dns_cent_t *cent)
 							unsigned pref;
 							int n;
 							GETINT16(pref,p);
-							n=sprintf(dbuf,"%u ",pref);
-							if(n<0) goto hex_dump;
+							n=snprintf(dbuf,sizeof(dbuf),"%u ",pref);
+							if(n<0 || n>=sizeof(dbuf)) goto hex_dump;
 							rhn2str(p,ucharp dbuf+n,sizeof(dbuf)-n);
 						}
 						break;
@@ -2559,8 +2559,8 @@ static int dump_cent(int fd, dns_cent_t *cent)
 							unsigned pref;
 							int n,rem;
 							GETINT16(pref,p);
-							n=sprintf(dbuf,"%u ",pref);
-							if(n<0) goto hex_dump;
+							n=snprintf(dbuf,sizeof(dbuf),"%u ",pref);
+							if(n<0 || n>=sizeof(dbuf)) goto hex_dump;
 							q=dbuf+n;
 							rem=sizeof(dbuf)-n;
 							rhn2str(p,ucharp q,rem);
@@ -2581,8 +2581,8 @@ static int dump_cent(int fd, dns_cent_t *cent)
 							GETINT16(priority,p);
 							GETINT16(weight,p);
 							GETINT16(port,p);
-							n=sprintf(dbuf,"%u %u %u ",priority,weight,port);
-							if(n<0) goto hex_dump;
+							n=snprintf(dbuf,sizeof(dbuf),"%u %u %u ",priority,weight,port);
+							if(n<0 || n>=sizeof(dbuf)) goto hex_dump;
 							rhn2str(p,ucharp dbuf+n,sizeof(dbuf)-n);
 						}
 						break;
@@ -2611,8 +2611,8 @@ static int dump_cent(int fd, dns_cent_t *cent)
 							int n,rem,j;
 							GETINT16(order,p);
 							GETINT16(pref,p);
-							n=sprintf(dbuf,"%u %u ",order,pref);
-							if(n<0) goto hex_dump;
+							n=snprintf(dbuf,sizeof(dbuf),"%u %u ",order,pref);
+							if(n<0 || n>=sizeof(dbuf)) goto hex_dump;
 							q=dbuf+n;
 							rem=sizeof(dbuf)-n;
 							for (j=0;j<3;++j) {

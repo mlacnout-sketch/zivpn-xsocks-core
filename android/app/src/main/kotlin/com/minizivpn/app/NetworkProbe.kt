@@ -65,6 +65,7 @@ class NetworkProbe(private val context: Context) {
 
             var rsrp = -140
             var sinr = -20
+            var cqiScore: Int? = null
             var earfcn = -1
             var type = "UNKNOWN"
             var bandLabel = "Unknown"
@@ -86,6 +87,13 @@ class NetworkProbe(private val context: Context) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     earfcn = identity.earfcn
                 }
+                
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val cqi = signal.cqi
+                    if (cqi != Int.MAX_VALUE && cqi > 0) {
+                        cqiScore = (cqi.toDouble() / 15.0 * 100).toInt()
+                    }
+                }
                 bandLabel = getBandFromEarfcn(earfcn)
             } else {
                 return 60 // WiFi or Legacy
@@ -94,13 +102,16 @@ class NetworkProbe(private val context: Context) {
             // --- STRICT LOGIC START ---
 
             // 1. Base Score from Signal Quality (SINR is King)
-            // Normalized: -120 to -70 for RSRP, -5 to 25 for SINR
-            val rsrpScore = normalize(rsrp, -120, -70)
-            val sinrScore = normalize(sinr, -5, 25)
+            val rsrpBaseScore = normalize(rsrp, -120, -70)
+            var sinrBaseScore = normalize(sinr, -5, 25)
             
-            // Weight: 70% SINR (Cleanliness), 30% RSRP (Strength)
-            // A strong but noisy signal is useless for throughput.
-            var rawScore = (rsrpScore * 0.3 + sinrScore * 0.7).toInt()
+            // Blend CQI into SINR if available (CQI represents actual modulation success)
+            if (cqiScore != null) {
+                sinrBaseScore = (sinrBaseScore * 0.6 + cqiScore * 0.4).toInt()
+            }
+            
+            // Weight: 70% Quality (SINR+CQI), 30% Strength (RSRP)
+            var rawScore = (rsrpBaseScore * 0.3 + sinrBaseScore * 0.7).toInt()
 
             // 2. Bandwidth/Capacity Bonus (The "NetMonster" Factor)
             val isHighBand = isHighCapacityBand(bandLabel)

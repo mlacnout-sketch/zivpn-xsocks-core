@@ -16,6 +16,7 @@ class AutoPilotState {
   final String? message;
   final DateTime? lastCheck;
   final bool hasInternet;
+  final int? networkScore;
 
   const AutoPilotState({
     this.status = AutoPilotStatus.idle,
@@ -23,6 +24,7 @@ class AutoPilotState {
     this.message,
     this.lastCheck,
     this.hasInternet = false,
+    this.networkScore,
   });
 
   AutoPilotState copyWith({
@@ -31,6 +33,7 @@ class AutoPilotState {
     String? message,
     DateTime? lastCheck,
     bool? hasInternet,
+    int? networkScore,
   }) {
     return AutoPilotState(
       status: status ?? this.status,
@@ -38,6 +41,7 @@ class AutoPilotState {
       message: message ?? this.message,
       lastCheck: lastCheck ?? this.lastCheck,
       hasInternet: hasInternet ?? this.hasInternet,
+      networkScore: networkScore ?? this.networkScore,
     );
   }
 }

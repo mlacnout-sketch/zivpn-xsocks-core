@@ -48,6 +48,16 @@
 #include <misc/ipaddr6.h>
 #include <misc/concat_strings.h>
 #include <structure/LinkedList1.h>
+
+// --- Memory Pool Implementation ---
+#include <tun2socks/MemoryPool.h>
+
+static MemoryPool client_pool;
+static MemoryPool connection_pool;
+static MemoryPool buf_pool;
+static MemoryPool socks_buf_pool;
+// ----------------------------------
+
 #include <base/BLog.h>
 #include <system/BReactor.h>
 #include <system/BSignal.h>
@@ -80,16 +90,17 @@ int g_socks_buf_size = CLIENT_SOCKS_RECV_BUF_SIZE;
 
 #include <sys/prctl.h>
 #include <sys/un.h>
+#include <sys/uio.h>
 #include <structure/BAVL.h>
 
 BAVL connections_tree;
 typedef struct {
+    BAVLNode connections_tree_node;
     BAddr local_addr;
     BAddr remote_addr;
     uint16_t port;
     int count;
-    BAVLNode connections_tree_node;
-} Connection;
+} __attribute__((aligned(64))) Connection;
 
 static int conaddr_comparator (void *unused, uint16_t *v1, uint16_t *v2)
 {
@@ -114,7 +125,7 @@ static void remove_connection (Connection *con)
     if (con->count <= 0)
     {
         BAVL_Remove(&connections_tree, &con->connections_tree_node);
-        free(con);
+        pool_free(&connection_pool, con);
     }
 }
 
@@ -125,7 +136,10 @@ static void insert_connection (BAddr local_addr, BAddr remote_addr, uint16_t por
        con->count += 1;
    else
    {
-       Connection * tmp = (Connection *)malloc(sizeof(Connection));
+       Connection * tmp = (Connection *)pool_alloc(&connection_pool);
+       if (!tmp) {
+           return;
+       }
        tmp->local_addr = local_addr;
        tmp->remote_addr = remote_addr;
        tmp->port = port;
@@ -139,6 +153,7 @@ static void free_connections()
     while (!BAVL_IsEmpty(&connections_tree)) {
         Connection *con = UPPER_OBJECT(BAVL_GetLast(&connections_tree), Connection, connections_tree_node);
         BAVL_Remove(&connections_tree, &con->connections_tree_node);
+        pool_free(&connection_pool, con);
     }
 }
 
@@ -173,14 +188,6 @@ static void tcp_remove(struct tcp_pcb* pcb_list)
 #define SYNC_COMMIT \
     BReactor_Synchronize(&ss, &sync_mark.base); \
     BPending_Free(&sync_mark);
-
-// --- Memory Pool Implementation ---
-#include <tun2socks/MemoryPool.h>
-
-static MemoryPool client_pool;
-static MemoryPool buf_pool;
-static MemoryPool socks_buf_pool;
-// ----------------------------------
 
 // command-line options
 struct {
@@ -222,27 +229,27 @@ struct {
 
 // TCP client
 struct tcp_client {
-    dead_t dead;
-    dead_t dead_client;
+    struct tcp_pcb *pcb;
+    BSocksClient socks_client;
+    uint8_t *buf;
+    uint8_t *socks_recv_buf;
+    StreamPassInterface *socks_send_if;
+    StreamRecvInterface *socks_recv_if;
     LinkedList1Node list_node;
     BAddr local_addr;
     BAddr remote_addr;
-    struct tcp_pcb *pcb;
-    int client_closed;
-    uint8_t *buf;
-    int buf_used;
     char *socks_username;
-    BSocksClient socks_client;
-    int socks_up;
-    int socks_closed;
-    StreamPassInterface *socks_send_if;
-    StreamRecvInterface *socks_recv_if;
-    uint8_t *socks_recv_buf;
+    int buf_used;
     int socks_recv_buf_used;
     int socks_recv_buf_sent;
+    int socks_up;
+    int socks_closed;
+    int client_closed;
     int socks_recv_waiting;
     int socks_recv_tcp_pending;
-};
+    dead_t dead;
+    dead_t dead_client;
+} __attribute__((aligned(64)));
 
 // IP address of netif
 BIPAddr netif_ipaddr;
@@ -494,6 +501,7 @@ int main (int argc, char **argv)
 
     // init memory pools
     pool_init(&client_pool, sizeof(struct tcp_client));
+    pool_init(&connection_pool, sizeof(Connection));
     pool_init(&buf_pool, g_tcp_wnd);
     pool_init(&socks_buf_pool, g_socks_buf_size);
 
@@ -701,6 +709,7 @@ fail2:
     BReactor_Free(&ss);
 fail1:
     pool_free_all(&client_pool);
+    pool_free_all(&connection_pool);
     pool_free_all(&buf_pool);
     pool_free_all(&socks_buf_pool);
 
@@ -1869,18 +1878,38 @@ err_t common_netif_output (struct netif *netif, struct pbuf *p)
         BTap_Send(&device, (uint8_t *)p->payload, p->len);
         SYNC_COMMIT
     } else {
-        int len = 0;
-        do {
-            if (p->len > BTap_GetMTU(&device) - len) {
-                BLog(BLOG_WARNING, "netif func output: no space left");
-                goto out;
-            }
-            memcpy(device_write_buf + len, p->payload, p->len);
-            len += p->len;
-        } while ((p = p->next));
+        struct iovec iov[16];
+        int iovcnt = 0;
+        struct pbuf *curr = p;
+        int total_len = 0;
+
+        while (curr && iovcnt < 16) {
+            iov[iovcnt].iov_base = curr->payload;
+            iov[iovcnt].iov_len = curr->len;
+            total_len += curr->len;
+            iovcnt++;
+            curr = curr->next;
+        }
+
+        if (total_len > BTap_GetMTU(&device)) {
+            BLog(BLOG_WARNING, "netif func output: no space left");
+            goto out;
+        }
 
         SYNC_FROMHERE
-        BTap_Send(&device, device_write_buf, len);
+        if (!curr) {
+            // Whole chain fits in iov, use vectorized write
+            BTap_SendV(&device, iov, iovcnt);
+        } else {
+            // Chain too long, fallback to copy (rare)
+            int len = 0;
+            struct pbuf *q = p;
+            do {
+                memcpy(device_write_buf + len, q->payload, q->len);
+                len += q->len;
+            } while ((q = q->next));
+            BTap_Send(&device, device_write_buf, len);
+        }
         SYNC_COMMIT
     }
 

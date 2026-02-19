@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
@@ -336,6 +337,20 @@ class AutoPilotService extends ChangeNotifier {
     }
 
     _consecutiveResets++;
+    
+    // Exponential backoff with jitter
+    // 2^reset * 1000ms + random(500ms)
+    final backoffMs = (math.pow(2, _consecutiveResets) * 1000).toInt() + 
+                     (math.Random().nextInt(1000) - 500);
+    final delay = Duration(milliseconds: backoffMs.clamp(1000, 30000));
+
+    _updateState(_currentState.copyWith(
+      status: AutoPilotStatus.recovering,
+      message: 'Backoff for ${delay.inSeconds}s before reset #$_consecutiveResets...',
+    ));
+    
+    await Future.delayed(delay);
+
     _updateState(_currentState.copyWith(
       status: AutoPilotStatus.recovering,
       message: 'Attempting recovery (Reset #$_consecutiveResets)...',
@@ -445,6 +460,35 @@ class AutoPilotService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint("Failed to log to native: $e");
+    }
+  }
+
+  /// Re-probe network quality and return new config if change is significant (hysteresis)
+  Future<Map<String, dynamic>?> reProbeNetwork() async {
+    try {
+      final Map<dynamic, dynamic>? smartConfig = 
+          await _methodChannel.invokeMethod('getSmartNetworkConfig');
+      
+      if (smartConfig == null) return null;
+      
+      final int newScore = smartConfig['score'] ?? 0;
+      final int oldScore = _currentState.networkScore ?? 0;
+      
+      // Hysteresis: Only update if score changed by more than 5 points (roughly ±2 dB equivalent)
+      if ((newScore - oldScore).abs() > 5) {
+        _updateState(_currentState.copyWith(
+          networkScore: newScore,
+          message: 'Network quality changed (Score: $newScore). Re-tuning needed.',
+        ));
+        
+        return Map<String, dynamic>.from(smartConfig);
+      } else {
+        debugPrint('[AutoPilotService] Hysteresis: Score change ($oldScore -> $newScore) too small, skipping re-tune.');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('[AutoPilotService] Re-probe failed: $e');
+      return null;
     }
   }
 

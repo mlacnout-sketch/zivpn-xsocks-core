@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.10...3.31)
 
 project(minizivpn_native)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # --- Security & Sanitizer Options ---
 option(ENABLE_SANITIZERS "Enable ASan and UBSan for Debug builds" ON)
 

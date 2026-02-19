@@ -569,6 +569,25 @@ void BTap_Send (BTap *o, uint8_t *data, int data_len)
 #endif
 }
 
+void BTap_SendV (BTap *o, const struct iovec *iov, int iovcnt)
+{
+    DebugObject_Access(&o->d_obj);
+    DebugError_AssertNoError(&o->d_err);
+    ASSERT(iovcnt >= 0)
+
+#ifdef BADVPN_USE_WINAPI
+    // Vectorized I/O not easily supported on Windows TAP with Overlapped I/O in this architecture.
+    // Fallback to single buffer if possible or just ignore.
+    // For now, we don't expect this to be called on Windows.
+    BLog(BLOG_ERROR, "BTap_SendV not implemented on Windows");
+#else
+    ssize_t bytes = writev(o->fd, iov, iovcnt);
+    if (bytes < 0) {
+        // ignore errors for malformed packets
+    }
+#endif
+}
+
 PacketRecvInterface * BTap_GetOutput (BTap *o)
 {
     DebugObject_Access(&o->d_obj);

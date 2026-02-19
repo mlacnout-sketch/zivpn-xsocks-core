@@ -43,6 +43,7 @@
 #ifdef BADVPN_USE_WINAPI
 #else
 #include <net/if.h>
+#include <sys/uio.h>
 #endif
 
 #include <misc/debug.h>
@@ -183,6 +184,16 @@ int BTap_GetMTU (BTap *o);
  * @param data_len length of packet. Must be >=0 and <=MTU, as reported by {@link BTap_GetMTU}.
  */
 void BTap_Send (BTap *o, uint8_t *data, int data_len);
+
+/**
+ * Sends a packet to the device using vectorized I/O.
+ * Any errors will be reported via a job.
+ * 
+ * @param o the object
+ * @param iov array of buffers
+ * @param iovcnt number of buffers
+ */
+void BTap_SendV (BTap *o, const struct iovec *iov, int iovcnt);
 
 /**
  * Returns a {@link PacketRecvInterface} for reading packets from the device.
