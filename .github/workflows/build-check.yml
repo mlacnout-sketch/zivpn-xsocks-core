@@ -10,10 +10,18 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   analyze-and-test:
     name: Lint & Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,11 +40,12 @@ jobs:
         run: flutter analyze
 
       - name: Run Dart Unit Tests
-        run: flutter test
+        run: flutter test --reporter expanded
 
   native-build-check:
     name: Native C/C++ Compilation Check
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,27 +56,32 @@ jobs:
 
       - name: Install NDK & CMake
         run: |
+          yes | sdkmanager --licenses
           sdkmanager "ndk;27.0.12077973" "cmake;3.18.1"
 
       - name: Configure CMake
         run: |
+          set -euxo pipefail
           mkdir -p native/build
           cd native/build
           cmake .. \
-            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_BUILD_TYPE=Release \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-24 \
+            -DSKIP_JNI_CHECK=ON \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_HOME/ndk/27.0.12077973/build/cmake/android.toolchain.cmake
 
       - name: Build Native Cores
         run: |
+          set -euxo pipefail
           cd native/build
-          make tun2socks pdnsd
+          make -j"$(nproc)" tun2socks pdnsd
 
   build-apk:
-    name: Build Release APK
+    name: Build Release APKs
     needs: [analyze-and-test, native-build-check]
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
@@ -80,6 +94,9 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -88,31 +105,30 @@ jobs:
 
       - name: Install NDK & CMake
         run: |
+          yes | sdkmanager --licenses
           sdkmanager "ndk;27.0.12077973" "cmake;3.18.1"
 
       - name: Decode Signing Keystore
         run: |
           keytool -genkey -v -keystore android/app/release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias androiddebugkey -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Build APK (ARM64)
+      - name: Build APKs (split + universal, obfuscated)
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/android/app/release.jks
           KEY_ALIAS: 'androiddebugkey'
           KEY_PASSWORD: 'android'
           STORE_PASSWORD: 'android'
         run: |
-          flutter build apk --release --target-platform android-arm64
-          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/mini-zivpn-arm64-v8a.apk
+          set -euxo pipefail
+          flutter pub get
+          mkdir -p build/symbols
 
-      - name: Build APK (ARMv7)
-        env:
-          KEYSTORE_PATH: ${{ github.workspace }}/android/app/release.jks
-          KEY_ALIAS: 'androiddebugkey'
-          KEY_PASSWORD: 'android'
-          STORE_PASSWORD: 'android'
-        run: |
-          flutter build apk --release --target-platform android-arm
-          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/mini-zivpn-armeabi-v7a.apk
+          flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64 --obfuscate --split-debug-info=build/symbols
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/mini-zivpn-arm64-v8a.apk
+          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/mini-zivpn-armeabi-v7a.apk
+
+          flutter build apk --release --target-platform android-arm,android-arm64 --obfuscate --split-debug-info=build/symbols
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/mini-zivpn-universal.apk
 
       - name: Upload ARM64 Artifact
         uses: actions/upload-artifact@v4
@@ -127,5 +143,13 @@ jobs:
         with:
           name: mini-zivpn-armeabi-v7a
           path: build/app/outputs/flutter-apk/mini-zivpn-armeabi-v7a.apk
+          compression-level: 9
+          retention-days: 7
+
+      - name: Upload Universal Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mini-zivpn-universal
+          path: build/app/outputs/flutter-apk/mini-zivpn-universal.apk
           compression-level: 9
           retention-days: 7

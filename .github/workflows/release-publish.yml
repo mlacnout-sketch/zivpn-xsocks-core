@@ -5,11 +5,19 @@ on:
     branches: [ "**" ]
   workflow_dispatch:
 
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Compile Native & Build Release APK
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 45
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -30,23 +38,25 @@ jobs:
         run: |
           yes | sdkmanager --licenses
           sdkmanager "ndk;27.0.12077973" "cmake;3.18.1"
+
       - name: Native Code Sanity Check (Fail Fast)
         run: |
-          # Manually trigger CMake build to catch C/C++ errors early
+          set -euxo pipefail
           mkdir -p native/build
           cd native/build
-          
+
           echo "Building for armeabi-v7a..."
           cmake .. -DCMAKE_TOOLCHAIN_FILE=$ANDROID_HOME/ndk/27.0.12077973/build/cmake/android.toolchain.cmake -DANDROID_ABI=armeabi-v7a -DANDROID_PLATFORM=android-24 -DCMAKE_BUILD_TYPE=Release -DSKIP_JNI_CHECK=ON
-          make -j$(nproc)
-          
-          rm -rf * # Clean build
-          
+          make -j"$(nproc)"
+
+          rm -rf *
+
           echo "Building for arm64-v8a..."
           cmake .. -DCMAKE_TOOLCHAIN_FILE=$ANDROID_HOME/ndk/27.0.12077973/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DCMAKE_BUILD_TYPE=Release -DSKIP_JNI_CHECK=ON
-          make -j$(nproc)
-          
+          make -j"$(nproc)"
+
           echo "Native compilation successful!"
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -55,8 +65,10 @@ jobs:
 
       - name: Clean & Get Flutter Dependencies
         run: |
+          set -euxo pipefail
           flutter clean
           flutter pub get
+
       - name: Flutter Analyze (Best Practice Check)
         run: flutter analyze
 
@@ -64,34 +76,52 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
+          set -euxo pipefail
           if [ ! -z "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
             echo "Keystore decoded successfully."
           fi
-      - name: Build Release APK
+
+      - name: Build Release APKs (split + universal, obfuscated)
         env:
           KEYSTORE_PATH: release.jks
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
-          # 1. Build Split APKs (v7a & v8a)
-          flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64
+          set -euxo pipefail
+          mkdir -p build/symbols
+
+          flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64 --obfuscate --split-debug-info=build/symbols
           mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/ZIVPN-v7a-release.apk
           mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/ZIVPN-v8a-release.apk
-          
-          # 2. Build Universal APK
-          flutter build apk --release --target-platform android-arm,android-arm64
+
+          flutter build apk --release --target-platform android-arm,android-arm64 --obfuscate --split-debug-info=build/symbols
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/ZIVPN-Universal-release.apk
 
-      - name: Upload Release APKs
+      - name: Upload v7a Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ZIVPN-Release-APKs
-          path: |
-            build/app/outputs/flutter-apk/ZIVPN-v7a-release.apk
-            build/app/outputs/flutter-apk/ZIVPN-v8a-release.apk
-            build/app/outputs/flutter-apk/ZIVPN-Universal-release.apk
+          name: ZIVPN-v7a-release
+          path: build/app/outputs/flutter-apk/ZIVPN-v7a-release.apk
+          compression-level: 9
+          retention-days: 14
+
+      - name: Upload v8a Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZIVPN-v8a-release
+          path: build/app/outputs/flutter-apk/ZIVPN-v8a-release.apk
+          compression-level: 9
+          retention-days: 14
+
+      - name: Upload Universal Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZIVPN-universal-release
+          path: build/app/outputs/flutter-apk/ZIVPN-Universal-release.apk
+          compression-level: 9
+          retention-days: 14
 
   release:
     needs: build
@@ -103,10 +133,20 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download Artifact
+      - name: Download v7a Artifact
         uses: actions/download-artifact@v4
         with:
-          name: ZIVPN-Release-APKs
+          name: ZIVPN-v7a-release
+
+      - name: Download v8a Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ZIVPN-v8a-release
+
+      - name: Download Universal Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ZIVPN-universal-release
 
       - name: Create Release Tag
         id: tag_version
@@ -116,6 +156,7 @@ jobs:
           TAG="v$VERSION-b${{ github.run_number }}"
           echo "VERSION=$TAG" >> $GITHUB_ENV
           echo "Generated version: $TAG"
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -124,7 +165,7 @@ jobs:
           body: |
             Automatic build for xSocks Core.
             Run ID: ${{ github.run_id }}
-            
+
             ### Artifacts
             - **Universal:** Works on all ARM devices.
             - **v7a:** For older 32-bit devices.
