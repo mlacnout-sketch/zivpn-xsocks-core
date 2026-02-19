@@ -80,6 +80,7 @@ class AutoPilotService extends ChangeNotifier {
 
   bool _isInitialized = false;
   bool _isInitializing = false;
+  bool _isRecovering = false; // Guard flag to prevent overlapping recoveries
   bool isRunning = false;
 
   final List<PingLogEntry> _pingLogs = [];
@@ -235,6 +236,8 @@ class AutoPilotService extends ChangeNotifier {
   }
 
   Future<void> _checkAndRecover() async {
+    if (_isRecovering) return; // Don't start another check if we are currently recovering
+
     try {
       await _refreshShizukuWatchdogPriorityIfNeeded();
 
@@ -348,11 +351,15 @@ class AutoPilotService extends ChangeNotifier {
   }
 
   Future<void> _performRecovery() async {
+    if (_isRecovering) return;
+    _isRecovering = true;
+
     if (_consecutiveResets >= _config.maxConsecutiveResets) {
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.error,
         message: 'Max resets exceeded (${_config.maxConsecutiveResets})',
       ));
+      _isRecovering = false;
       return;
     }
 
@@ -386,6 +393,7 @@ class AutoPilotService extends ChangeNotifier {
           hasInternet: true,
           message: 'Internet recovered just before reset, skipping.',
         ));
+        _isRecovering = false;
         return;
       }
 
@@ -411,6 +419,8 @@ class AutoPilotService extends ChangeNotifier {
         failCount: 0, // Reset on error to prevent loop
         message: 'Recovery failed: $e',
       ));
+    } finally {
+      _isRecovering = false;
     }
   }
 
