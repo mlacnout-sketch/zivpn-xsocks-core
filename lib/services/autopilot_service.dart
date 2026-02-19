@@ -390,12 +390,20 @@ class AutoPilotService extends ChangeNotifier {
     final stateValue = enabled ? 1 : 0;
     final stateBool = enabled.toString();
 
+    // Preserve Hotspot: Exclude 'wifi' and 'bluetooth' from airplane mode radios
+    const preserveHotspotCommand = 'settings put global airplane_mode_radios cell,nfc,wimax';
+
     final primaryCommand = _primaryAirplaneModeCommandTemplate.replaceAll('{action}', enabled ? 'enable' : 'disable');
     final fallbackCommands = _fallbackAirplaneModeCommandsTemplate
         .map((cmd) => cmd.replaceAll('{stateValue}', stateValue.toString()).replaceAll('{stateBool}', stateBool))
         .toList();
 
     try {
+      // Execute preserve command first if enabling
+      if (enabled) {
+         try { await _shizuku.runCommand(preserveHotspotCommand); } catch (e) {}
+      }
+      
       await _shizuku.runCommand(primaryCommand);
     } catch (e) {
       for (final command in fallbackCommands) {
