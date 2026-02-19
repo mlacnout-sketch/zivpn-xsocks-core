@@ -59,7 +59,7 @@ class MockHttpClientResponse extends Fake implements HttpClientResponse {
     // The repo uses utf8.decoder.join()
     // We can return a Stream<List<int>> that is utf8 bytes of JSON.
     final jsonStr =
-        '[{"tag_name": "1.0.1", "assets": [{"content_type": "application/vnd.android.package-archive", "browser_download_url": "http://example.com/app.apk", "size": 1024}]}]';
+        '[{"tag_name": "1.0.1", "assets": [{"name": "app.apk", "content_type": "application/vnd.android.package-archive", "browser_download_url": "http://example.com/app.apk", "size": 1024}]}]';
     return Stream.value(utf8.encode(jsonStr))
         .cast<List<int>>()
         .transform(streamTransformer);
@@ -69,7 +69,7 @@ class MockHttpClientResponse extends Fake implements HttpClientResponse {
   StreamSubscription<List<int>> listen(void Function(List<int> event)? onData,
       {Function? onError, void Function()? onDone, bool? cancelOnError}) {
     final jsonStr =
-        '[{"tag_name": "1.0.1", "assets": [{"content_type": "application/vnd.android.package-archive", "browser_download_url": "http://example.com/app.apk", "size": 1024}]}]';
+        '[{"tag_name": "1.0.1", "assets": [{"name": "app.apk", "content_type": "application/vnd.android.package-archive", "browser_download_url": "http://example.com/app.apk", "size": 1024}]}]';
     return Stream.value(utf8.encode(jsonStr)).listen(onData,
         onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
