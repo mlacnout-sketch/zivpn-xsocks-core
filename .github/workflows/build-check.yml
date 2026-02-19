@@ -94,18 +94,38 @@ jobs:
         run: |
           keytool -genkey -v -keystore android/app/release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias androiddebugkey -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Build APK
+      - name: Build APK (ARM64)
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/android/app/release.jks
           KEY_ALIAS: 'androiddebugkey'
           KEY_PASSWORD: 'android'
           STORE_PASSWORD: 'android'
         run: |
-          flutter build apk --release --target-platform android-arm64,android-arm
+          flutter build apk --release --target-platform android-arm64
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/mini-zivpn-arm64-v8a.apk
 
-      - name: Upload Artifact
+      - name: Build APK (ARMv7)
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/android/app/release.jks
+          KEY_ALIAS: 'androiddebugkey'
+          KEY_PASSWORD: 'android'
+          STORE_PASSWORD: 'android'
+        run: |
+          flutter build apk --release --target-platform android-arm
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/mini-zivpn-armeabi-v7a.apk
+
+      - name: Upload ARM64 Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: zivpn-release-candidate
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: mini-zivpn-arm64-v8a
+          path: build/app/outputs/flutter-apk/mini-zivpn-arm64-v8a.apk
+          compression-level: 9
+          retention-days: 7
+
+      - name: Upload ARMv7 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mini-zivpn-armeabi-v7a
+          path: build/app/outputs/flutter-apk/mini-zivpn-armeabi-v7a.apk
+          compression-level: 9
           retention-days: 7
