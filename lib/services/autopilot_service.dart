@@ -25,8 +25,8 @@ class AutoPilotService extends ChangeNotifier {
   ];
   static const List<String> _stabilizerUrls = [
     'https://speed.cloudflare.com/__down?bytes=1048576',
-    'https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
-    'https://raw.githubusercontent.com/mlacnout-sketch/zivpn-xsocks-core/main/pubspec.yaml',
+    'https://proof.ovh.net/files/1Mb.dat',
+    'https://speedtest.belwue.net/1M',
   ];
   static const Duration _stabilizerChunkTimeout = Duration(seconds: 20);
   static const int _maxStabilizerSizeMb = 10;
