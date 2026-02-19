@@ -1460,11 +1460,21 @@ int process_device_dns_packet (uint8_t *data, int data_len)
 
             // from any dnsgw port is considered a DNS packet
             from_dns = 0;
+            int is_from_dnsgw_ip = 0;
             for (int i = 0; i < num_dnsgws; i++) {
                 if (udp_header.source_port == dnsgws[i].ipv4.port) {
                     from_dns = 1;
-                    break;
                 }
+                if (ipv4_header.source_address == dnsgws[i].ipv4.ip) {
+                    is_from_dnsgw_ip = 1;
+                }
+            }
+
+            // ROOT CAUSE FIX: Prevent infinite loop.
+            // If the packet originates FROM the DNS gateway IP (pdnsd itself),
+            // do NOT hijack it again. Let it pass to UDPGW.
+            if (is_from_dnsgw_ip) {
+                to_dns = 0;
             }
 
             // if not DNS packet, just bypass it.
