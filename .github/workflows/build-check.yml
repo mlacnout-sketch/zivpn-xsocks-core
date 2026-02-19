@@ -86,6 +86,9 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install NDK & CMake
         run: |
           sdkmanager "ndk;27.0.12077973" "cmake;3.18.1"
