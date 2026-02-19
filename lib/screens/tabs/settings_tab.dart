@@ -153,7 +153,7 @@ class _SettingsTabState extends State<SettingsTab> {
       _udpgwPortCtrl.text = prefs.getString('udpgw_port') ?? '7300';
       _udpgwMaxConnCtrl.text = prefs.getString('udpgw_max_connections') ?? '512';
       _udpgwBufSizeCtrl.text = prefs.getString('udpgw_buffer_size') ?? '32';
-      _dnsCtrl.text = prefs.getString('upstream_dns') ?? '208.67.222.222';
+      _dnsCtrl.text = prefs.getString('upstream_dns') ?? '8.8.8.8';
       _appsListCtrl.text = prefs.getString('apps_list') ?? '';
       _tcpSndBufCtrl.text = prefs.getString('tcp_snd_buf') ?? '65535';
       _tcpWndCtrl.text = prefs.getString('tcp_wnd') ?? '65535';
@@ -189,7 +189,7 @@ class _SettingsTabState extends State<SettingsTab> {
     await prefs.setString('udpgw_port', val(_udpgwPortCtrl, '7300'));
     await prefs.setString('udpgw_max_connections', val(_udpgwMaxConnCtrl, '512'));
     await prefs.setString('udpgw_buffer_size', val(_udpgwBufSizeCtrl, '32'));
-    await prefs.setString('upstream_dns', val(_dnsCtrl, '208.67.222.222'));
+    await prefs.setString('upstream_dns', val(_dnsCtrl, '8.8.8.8'));
     await prefs.setString('apps_list', _appsListCtrl.text);
     await prefs.setString('tcp_snd_buf', val(_tcpSndBufCtrl, '65535'));
     await prefs.setString('tcp_wnd', val(_tcpWndCtrl, '65535'));
