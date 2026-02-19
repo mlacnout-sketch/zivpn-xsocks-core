@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:shizuku_api/shizuku_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 import '../models/ping_log_entry.dart';
 import '../models/autopilot_config.dart';
 import '../models/autopilot_state.dart';
@@ -58,6 +61,7 @@ class AutoPilotService extends ChangeNotifier {
     return withHttps.toString();
   }
 
+  late MethodChannel _methodChannel;
   final ShizukuApi _shizuku = ShizukuApi();
   final StreamController<AutoPilotState> _stateController = StreamController<AutoPilotState>.broadcast();
   
@@ -72,7 +76,6 @@ class AutoPilotService extends ChangeNotifier {
   bool _isInitializing = false;
   bool isRunning = false;
 
-  // PING logging and notifications
   final List<PingLogEntry> _pingLogs = [];
   final NotificationService _notificationService = NotificationService();
   DateTime? _lastFailureTime;
@@ -92,6 +95,8 @@ class AutoPilotService extends ChangeNotifier {
 
     _isInitializing = true;
     try {
+      _methodChannel = const MethodChannel('com.minizivpn.app/core');
+      
       await _loadConfig();
       await _notificationService.init();
       
@@ -290,6 +295,7 @@ class AutoPilotService extends ChangeNotifier {
       );
       
       _addPingLog(pingEntry);
+      _logToNative("PING ${response.statusCode} (${elapsed}ms)");
       await _notificationService.showPingNotification(pingEntry);
       
       if (_lastFailureTime != null) {
@@ -307,6 +313,7 @@ class AutoPilotService extends ChangeNotifier {
       );
       
       _addPingLog(pingEntry);
+      _logToNative("PING FAILED: ${e.toString().split('\n').first}");
       await _notificationService.showPingNotification(pingEntry);
       _lastFailureTime ??= DateTime.now();
       
@@ -353,11 +360,6 @@ class AutoPilotService extends ChangeNotifier {
       ));
     }
   }
-
-import 'dart:io';
-import 'package:http/io_client.dart';
-
-// ... (in _runPingStabilizer)
 
   Future<void> _runPingStabilizer() async {
     final ioc = HttpClient();
