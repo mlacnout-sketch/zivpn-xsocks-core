@@ -354,8 +354,16 @@ class AutoPilotService extends ChangeNotifier {
     }
   }
 
+import 'dart:io';
+import 'package:http/io_client.dart';
+
+// ... (in _runPingStabilizer)
+
   Future<void> _runPingStabilizer() async {
-    final client = http.Client();
+    final ioc = HttpClient();
+    ioc.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+    final client = IOClient(ioc);
+    
     try {
       final totalChunks = _config.stabilizerSizeMb.clamp(1, _maxStabilizerSizeMb);
       for (int i = 1; i <= totalChunks; i++) {
@@ -366,7 +374,10 @@ class AutoPilotService extends ChangeNotifier {
           await for (final _ in response.stream) {
             if (!isRunning) break;
           }
-        } catch (e) {}
+          _logToNative("Stabilizer chunk $i/$totalChunks downloaded");
+        } catch (e) {
+           _logToNative("Stabilizer chunk $i error: $e");
+        }
       }
     } finally {
       client.close();
@@ -395,7 +406,20 @@ class AutoPilotService extends ChangeNotifier {
     }
   }
 
+  Future<void> _logToNative(String message) async {
+    try {
+      if (_isInitialized) {
+        await _methodChannel.invokeMethod('logMessage', {'message': "[AutoPilot] $message"});
+      }
+    } catch (e) {
+      debugPrint("Failed to log to native: $e");
+    }
+  }
+
   void _updateState(AutoPilotState newState) {
+    if (newState.message != null && newState.message != _currentState.message) {
+        _logToNative(newState.message!);
+    }
     _currentState = newState;
     _stateController.add(newState);
     notifyListeners();

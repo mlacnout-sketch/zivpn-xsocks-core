@@ -437,6 +437,7 @@ class MainActivity: FlutterActivity() {
     }
 
     private fun updatePingNotification(text: String, title: String, body: String): Boolean {
+        Log.d("ZIVPN-Bitmap", "Updating ping icon: $text")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 val density = resources.displayMetrics.density
