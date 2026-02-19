@@ -522,11 +522,12 @@ class MainActivity: FlutterActivity() {
 
                 // Ensure channel exists
                 val channelId = "ping_notifications"
-                val manager = getSystemService(NotificationManager::class.java)
-                if (manager != null) {
+                val notificationManager = getSystemService(NotificationManager::class.java)
+                
+                if (notificationManager != null) {
                     val channel = NotificationChannel(channelId, "AutoPilot Status", NotificationManager.IMPORTANCE_LOW)
                     channel.setShowBadge(false)
-                    manager.createNotificationChannel(channel)
+                    notificationManager.createNotificationChannel(channel)
                 }
 
                 // Build notification
@@ -552,7 +553,7 @@ class MainActivity: FlutterActivity() {
                 )
                 builder.setContentIntent(pendingIntent)
 
-                manager?.notify(1001, builder.build()) // ID 1001 for Ping Icon
+                notificationManager?.notify(1001, builder.build()) // ID 1001 for Ping Icon
                 return true
             } catch (e: Exception) {
                 Log.e("AutoPilot", "Icon update failed", e)
