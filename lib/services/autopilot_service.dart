@@ -14,14 +14,19 @@ import 'notification_service.dart';
 const String kAppPackageName = 'com.minizivpn.app';
 
 class AutoPilotService extends ChangeNotifier {
-  static const String _primaryAirplaneModeCommandTemplate =
-      'cmd connectivity airplane-mode {action}';
-  static const List<String> _fallbackAirplaneModeCommandsTemplate = [
-    'settings put global airplane_mode_on {stateValue}',
-    'am broadcast -a android.intent.action.AIRPLANE_MODE --ez state {stateBool}',
+  static const List<List<String>> _airplaneModeMethods = [
+    ['cmd connectivity airplane-mode {action}'],
+    [
+      'settings put global airplane_mode_on {stateValue}',
+      'am broadcast -a android.intent.action.AIRPLANE_MODE --ez state {stateBool}',
+    ],
+    ['svc data {svcAction}'],
   ];
-  static const String _stabilizerChunkUrl =
-      'https://speed.cloudflare.com/__down?bytes=1048576';
+  static const List<String> _stabilizerUrls = [
+    'https://speed.cloudflare.com/__down?bytes=1048576',
+    'https://proof.ovh.net/files/1Mb.dat',
+    'https://speedtest.selectel.ru/1MB',
+  ];
   static const Duration _stabilizerChunkTimeout = Duration(seconds: 20);
   static const int _maxStabilizerSizeMb = 10;
   static const Duration _shizukuCommandTimeout = Duration(seconds: 4);
@@ -368,17 +373,25 @@ class AutoPilotService extends ChangeNotifier {
     
     try {
       final totalChunks = _config.stabilizerSizeMb.clamp(1, _maxStabilizerSizeMb);
-      for (int i = 1; i <= totalChunks; i++) {
+      for (int i = 0; i < totalChunks; i++) {
         if (!isRunning) break;
         try {
-          final request = http.Request('GET', Uri.parse(_stabilizerChunkUrl));
+          // Cycle through available URLs
+          final baseUrl = _stabilizerUrls[i % _stabilizerUrls.length];
+          // Append cache-busting timestamp
+          final separator = baseUrl.contains('?') ? '&' : '?';
+          final url = '$baseUrl${separator}t=${DateTime.now().millisecondsSinceEpoch}';
+          
+          final request = http.Request('GET', Uri.parse(url));
           final response = await client.send(request).timeout(_stabilizerChunkTimeout);
+          
+          // Consume the stream to ensure download happens
           await for (final _ in response.stream) {
             if (!isRunning) break;
           }
-          _logToNative("Stabilizer chunk $i/$totalChunks downloaded");
+          _logToNative("Stabilizer chunk ${i + 1}/$totalChunks downloaded from ${Uri.parse(baseUrl).host}");
         } catch (e) {
-           _logToNative("Stabilizer chunk $i error: $e");
+           _logToNative("Stabilizer chunk ${i + 1} error: $e");
         }
       }
     } finally {
@@ -387,58 +400,42 @@ class AutoPilotService extends ChangeNotifier {
   }
 
   Future<void> _toggleAirplaneMode(bool enabled) async {
+    final action = enabled ? 'enable' : 'disable';
     final stateValue = enabled ? 1 : 0;
     final stateBool = enabled.toString();
+    final svcAction = enabled ? 'disable' : 'enable';
 
     // Preserve Hotspot: Exclude 'wifi' and 'bluetooth' from airplane mode radios
     const preserveHotspotCommand = 'settings put global airplane_mode_radios cell,nfc,wimax';
 
-    final primaryCommand = _primaryAirplaneModeCommandTemplate.replaceAll('{action}', enabled ? 'enable' : 'disable');
-    final fallbackCommands = _fallbackAirplaneModeCommandsTemplate
-        .map((cmd) => cmd.replaceAll('{stateValue}', stateValue.toString()).replaceAll('{stateBool}', stateBool))
-        .toList();
-
-    try {
-      // Execute preserve command first if enabling
-      if (enabled) {
-         try { await _shizuku.runCommand(preserveHotspotCommand); } catch (e) {}
-      }
-      
-      await _shizuku.runCommand(primaryCommand);
-    } catch (e) {
-      for (final command in fallbackCommands) {
-        try {
-          await _shizuku.runCommand(command);
-          return;
-        } catch (e) {}
-      }
-      throw 'Unable to toggle airplane mode';
+    if (enabled) {
+      try {
+        await _shizuku.runCommand(preserveHotspotCommand).timeout(_shizukuCommandTimeout);
+      } catch (_) {}
     }
-  }
 
-  Future<void> _logToNative(String message) async {
-    try {
-      if (_isInitialized) {
-        await _methodChannel.invokeMethod('logMessage', {'message': "[AutoPilot] $message"});
+    Object? lastError;
+
+    for (final method in _airplaneModeMethods) {
+      try {
+        for (final template in method) {
+          final command = template
+              .replaceAll('{action}', action)
+              .replaceAll('{stateValue}', stateValue.toString())
+              .replaceAll('{stateBool}', stateBool)
+              .replaceAll('{svcAction}', svcAction);
+          
+          await _shizuku.runCommand(command).timeout(_shizukuCommandTimeout);
+        }
+        return; // Success
+      } catch (e) {
+        lastError = e;
+        // Add a small delay before trying the next method to avoid overwhelming the system
+        // and to allow any partial execution to settle.
+        await Future.delayed(const Duration(seconds: 1));
+        continue; // Try next method
       }
-    } catch (e) {
-      debugPrint("Failed to log to native: $e");
     }
+    
+    throw 'Unable to toggle airplane mode: $lastError';
   }
-
-  void _updateState(AutoPilotState newState) {
-    if (newState.message != null && newState.message != _currentState.message) {
-        _logToNative(newState.message!);
-    }
-    _currentState = newState;
-    _stateController.add(newState);
-    notifyListeners();
-  }
-
-  void _addPingLog(PingLogEntry entry) {
-    _pingLogs.insert(0, entry);
-    if (_pingLogs.length > 100) _pingLogs.removeLast();
-  }
-
-  List<PingLogEntry> getRecentPingLogs({int limit = 10}) => _pingLogs.take(limit).toList();
-}

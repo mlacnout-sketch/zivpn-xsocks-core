@@ -233,6 +233,7 @@ class _SettingsTabState extends State<SettingsTab> {
       _pdnsdVerbosityCtrl.text = '1';
       _hysteriaRecvWinCtrl.text = '655360';
       _hysteriaConnCtrl.text = '262144';
+      _dnsCtrl.text = '9.9.9.9'; // Quad9 for security/throughput balance
     } else if (value == 'latency') {
       _tcpSndBufCtrl.text = '32768';
       _tcpWndCtrl.text = '32768';
@@ -244,6 +245,7 @@ class _SettingsTabState extends State<SettingsTab> {
       _pdnsdVerbosityCtrl.text = '1';
       _hysteriaRecvWinCtrl.text = '163840';
       _hysteriaConnCtrl.text = '65536';
+      _dnsCtrl.text = '1.1.1.1'; // Cloudflare for speed
     } else if (value == 'balanced') {
       _tcpSndBufCtrl.text = '65535';
       _tcpWndCtrl.text = '65535';
@@ -255,6 +257,7 @@ class _SettingsTabState extends State<SettingsTab> {
       _pdnsdVerbosityCtrl.text = '2';
       _hysteriaRecvWinCtrl.text = '327680';
       _hysteriaConnCtrl.text = '131072';
+      _dnsCtrl.text = '8.8.8.8'; // Google for reliability
     }
   }
 
@@ -364,7 +367,34 @@ class _SettingsTabState extends State<SettingsTab> {
             _buildTextInput(_socksBufCtrl, 'SOCKS Buffer', Icons.memory, onChanged: _onConfigChanged),
             _buildTextInput(_hysteriaRecvWinCtrl, 'Hysteria Recv Window', Icons.speed, onChanged: _onConfigChanged),
             _buildTextInput(_hysteriaConnCtrl, 'Hysteria Recv Win Conn', Icons.network_check, onChanged: _onConfigChanged),
-            _buildTextInput(_dnsCtrl, 'Upstream DNS', Icons.dns, isNumber: false),
+            
+            // DNS Selector
+            DropdownButtonFormField<String>(
+              decoration: InputDecoration(
+                labelText: 'DNS Preset',
+                prefixIcon: const Icon(Icons.dns_outlined),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                filled: true,
+                fillColor: AppColors.card,
+              ),
+              value: null,
+              hint: const Text('Pilih DNS Preset...'),
+              items: const [
+                DropdownMenuItem(value: '8.8.8.8', child: Text('Google (8.8.8.8)')),
+                DropdownMenuItem(value: '1.1.1.1', child: Text('Cloudflare (1.1.1.1)')),
+                DropdownMenuItem(value: '9.9.9.9', child: Text('Quad9 (9.9.9.9)')),
+                DropdownMenuItem(value: '94.140.14.14', child: Text('AdGuard (94.140.14.14)')),
+                DropdownMenuItem(value: '208.67.222.222', child: Text('OpenDNS (208.67.222.222)')),
+              ],
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() => _dnsCtrl.text = val);
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+            _buildTextInput(_dnsCtrl, 'Upstream DNS (Custom IP)', Icons.dns, isNumber: false),
+
             _buildDropdownTile(
               'Native Performance Profile',
               'Preset tuning tun2socks + pdnsd',
