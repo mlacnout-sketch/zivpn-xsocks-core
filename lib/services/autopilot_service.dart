@@ -25,8 +25,8 @@ class AutoPilotService extends ChangeNotifier {
   ];
   static const List<String> _stabilizerUrls = [
     'https://speed.cloudflare.com/__down?bytes=1048576',
-    'https://proof.ovh.net/files/1Mb.dat',
-    'https://speedtest.selectel.ru/1MB',
+    'https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
+    'https://raw.githubusercontent.com/mlacnout-sketch/zivpn-xsocks-core/main/pubspec.yaml',
   ];
   static const Duration _stabilizerChunkTimeout = Duration(seconds: 20);
   static const int _maxStabilizerSizeMb = 10;
@@ -428,11 +428,16 @@ class AutoPilotService extends ChangeNotifier {
     final ioc = HttpClient();
     ioc.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
     final client = IOClient(ioc);
+    int consecutiveFailures = 0;
     
     try {
       final totalChunks = _config.stabilizerSizeMb.clamp(1, _maxStabilizerSizeMb);
       for (int i = 0; i < totalChunks; i++) {
-        if (!isRunning) break;
+        if (!isRunning || consecutiveFailures >= 3) break;
+        
+        // Give the connection a small breather between chunks
+        await Future.delayed(const Duration(seconds: 1));
+
         try {
           // Cycle through available URLs
           final baseUrl = _stabilizerUrls[i % _stabilizerUrls.length];
@@ -447,9 +452,16 @@ class AutoPilotService extends ChangeNotifier {
           await for (final _ in response.stream) {
             if (!isRunning) break;
           }
-          _logToNative("Stabilizer chunk ${i + 1}/$totalChunks downloaded from ${Uri.parse(baseUrl).host}");
+          consecutiveFailures = 0; // Reset failure counter on success
+          _logToNative("Stabilizer chunk ${i + 1}/$totalChunks OK (${Uri.parse(baseUrl).host})");
         } catch (e) {
-           _logToNative("Stabilizer chunk ${i + 1} error: $e");
+           consecutiveFailures++;
+           final errorStr = e.toString().toLowerCase();
+           if (errorStr.contains("reset") || errorStr.contains("broken pipe") || errorStr.contains("connection closed")) {
+             _logToNative("Stabilizer chunk ${i + 1} transient failure (network reset).");
+           } else {
+             _logToNative("Stabilizer chunk ${i + 1} failed: ${e.toString().split('\n').first}");
+           }
         }
       }
     } finally {
