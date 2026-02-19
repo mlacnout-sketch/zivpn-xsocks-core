@@ -430,8 +430,6 @@ class AutoPilotService extends ChangeNotifier {
         return; // Success
       } catch (e) {
         lastError = e;
-        // Add a small delay before trying the next method to avoid overwhelming the system
-        // and to allow any partial execution to settle.
         await Future.delayed(const Duration(seconds: 1));
         continue; // Try next method
       }
@@ -439,3 +437,30 @@ class AutoPilotService extends ChangeNotifier {
     
     throw 'Unable to toggle airplane mode: $lastError';
   }
+
+  Future<void> _logToNative(String message) async {
+    try {
+      if (_isInitialized) {
+        await _methodChannel.invokeMethod('logMessage', {'message': "[AutoPilot] $message"});
+      }
+    } catch (e) {
+      debugPrint("Failed to log to native: $e");
+    }
+  }
+
+  void _updateState(AutoPilotState newState) {
+    if (newState.message != null && newState.message != _currentState.message) {
+        _logToNative(newState.message!);
+    }
+    _currentState = newState;
+    _stateController.add(newState);
+    notifyListeners();
+  }
+
+  void _addPingLog(PingLogEntry entry) {
+    _pingLogs.insert(0, entry);
+    if (_pingLogs.length > 100) _pingLogs.removeLast();
+  }
+
+  List<PingLogEntry> getRecentPingLogs({int limit = 10}) => _pingLogs.take(limit).toList();
+}

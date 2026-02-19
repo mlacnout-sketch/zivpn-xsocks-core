@@ -377,7 +377,6 @@ class _SettingsTabState extends State<SettingsTab> {
                 filled: true,
                 fillColor: AppColors.card,
               ),
-              value: null,
               hint: const Text('Pilih DNS Preset...'),
               items: const [
                 DropdownMenuItem(value: '8.8.8.8', child: Text('Google (8.8.8.8)')),
