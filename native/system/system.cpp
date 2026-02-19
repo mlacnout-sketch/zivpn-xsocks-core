@@ -8,10 +8,6 @@
 #include <unistd.h>
 #include <errno.h>
 
-#ifdef HAVE_CPU_FEATURES
-#include <cpu-features.h>
-#endif
-
 #include <sys/un.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -27,22 +23,19 @@
 
 static jstring
 getABI(JNIEnv *env, jobject thiz) {
-#ifdef HAVE_CPU_FEATURES
-    AndroidCpuFamily family = android_getCpuFamily();
-    uint64_t features = android_getCpuFeatures();
-    const char *abi;
+    const char *abi = "unknown";
 
-    if (family == ANDROID_CPU_FAMILY_X86) {
-        abi = "x86";
-    } else if (family == ANDROID_CPU_FAMILY_MIPS) {
-        abi = "mips";
-    } else if (family == ANDROID_CPU_FAMILY_ARM) {
-        abi = "armeabi-v7a";
-    }
-    return env->NewStringUTF(abi);
-#else
-    return env->NewStringUTF("unknown");
+#if defined(__aarch64__)
+    abi = "arm64-v8a";
+#elif defined(__arm__)
+    abi = "armeabi-v7a";
+#elif defined(__x86_64__)
+    abi = "x86_64";
+#elif defined(__i386__)
+    abi = "x86";
 #endif
+
+    return env->NewStringUTF(abi);
 }
 
 static void
