@@ -199,7 +199,7 @@ void ipaddr_print_addr (uint32_t addr, char *out)
     
     uint8_t *b = (uint8_t *)&addr;
     
-    sprintf(out, "%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8,
+    snprintf(out, IPADDR_PRINT_MAX, "%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8,
             b[0], b[1], b[2], b[3]);
 }
 
@@ -211,7 +211,7 @@ void ipaddr_print_ifaddr (struct ipv4_ifaddr ifaddr, char *out)
     
     uint8_t *b = (uint8_t *)&ifaddr.addr;
     
-    sprintf(out, "%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8"/%d",
+    snprintf(out, IPADDR_PRINT_MAX, "%"PRIu8".%"PRIu8".%"PRIu8".%"PRIu8"/%d",
             b[0], b[1], b[2], b[3], ifaddr.prefix);
 }
 

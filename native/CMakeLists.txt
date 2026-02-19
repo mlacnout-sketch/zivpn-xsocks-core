@@ -2,6 +2,18 @@ cmake_minimum_required(VERSION 3.10...3.31)
 
 project(minizivpn_native)
 
+# --- Security & Sanitizer Options ---
+option(ENABLE_SANITIZERS "Enable ASan and UBSan for Debug builds" ON)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND ENABLE_SANITIZERS)
+    message(STATUS "Enabling AddressSanitizer and UndefinedBehaviorSanitizer")
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address,undefined)
+endif()
+
+# Common security flags
+add_compile_options(-fstack-protector-strong -D_FORTIFY_SOURCE=2)
+
 option(TUN2SOCKS_ENABLE_LTO "Enable link-time optimization for tun2socks" ON)
 option(TUN2SOCKS_ENABLE_CPU_TUNING "Enable ABI-specific CPU tuning flags" OFF)
 

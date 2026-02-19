@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 import 'screens/home_page.dart';
+import 'services/autopilot_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AutoPilotService().init();
   runApp(const MiniZivpnApp());
 }
 

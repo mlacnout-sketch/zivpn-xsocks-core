@@ -15,6 +15,29 @@ class AutoPilotTab extends StatefulWidget {
 class _AutoPilotTabState extends State<AutoPilotTab> {
   final _service = AutoPilotService();
   bool _isStarting = false;
+  final List<String> _activityLogs = [];
+  String? _lastStateMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // In actual app, the service should already be initialized in main
+  }
+
+  void _handleStateLog(AutoPilotState state) {
+    final message = state.message?.trim();
+    if (message == null || message.isEmpty || message == _lastStateMessage) return;
+
+    _lastStateMessage = message;
+    final now = DateTime.now();
+    final timeLabel = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+    final entry = "[$timeLabel] $message";
+
+    setState(() {
+      _activityLogs.insert(0, entry);
+      if (_activityLogs.length > 15) _activityLogs.removeLast();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +46,8 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
       initialData: _service.currentState,
       builder: (context, snapshot) {
         final state = snapshot.data ?? _service.currentState;
-        final isRunning = state.status != AutoPilotStatus.stopped;
+        _handleStateLog(state);
+        final isRunning = state.status != AutoPilotStatus.idle && state.status != AutoPilotStatus.stopped;
 
         return Scaffold(
           body: SingleChildScrollView(
@@ -31,14 +55,22 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  "lexpesawat (Watchdog)",
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 1),
+                const Row(
+                  children: [
+                    Icon(Icons.radar, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Text(
+                      "lexpesawat (AutoPilot)",
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 _buildStatusCard(state),
                 const SizedBox(height: 16),
                 _buildControlCard(isRunning),
+                const SizedBox(height: 24),
+                _buildActivityLog(),
                 const SizedBox(height: 24),
                 const Text("Settings", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary)),
                 const SizedBox(height: 12),
@@ -62,10 +94,13 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
     String label;
 
     switch (state.status) {
-      case AutoPilotStatus.stopped: color = Colors.grey; icon = Icons.stop_circle_outlined; label = "STOPPED"; break;
-      case AutoPilotStatus.monitoring: color = Colors.green; icon = Icons.radar; label = "MONITORING"; break;
+      case AutoPilotStatus.idle:
+      case AutoPilotStatus.stopped: color = Colors.grey; icon = Icons.stop_circle_outlined; label = "IDLE"; break;
+      case AutoPilotStatus.running:
+      case AutoPilotStatus.monitoring: color = Colors.green; icon = Icons.radar; label = "RUNNING"; break;
       case AutoPilotStatus.checking: color = Colors.blue; icon = Icons.sync; label = "CHECKING..."; break;
-      case AutoPilotStatus.resetting: color = Colors.orange; icon = Icons.airplane_ticket; label = "RESETTING NET"; break;
+      case AutoPilotStatus.recovering:
+      case AutoPilotStatus.resetting: color = Colors.orange; icon = Icons.airplane_ticket; label = "RECOVERING"; break;
       case AutoPilotStatus.stabilizing: color = Colors.purple; icon = Icons.bolt; label = "STABILIZING"; break;
       case AutoPilotStatus.error: color = Colors.red; icon = Icons.error_outline; label = "ERROR"; break;
     }
@@ -97,7 +132,7 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
           child: ElevatedButton.icon(
             onPressed: _isStarting ? null : (isRunning ? _stop : _start),
             icon: Icon(isRunning ? Icons.stop : Icons.play_arrow, size: 28),
-            label: Text(isRunning ? "STOP WATCHDOG" : "START WATCHDOG", style: const TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(isRunning ? "STOP AUTOPILOT" : "START AUTOPILOT", style: const TextStyle(fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
               backgroundColor: isRunning ? Colors.redAccent : AppColors.primary,
               foregroundColor: Colors.white,
@@ -107,6 +142,41 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildActivityLog() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.receipt_long_rounded, size: 20, color: AppColors.primary),
+                SizedBox(width: 8),
+                Text('Activity Log', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (_activityLogs.isEmpty)
+              const Text('No activity yet. Start AutoPilot to monitor connection.', style: TextStyle(color: Colors.white54, fontSize: 12))
+            else
+              SizedBox(
+                height: 150,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _activityLogs.length,
+                  itemBuilder: (context, index) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(_activityLogs[index], style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.white70)),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -132,6 +202,18 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
               val: cfg.connectionTimeoutSeconds.toDouble(),
               min: 2, max: 15, div: 13, unit: "s",
               onChanged: (v) => _updateCfg(cfg.copyWith(connectionTimeoutSeconds: v.toInt())),
+            ),
+            const Divider(height: 32),
+            const Text("Ping Destination", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const SizedBox(height: 8),
+            TextField(
+              decoration: const InputDecoration(
+                hintText: "http://google.com",
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+              controller: TextEditingController(text: cfg.pingDestination),
+              onSubmitted: (v) => _updateCfg(cfg.copyWith(pingDestination: v)),
             ),
           ],
         ),
@@ -174,11 +256,11 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
             SwitchListTile(
               title: const Text("Ping Stabilizer", style: TextStyle(fontWeight: FontWeight.bold)),
               subtitle: const Text("Downloads data to wake up connection"),
-              value: cfg.enableStabilizer,
+              value: cfg.enablePingStabilizer,
               activeThumbColor: AppColors.primary,
-              onChanged: (v) => _updateCfg(cfg.copyWith(enableStabilizer: v)),
+              onChanged: (v) => _updateCfg(cfg.copyWith(enablePingStabilizer: v)),
             ),
-            if (cfg.enableStabilizer)
+            if (cfg.enablePingStabilizer)
               _sliderSetting(
                 title: "Stabilizer Size",
                 desc: "Total dummy data to download",

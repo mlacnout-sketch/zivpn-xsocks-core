@@ -8,7 +8,7 @@ data class PdnsdTuning(
     val timeout: Int = 10,
     val minTtl: String = "15m",
     val maxTtl: String = "1w",
-    val queryMethod: String = "tcp_only",
+    val queryMethod: String = "udp_tcp",
     val verbosity: Int = 2
 )
 
@@ -23,10 +23,10 @@ object Pdnsd {
 
         val configFile = File(context.filesDir, "pdnsd.conf")
 
-        // Handle IP or IP:PORT format. Default to 443 if no port specified.
+        // Handle IP or IP:PORT format. Default to 53 if no port specified.
         val parts = upstreamDns.split(":")
-        val ip = parts[0].ifEmpty { "208.67.222.222" }
-        val port = if (parts.size > 1) parts[1] else "443"
+        val ip = if (parts[0].isEmpty()) "8.8.8.8" else parts[0]
+        val port = if (parts.size > 1) parts[1] else "53"
 
         val conf = """
             global {

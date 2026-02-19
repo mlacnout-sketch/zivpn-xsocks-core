@@ -832,6 +832,8 @@ static dns_msg_t *compose_answer(llist *ql, dns_hdr_t *hdr, size_t *rlen, edns_i
 	for (qe=llist_first(ql); qe; qe=llist_next(qe)) {
 		int hops;
 		unsigned char qname[DNSNAMEBUFSIZE];
+		unsigned char names_seen[MAX_HOPS][DNSNAMEBUFSIZE];
+		int num_names_seen = 0;
 
 		rhncpy(qname,qe->query);
 		/* look if we have a cached copy. otherwise, perform a nameserver query. Same with timeout */
@@ -839,6 +841,19 @@ static dns_msg_t *compose_answer(llist *ql, dns_hdr_t *hdr, size_t *rlen, edns_i
 		do {
 			int rc;
 			unsigned char c_soa=cundef;
+
+			/* CNAME loop detection */
+			for (int i = 0; i < num_names_seen; i++) {
+				if (rhnlen(qname) == rhnlen(names_seen[i]) && memcmp(qname, names_seen[i], rhnlen(qname)) == 0) {
+					DEBUG_RHN_MSG("CNAME loop detected for: %s\n", RHN2STR(qname));
+					ans->hdr.rcode = rcode = RC_SERVFAIL;
+					goto cleanup_return;
+				}
+			}
+			if (num_names_seen < MAX_HOPS) {
+				rhncpy(names_seen[num_names_seen++], qname);
+			}
+
 			if ((rc=dns_cached_resolve(qname,qe->qtype, &cached, MAX_HOPS,queryts,&c_soa))!=RC_OK) {
 				ans->hdr.rcode=rcode=rc;
 				if(rc==RC_NAMEERR) {

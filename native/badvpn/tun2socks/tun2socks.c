@@ -213,7 +213,8 @@ struct {
     int tun_mtu;
     int fake_proc;
     char *pid;
-    char *dnsgw;
+    char *dnsgw[8];
+    int num_dnsgw;
 #else
     char *tundev;
 #endif
@@ -308,8 +309,9 @@ LinkedList1 tcp_clients;
 int num_clients;
 
 #ifdef ANDROID
-// Address of dnsgw
-BAddr dnsgw;
+// Addresses of dnsgws
+BAddr dnsgws[8];
+int num_dnsgws = 0;
 void terminate (void);
 #else
 static void terminate (void);
@@ -793,6 +795,7 @@ int parse_arguments (int argc, char *argv[])
     options.tun_mtu = 1500;
     options.fake_proc = 0;
     options.pid = NULL;
+    options.num_dnsgw = 0;
 #else
     options.tundev = NULL;
 #endif
@@ -919,7 +922,11 @@ int parse_arguments (int argc, char *argv[])
                 fprintf(stderr, "%s: requires an argument\n", arg);
                 return 0;
             }
-            options.dnsgw = argv[i + 1];
+            if (options.num_dnsgw < 8) {
+                options.dnsgw[options.num_dnsgw++] = argv[i + 1];
+            } else {
+                fprintf(stderr, "warning: maximum 8 DNS gateways supported, ignoring %s\n", argv[i + 1]);
+            }
             i++;
         }
         else if (!strcmp(arg, "--pid")) {
@@ -1181,16 +1188,18 @@ int process_arguments (void)
     }
 
 #ifdef ANDROID
-    // resolve dnsgw addr
-    if (options.dnsgw) {
-        if (!BAddr_Parse2(&dnsgw, options.dnsgw, NULL, 0, 0)) {
-            BLog(BLOG_ERROR, "dnsgw addr: BAddr_Parse2 failed");
-            return 0;
+    // resolve dnsgw addrs
+    num_dnsgws = 0;
+    for (int i = 0; i < options.num_dnsgw; i++) {
+        if (!BAddr_Parse2(&dnsgws[num_dnsgws], options.dnsgw[i], NULL, 0, 0)) {
+            BLog(BLOG_ERROR, "dnsgw addr %s: BAddr_Parse2 failed", options.dnsgw[i]);
+            continue;
         }
-        if (dnsgw.type != BADDR_TYPE_IPV4) {
-            BLog(BLOG_ERROR, "dnsgw addr: must be an IPv4 address");
-            return 0;
+        if (dnsgws[num_dnsgws].type != BADDR_TYPE_IPV4) {
+            BLog(BLOG_ERROR, "dnsgw addr %s: must be an IPv4 address", options.dnsgw[i]);
+            continue;
         }
+        num_dnsgws++;
     }
 #endif
 
@@ -1403,11 +1412,12 @@ int process_device_dns_packet (uint8_t *data, int data_len)
     ASSERT(data_len >= 0)
 
     // do nothing if we don't have dnsgw
-    if (!options.dnsgw) {
+    if (num_dnsgws == 0) {
         goto fail;
     }
 
     static int init = 0;
+    static int dnsgw_idx = 0;
 
     int to_dns;
     int from_dns;
@@ -1448,8 +1458,24 @@ int process_device_dns_packet (uint8_t *data, int data_len)
             // to port 53 is considered a DNS packet
             to_dns = udp_header.dest_port == hton16(53);
 
-            // from port 8153 is considered a DNS packet
-            from_dns = udp_header.source_port == dnsgw.ipv4.port;
+            // from any dnsgw port is considered a DNS packet
+            from_dns = 0;
+            int is_from_dnsgw_ip = 0;
+            for (int i = 0; i < num_dnsgws; i++) {
+                if (udp_header.source_port == dnsgws[i].ipv4.port) {
+                    from_dns = 1;
+                }
+                if (ipv4_header.source_address == dnsgws[i].ipv4.ip) {
+                    is_from_dnsgw_ip = 1;
+                }
+            }
+
+            // ROOT CAUSE FIX: Prevent infinite loop.
+            // If the packet originates FROM the DNS gateway IP (pdnsd itself),
+            // do NOT hijack it again. Let it pass to UDPGW.
+            if (is_from_dnsgw_ip) {
+                to_dns = 0;
+            }
 
             // if not DNS packet, just bypass it.
             if (!to_dns && !from_dns) {
@@ -1458,7 +1484,7 @@ int process_device_dns_packet (uint8_t *data, int data_len)
 
             // modify DNS packet
             if (to_dns) {
-                BLog(BLOG_INFO, "UDP: to DNS %d bytes", data_len);
+                BLog(BLOG_INFO, "UDP: to DNS %d bytes using gateway index %d", data_len, dnsgw_idx);
 
                 // construct addresses
                 if (!init) {
@@ -1471,12 +1497,16 @@ int process_device_dns_packet (uint8_t *data, int data_len)
                 BAddr_InitIPv4(&remote_addr, ipv4_header.destination_address, udp_header.dest_port);
                 insert_connection(local_addr, remote_addr, udp_header.source_port);
 
+                // Select current gateway and increment index
+                BAddr current_dnsgw = dnsgws[dnsgw_idx];
+                dnsgw_idx = (dnsgw_idx + 1) % num_dnsgws;
+
                 // build IP header
-                ipv4_header.destination_address = dnsgw.ipv4.ip;
+                ipv4_header.destination_address = current_dnsgw.ipv4.ip;
                 ipv4_header.source_address = netif_ipaddr.ipv4;
 
                 // build UDP header
-                udp_header.dest_port = dnsgw.ipv4.port;
+                udp_header.dest_port = current_dnsgw.ipv4.port;
 
             } else if (from_dns) {
 
@@ -1515,10 +1545,16 @@ int process_device_dns_packet (uint8_t *data, int data_len)
                                 ipv6_h.source_address, ipv6_h.destination_address);
 
                         // write packet
+                        packet_length = sizeof(ipv6_h) + sizeof(udp_header) + data_len;
+                        if (packet_length > BTap_GetMTU(&device)) {
+                            BLog(BLOG_WARNING, "UDP/IPv6: DNS packet too large for MTU (%d > %d)", packet_length, BTap_GetMTU(&device));
+                            remove_connection(con);
+                            goto fail;
+                        }
+
                         memcpy(device_write_buf, &ipv6_h, sizeof(ipv6_h));
                         memcpy(device_write_buf + sizeof(ipv6_h), &udp_header, sizeof(udp_header));
                         memcpy(device_write_buf + sizeof(ipv6_h) + sizeof(udp_header), data, data_len);
-                        packet_length = sizeof(ipv6_h) + sizeof(udp_header) + data_len;
 
                         remove_connection(con);
 
@@ -1551,14 +1587,22 @@ int process_device_dns_packet (uint8_t *data, int data_len)
                     ipv4_header.source_address, ipv4_header.destination_address);
 
             // write packet
+            packet_length = sizeof(ipv4_header) + sizeof(udp_header) + data_len;
+            if (packet_length > BTap_GetMTU(&device)) {
+                BLog(BLOG_WARNING, "UDP/IPv4: DNS packet too large for MTU (%d > %d)", packet_length, BTap_GetMTU(&device));
+                goto fail;
+            }
+
             memcpy(device_write_buf, &ipv4_header, sizeof(ipv4_header));
             memcpy(device_write_buf + sizeof(ipv4_header), &udp_header, sizeof(udp_header));
             memcpy(device_write_buf + sizeof(ipv4_header) + sizeof(udp_header), data, data_len);
-            packet_length = sizeof(ipv4_header) + sizeof(udp_header) + data_len;
 
         } break;
 
         case 6: {
+            // Force IPv4 priority.
+            goto fail;
+
             // ignore if IPv6 support is disabled
             if (!options.netif_ip6addr) {
                 goto fail;
@@ -1610,6 +1654,10 @@ int process_device_dns_packet (uint8_t *data, int data_len)
             BAddr_InitIPv6(&remote_addr, ipv6_header.destination_address, udp_header.dest_port);
             insert_connection(local_addr, remote_addr, udp_header.source_port);
 
+            // Select current gateway and increment index
+            BAddr current_dnsgw = dnsgws[dnsgw_idx];
+            dnsgw_idx = (dnsgw_idx + 1) % num_dnsgws;
+
             // build IPv4 header
             struct ipv4_header ipv4_h;
             ipv4_h.version4_ihl4 = IPV4_MAKE_VERSION_IHL(sizeof(ipv4_h));
@@ -1621,11 +1669,11 @@ int process_device_dns_packet (uint8_t *data, int data_len)
             ipv4_h.protocol = hton8(IPV4_PROTOCOL_UDP);
             ipv4_h.checksum = hton16(0);
             ipv4_h.source_address = netif_ipaddr.ipv4;
-            ipv4_h.destination_address = dnsgw.ipv4.ip;
+            ipv4_h.destination_address = current_dnsgw.ipv4.ip;
             ipv4_h.checksum = ipv4_checksum(&ipv4_h, NULL, 0);
 
             // build UDP header
-            udp_header.dest_port = dnsgw.ipv4.port;
+            udp_header.dest_port = current_dnsgw.ipv4.port;
             udp_header.length = hton16(sizeof(udp_header) + data_len);
 
             // update UDP header's checksum
@@ -1715,6 +1763,9 @@ int process_device_udp_packet (uint8_t *data, int data_len)
         } break;
 
         case 6: {
+            // Force IPv4 priority.
+            goto fail;
+
             // ignore if IPv6 support is disabled
             if (!options.netif_ip6addr) {
                 goto fail;

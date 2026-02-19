@@ -24,6 +24,16 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.graphics.drawable.Icon
+import android.app.Notification
+import android.app.NotificationManager
+import android.app.NotificationChannel
+
 /**
  * ZIVPN Turbo Main Activity
  * Optimized for high-performance tunneling and aggressive cleanup.
@@ -137,6 +147,8 @@ class MainActivity: FlutterActivity() {
                 }
             }
         )
+
+        registerAutoPilotChannel(flutterEngine)
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             if (call.method == "getInitialFile") {
@@ -366,6 +378,182 @@ class MainActivity: FlutterActivity() {
         serviceIntent.action = ZivpnService.ACTION_DISCONNECT
         startService(serviceIntent)
         sendToLog("VPN Service stopped.")
+    }
+
+    private fun registerAutoPilotChannel(flutterEngine: FlutterEngine) {
+        val channel = "com.minizivpn.app/service"
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startForeground" -> {
+                    val serviceIntent = Intent(this, KeepAliveService::class.java)
+                    serviceIntent.putExtra(KeepAliveService.EXTRA_NOTIFICATION_MODE, "jet")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(serviceIntent)
+                    } else {
+                        startService(serviceIntent)
+                    }
+                    result.success("Started")
+                }
+                "updateForegroundMode" -> {
+                    val mode = call.argument<String>("mode") ?: "jet"
+                    val serviceIntent = Intent(this, KeepAliveService::class.java)
+                    serviceIntent.putExtra(KeepAliveService.EXTRA_NOTIFICATION_MODE, mode)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(serviceIntent)
+                    } else {
+                        startService(serviceIntent)
+                    }
+                    result.success("Updated")
+                }
+                "stopForeground" -> {
+                    val serviceIntent = Intent(this, KeepAliveService::class.java)
+                    stopService(serviceIntent)
+                    result.success("Stopped")
+                }
+                "updatePingIcon" -> {
+                    val text = call.argument<String>("text") ?: "?"
+                    val title = call.argument<String>("title") ?: "PING Monitor"
+                    val body = call.argument<String>("body") ?: ""
+                    val updated = updatePingNotification(text, title, body)
+                    if (updated) {
+                        result.success(true)
+                    } else {
+                        result.error("NOTIFICATION_UPDATE_FAILED", "Failed to update ping icon notification", null)
+                    }
+                }
+                "minimizeApp" -> {
+                    moveTaskToBack(true)
+                    result.success("Minimized")
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun updatePingNotification(text: String, title: String, body: String): Boolean {
+        Log.d("ZIVPN-Bitmap", "Updating ping icon: $text")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val density = resources.displayMetrics.density
+                val iconHeight = (22f * density).toInt().coerceIn(88, 140)
+                val iconWidth = (64f * density).toInt().coerceIn(iconHeight * 2, 360)
+                val bitmap = Bitmap.createBitmap(iconWidth, iconHeight, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bitmap)
+
+                val latencyText = text.trim().ifEmpty { "?" }
+                val unitText = "ms"
+
+                val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.WHITE
+                    textAlign = Paint.Align.LEFT
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                }
+                val unitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.WHITE
+                    textAlign = Paint.Align.LEFT
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                }
+
+                val padding = iconHeight * 0.06f
+                val contentWidth = iconWidth - (padding * 2f)
+                val maxTextHeight = iconHeight * 0.90f
+                val gapRatio = 0.05f
+
+                var numberSize = iconHeight * 0.88f
+                var unitSize = numberSize * 0.56f
+                var fitFound = false
+
+                for (i in 0 until 24) {
+                    numberPaint.textSize = numberSize
+                    unitPaint.textSize = unitSize
+
+                    val numberWidth = numberPaint.measureText(latencyText)
+                    val unitWidth = unitPaint.measureText(unitText)
+                    val gap = numberSize * gapRatio
+                    val totalWidth = numberWidth + gap + unitWidth
+
+                    val numberMetrics = numberPaint.fontMetrics
+                    val unitMetrics = unitPaint.fontMetrics
+                    val ascent = minOf(numberMetrics.ascent, unitMetrics.ascent)
+                    val descent = maxOf(numberMetrics.descent, unitMetrics.descent)
+                    val textHeight = descent - ascent
+
+                    if (totalWidth <= contentWidth && textHeight <= maxTextHeight) {
+                        fitFound = true
+                        break
+                    }
+
+                    numberSize *= 0.95f
+                    unitSize = numberSize * 0.56f
+                }
+
+                if (!fitFound) {
+                    numberSize = iconHeight * 0.50f
+                    unitSize = numberSize * 0.56f
+                }
+
+                numberPaint.textSize = numberSize
+                unitPaint.textSize = unitSize
+
+                val numberWidth = numberPaint.measureText(latencyText)
+                val unitWidth = unitPaint.measureText(unitText)
+                val gap = numberSize * gapRatio
+                val totalWidth = numberWidth + gap + unitWidth
+
+                val numberMetrics = numberPaint.fontMetrics
+                val unitMetrics = unitPaint.fontMetrics
+                val ascent = minOf(numberMetrics.ascent, unitMetrics.ascent)
+                val descent = maxOf(numberMetrics.descent, unitMetrics.descent)
+                val baseline = (iconHeight / 2f) - ((ascent + descent) / 2f)
+
+                val startX = ((iconWidth - totalWidth) / 2f).coerceAtLeast(padding)
+
+                canvas.drawText(latencyText, startX, baseline, numberPaint)
+                canvas.drawText(unitText, startX + numberWidth + gap, baseline, unitPaint)
+
+                val icon = Icon.createWithBitmap(bitmap)
+
+                // Ensure channel exists
+                val channelId = "ping_notifications"
+                val notificationManager = getSystemService(NotificationManager::class.java)
+                
+                if (notificationManager != null) {
+                    val channel = NotificationChannel(channelId, "AutoPilot Status", NotificationManager.IMPORTANCE_LOW)
+                    channel.setShowBadge(false)
+                    notificationManager.createNotificationChannel(channel)
+                }
+
+                // Build notification
+                val builder = Notification.Builder(this, channelId)
+                    .setSmallIcon(icon)
+                    .setContentTitle(title)
+                    .setContentText(body)
+                    .setOnlyAlertOnce(true)
+                    .setOngoing(true)
+                    .setShowWhen(true)
+                    .setWhen(System.currentTimeMillis())
+                    .setCategory(Notification.CATEGORY_SERVICE)
+                    .setLocalOnly(true)
+                
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+                }
+                
+                // Intent to open app
+                val intent = Intent(this, MainActivity::class.java)
+                val pendingIntent = android.app.PendingIntent.getActivity(
+                    this, 0, intent, android.app.PendingIntent.FLAG_IMMUTABLE
+                )
+                builder.setContentIntent(pendingIntent)
+
+                notificationManager?.notify(1001, builder.build()) // ID 1001 for Ping Icon
+                return true
+            } catch (e: Exception) {
+                Log.e("AutoPilot", "Icon update failed", e)
+                return false
+            }
+        }
+        return false
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
