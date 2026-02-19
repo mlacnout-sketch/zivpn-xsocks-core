@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../app_colors.dart';
 import '../../services/autopilot_service.dart';
 import '../../models/autopilot_state.dart';
 import '../../models/autopilot_config.dart';
-import '../../models/ping_log_entry.dart';
 
 class AutoPilotTab extends StatefulWidget {
   const AutoPilotTab({super.key});
@@ -259,7 +257,7 @@ class _AutoPilotTabState extends State<AutoPilotTab> {
               title: const Text("Ping Stabilizer", style: TextStyle(fontWeight: FontWeight.bold)),
               subtitle: const Text("Downloads data to wake up connection"),
               value: cfg.enablePingStabilizer,
-              activeColor: AppColors.primary,
+              activeThumbColor: AppColors.primary,
               onChanged: (v) => _updateCfg(cfg.copyWith(enablePingStabilizer: v)),
             ),
             if (cfg.enablePingStabilizer)

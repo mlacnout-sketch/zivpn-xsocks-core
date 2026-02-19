@@ -59,7 +59,6 @@ class AutoPilotService extends ChangeNotifier {
     return withHttps.toString();
   }
 
-  late MethodChannel _methodChannel;
   final ShizukuApi _shizuku = ShizukuApi();
   final StreamController<AutoPilotState> _stateController = StreamController<AutoPilotState>.broadcast();
   
@@ -76,7 +75,6 @@ class AutoPilotService extends ChangeNotifier {
 
   // PING logging and notifications
   final List<PingLogEntry> _pingLogs = [];
-  final List<void Function(PingLogEntry)> _pingLogCallbacks = [];
   final NotificationService _notificationService = NotificationService();
   DateTime? _lastFailureTime;
 

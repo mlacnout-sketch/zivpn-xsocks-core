@@ -10,6 +10,8 @@ class AutoPilotConfig {
   final int maxConsecutiveResets;
   final String pingDestination;
 
+  bool get autoReset => autoHealthCheck;
+
   const AutoPilotConfig({
     this.checkIntervalSeconds = 15,
     this.connectionTimeoutSeconds = 5,
