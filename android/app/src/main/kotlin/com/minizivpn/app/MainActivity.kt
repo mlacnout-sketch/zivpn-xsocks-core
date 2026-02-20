@@ -49,9 +49,9 @@ class MainActivity: FlutterActivity() {
     private var statsSink: EventChannel.EventSink? = null
     private var statsTimer: Timer? = null
     private lateinit var proxyUsageManager: ProxyUsageManager
-    private var lastNetworkTxDelta: Long = 0L
-    private var lastNetworkRxDelta: Long = 0L
     private var usageCommitTick: Int = 0
+    private var liveSessionRxBytes: Long = 0L
+    private var liveSessionTxBytes: Long = 0L
     private var initialIntentData: String? = null // Store file URI
     
     private val uiHandler = Handler(Looper.getMainLooper())
@@ -313,9 +313,9 @@ class MainActivity: FlutterActivity() {
                 val proxyId = call.argument<String>("proxyId") ?: "default"
                 val started = proxyUsageManager.startConnection(proxyId)
                 if (started) {
-                    lastNetworkTxDelta = 0L
-                    lastNetworkRxDelta = 0L
                     usageCommitTick = 0
+                    liveSessionRxBytes = 0L
+                    liveSessionTxBytes = 0L
                 }
                 result.success(started)
             } else if (call.method == "getProxyUsageDelta") {
@@ -385,9 +385,9 @@ class MainActivity: FlutterActivity() {
         if (proxyUsageManager.hasUsageStatsPermission()) {
             val started = proxyUsageManager.startConnection(proxyId)
             if (started) {
-                lastNetworkTxDelta = 0L
-                    lastNetworkRxDelta = 0L
-                    usageCommitTick = 0
+                usageCommitTick = 0
+                liveSessionRxBytes = 0L
+                liveSessionTxBytes = 0L
                 sendToLog("[USAGE] Session baseline captured for proxy: $proxyId")
             }
         } else {
@@ -400,57 +400,50 @@ class MainActivity: FlutterActivity() {
         val total = proxyUsageManager.commitDelta(activeProxy)
         sendToLog("[USAGE] Proxy $activeProxy total: ${proxyUsageManager.formatBytes(total)}")
         proxyUsageManager.clearActiveSession()
-        lastNetworkTxDelta = 0L
-                    lastNetworkRxDelta = 0L
-                    usageCommitTick = 0
+        usageCommitTick = 0
+        liveSessionRxBytes = 0L
+        liveSessionTxBytes = 0L
     }
 
     private fun startStatsTimer() {
         stopStatsTimer()
         statsTimer = Timer()
         val uid = android.os.Process.myUid()
-        var lastRxFallback = TrafficStatsCompat.getReliableRxBytes(uid)
-        var lastTxFallback = TrafficStatsCompat.getReliableTxBytes(uid)
+        var lastRx = TrafficStatsCompat.getReliableRxBytes(uid)
+        var lastTx = TrafficStatsCompat.getReliableTxBytes(uid)
 
         statsTimer?.schedule(object : TimerTask() {
             override fun run() {
-                val proxyId = proxyUsageManager.getActiveProxyId()
-
-                if (proxyId != null && proxyUsageManager.hasUsageStatsPermission()) {
-                    val snapshot = proxyUsageManager.computeDeltaSnapshot(proxyId)
-                    if (snapshot != null) {
-                        val txSpeed = (snapshot.txDelta - lastNetworkTxDelta).coerceAtLeast(0L)
-                        val rxSpeed = (snapshot.rxDelta - lastNetworkRxDelta).coerceAtLeast(0L)
-                        lastNetworkTxDelta = snapshot.txDelta
-                        lastNetworkRxDelta = snapshot.rxDelta
-                        usageCommitTick++
-                        if (usageCommitTick >= 10) {
-                            proxyUsageManager.commitDelta(proxyId)
-                            usageCommitTick = 0
-                        }
-                        val accountTotal = proxyUsageManager.getSessionAwareTotalBytes(proxyId)
-
-                        uiHandler.post {
-                            statsSink?.success("$rxSpeed|$txSpeed|${snapshot.rxDelta}|${snapshot.txDelta}|$accountTotal|${snapshot.proxyId}")
-                        }
-                        return
-                    }
-                }
-
-                // Fallback when usage stats permission unavailable
                 val currentRx = TrafficStatsCompat.getReliableRxBytes(uid)
                 val currentTx = TrafficStatsCompat.getReliableTxBytes(uid)
 
-                val rxSpeed = currentRx - lastRxFallback
-                val txSpeed = currentTx - lastTxFallback
+                val rxSpeed = (currentRx - lastRx).coerceAtLeast(0L)
+                val txSpeed = (currentTx - lastTx).coerceAtLeast(0L)
 
-                lastRxFallback = currentRx
-                lastTxFallback = currentTx
+                lastRx = currentRx
+                lastTx = currentTx
 
-                if (rxSpeed >= 0 && txSpeed >= 0) {
-                    uiHandler.post {
-                        statsSink?.success("$rxSpeed|$txSpeed|0|0|0|${proxyUsageManager.getActiveProxyId() ?: "default"}")
+                liveSessionRxBytes += rxSpeed
+                liveSessionTxBytes += txSpeed
+
+                var accountTotal = liveSessionRxBytes + liveSessionTxBytes
+                var liveProxyId = proxyUsageManager.getActiveProxyId() ?: "default"
+
+                if (liveProxyId != "default" && proxyUsageManager.hasUsageStatsPermission()) {
+                    val snapshot = proxyUsageManager.computeDeltaSnapshot(liveProxyId)
+                    if (snapshot != null) {
+                        liveProxyId = snapshot.proxyId
+                        usageCommitTick++
+                        if (usageCommitTick >= 10) {
+                            proxyUsageManager.commitDelta(liveProxyId)
+                            usageCommitTick = 0
+                        }
+                        accountTotal = proxyUsageManager.getSessionAwareTotalBytes(liveProxyId)
                     }
+                }
+
+                uiHandler.post {
+                    statsSink?.success("$rxSpeed|$txSpeed|$liveSessionRxBytes|$liveSessionTxBytes|$accountTotal|$liveProxyId")
                 }
             }
         }, 1000, 1000)
