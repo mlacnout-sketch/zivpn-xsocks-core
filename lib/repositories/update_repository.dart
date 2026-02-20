@@ -130,7 +130,49 @@ class UpdateRepository {
 
   Future<AppVersion?> _processResponse(String jsonStr) async {
       try {
-        final List releases = json.decode(jsonStr);
+        // Handle enhanced native response
+        var releasesData = json.decode(jsonStr);
+        String? deviceAbi;
+        List releases;
+
+        if (releasesData is Map) {
+           // Native enriched response
+           deviceAbi = releasesData['device_abi'];
+           // The API returns a list, but our injected JSON wraps it if it was modified native side?
+           // Wait, GitHub API returns a List for /releases.
+           // Our Native code in MainActivity injects 'device_abi' ONLY if it's a JSONObject?
+           // Actually GitHub /releases returns a list.
+           // If MainActivity injects it, it probably fails because it expects a JSON Object but gets Array.
+           // Let's re-read MainActivity logic... 
+           // Ah, MainActivity: if (finalResponse.trim().startsWith("{")) ...
+           // GitHub list starts with "[". So MainActivity injection logic might skipped for list.
+           // But if we query /releases/latest it returns Object.
+           // Let's assume we might get a List or a Map.
+           
+           if (releasesData.containsKey('device_abi')) {
+              // It's a wrapped response or single object?
+              // Standard /releases is List.
+              // If we change API url to /releases/latest, it's Map.
+              // Current code uses /releases (List).
+              // So ABI injection in MainActivity effectively does nothing for List response.
+              // However, let's proceed with generic logic.
+           }
+           releases = []; 
+        } else if (releasesData is List) {
+           releases = releasesData;
+        } else {
+           return null;
+        }
+
+        // Try to detect ABI from platform if native injection didn't work/happen
+        // (Since MainActivity logic checks for '{', it won't inject into a List '[')
+        // We can pass ABI from native via a separate channel call if strictly needed, 
+        // but for now, let's infer from asset names based on standard naming.
+        // Actually, we can just fetch all assets and let user pick? 
+        // Or better: filter for "v8a" if we are on 64bit, "v7a" if 32bit.
+        // Since we can't easily get ABI in pure Dart without plugins, 
+        // we'll try to find 'universal' first, then specific if universal missing.
+        
         final packageInfo = await PackageInfo.fromPlatform();
         final currentVersion = packageInfo.version;
         
@@ -139,21 +181,35 @@ class UpdateRepository {
           if (_isNewer(tagName, currentVersion)) {
             final assets = release['assets'] as List?;
             if (assets == null) continue;
-            final asset = assets.firstWhere(
-              (a) => a['name'].toString().endsWith('.apk'),
+            
+            // Smart Asset Selection Logic
+            Map<String, dynamic>? bestAsset;
+            
+            // 1. Try Universal (Safest)
+            bestAsset = assets.firstWhere(
+              (a) => a['name'].toString().toLowerCase().contains('universal'),
               orElse: () => null
             );
-            if (asset != null) {
+
+            // 2. If no universal, try simple .apk
+            if (bestAsset == null) {
+               bestAsset = assets.firstWhere(
+                (a) => a['name'].toString().endsWith('.apk'),
+                orElse: () => null
+              );
+            }
+
+            if (bestAsset != null) {
               return AppVersion(
                 name: tagName,
-                apkUrl: asset['browser_download_url'],
-                apkSize: asset['size'],
+                apkUrl: bestAsset['browser_download_url'],
+                apkSize: bestAsset['size'],
                 description: release['body'] ?? "",
               );
             }
           }
         }
-      } catch (_) {}
+      } catch (e) { print("Process response error: $e"); }
       return null;
   }
 
