@@ -132,30 +132,14 @@ class UpdateRepository {
       try {
         // Handle enhanced native response
         var releasesData = json.decode(jsonStr);
-        String? deviceAbi;
         List releases;
 
         if (releasesData is Map) {
            // Native enriched response
-           deviceAbi = releasesData['device_abi'];
-           // The API returns a list, but our injected JSON wraps it if it was modified native side?
-           // Wait, GitHub API returns a List for /releases.
-           // Our Native code in MainActivity injects 'device_abi' ONLY if it's a JSONObject?
-           // Actually GitHub /releases returns a list.
-           // If MainActivity injects it, it probably fails because it expects a JSON Object but gets Array.
-           // Let's re-read MainActivity logic... 
-           // Ah, MainActivity: if (finalResponse.trim().startsWith("{")) ...
-           // GitHub list starts with "[". So MainActivity injection logic might skipped for list.
-           // But if we query /releases/latest it returns Object.
-           // Let's assume we might get a List or a Map.
+           // deviceAbi logic removed as unused for now
            
            if (releasesData.containsKey('device_abi')) {
-              // It's a wrapped response or single object?
-              // Standard /releases is List.
-              // If we change API url to /releases/latest, it's Map.
-              // Current code uses /releases (List).
-              // So ABI injection in MainActivity effectively does nothing for List response.
-              // However, let's proceed with generic logic.
+              // Logic for future ABI usage
            }
            releases = []; 
         } else if (releasesData is List) {
