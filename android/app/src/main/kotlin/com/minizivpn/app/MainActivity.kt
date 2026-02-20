@@ -432,7 +432,7 @@ class MainActivity: FlutterActivity() {
                         val accountTotal = proxyUsageManager.getSessionAwareTotalBytes(proxyId)
 
                         uiHandler.post {
-                            statsSink?.success("$rxSpeed|$txSpeed|${snapshot.rxDelta}|${snapshot.txDelta}|$accountTotal")
+                            statsSink?.success("$rxSpeed|$txSpeed|${snapshot.rxDelta}|${snapshot.txDelta}|$accountTotal|${snapshot.proxyId}")
                         }
                         return
                     }
@@ -450,7 +450,7 @@ class MainActivity: FlutterActivity() {
 
                 if (rxSpeed >= 0 && txSpeed >= 0) {
                     uiHandler.post {
-                        statsSink?.success("$rxSpeed|$txSpeed")
+                        statsSink?.success("$rxSpeed|$txSpeed|0|0|0|${proxyUsageManager.getActiveProxyId() ?: "default"}")
                     }
                 }
             }

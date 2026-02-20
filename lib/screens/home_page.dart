@@ -262,7 +262,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  String _buildActiveProxyId() {
+    return _activeAccountIndex >= 0
+        ? "${_accounts[_activeAccountIndex].name}_${_activeAccountIndex}"
+        : "default";
+  }
+
   void _initStatsListener() {
+
     statsChannel.receiveBroadcastStream().listen((event) {
       if (event is String && mounted) {
         final parts = event.split('|');
@@ -272,7 +279,20 @@ class _HomePageState extends State<HomePage> {
           _dlSpeed.value = FormatUtils.formatBytes(rxSpeed, asSpeed: true);
           _ulSpeed.value = FormatUtils.formatBytes(txSpeed, asSpeed: true);
 
-          if (parts.length >= 5) {
+          if (parts.length >= 6) {
+            final sessionRx = int.tryParse(parts[2]) ?? 0;
+            final sessionTx = int.tryParse(parts[3]) ?? 0;
+            final accountTotal = int.tryParse(parts[4]) ?? 0;
+            final liveProxyId = parts[5];
+
+            if (liveProxyId == _buildActiveProxyId()) {
+              _sessionRx.value = sessionRx;
+              _sessionTx.value = sessionTx;
+              if (_activeAccountIndex != -1) {
+                _accounts[_activeAccountIndex].usage = accountTotal;
+              }
+            }
+          } else if (parts.length >= 5) {
             final sessionRx = int.tryParse(parts[2]) ?? 0;
             final sessionTx = int.tryParse(parts[3]) ?? 0;
             final accountTotal = int.tryParse(parts[4]) ?? 0;
@@ -335,6 +355,7 @@ class _HomePageState extends State<HomePage> {
     if (_vpnState == "connected") {
       void performStop() async {
         try {
+          await platform.invokeMethod('commitProxyUsageDelta', {'proxyId': _buildActiveProxyId()});
           await platform.invokeMethod('stopCore');
           _autoPilot.stop();
           _timer?.cancel();
@@ -420,11 +441,10 @@ class _HomePageState extends State<HomePage> {
           "pdnsd_verbosity": prefs.getInt('pdnsd_verbosity') ?? 2,
           "hysteria_recv_window": recvWin,
           "hysteria_recv_conn": recvConn,
-          "proxy_id": _activeAccountIndex >= 0
-              ? "${_accounts[_activeAccountIndex].name}_${_activeAccountIndex}"
-              : "default"
+          "proxy_id": _buildActiveProxyId()
         });
         await platform.invokeMethod('startVpn');
+        await platform.invokeMethod('startProxyUsageSession', {'proxyId': _buildActiveProxyId()});
 
         final now = DateTime.now();
         await prefs.setInt('vpn_start_time', now.millisecondsSinceEpoch);
