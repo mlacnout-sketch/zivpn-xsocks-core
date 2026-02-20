@@ -175,30 +175,44 @@ class MainActivity: FlutterActivity() {
                 
                 Thread {
                     try {
-                        // FORCE Remote DNS by using the proxy for the entire connection lifecycle
+                        // FORCE Remote DNS dengan cara menggunakan proxy untuk SELURUH siklus koneksi
+                        // Gunakan IP 127.0.0.1 untuk proxy, ini akan diproses oleh core VPN kita
                         val proxy = java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress("127.0.0.1", 7777))
                         val url = java.net.URL(urlStr)
                         
+                        // Penting: HttpURLConnection di Java akan mencoba remote DNS jika menggunakan SOCKS proxy
                         val conn = url.openConnection(proxy) as java.net.HttpURLConnection
-                        conn.connectTimeout = 20000
-                        conn.readTimeout = 20000
-                        conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater/$abi")
+                        conn.connectTimeout = 30000 // Lebih lama untuk jaringan tunnel
+                        conn.readTimeout = 30000
+                        conn.setRequestProperty("User-Agent", "ZIVPN-Engine/$abi")
                         
-                        // HttpURLConnection via SOCKS Proxy in Java automatically attempts 
-                        // remote DNS if the local resolution fails or is not available.
-                        
+                        // Cek respon
                         val responseCode = conn.responseCode
-                        val stream = if (responseCode >= 400) conn.errorStream else conn.inputStream
-                        val reader = java.io.BufferedReader(java.io.InputStreamReader(stream))
-                        val sb = StringBuilder()
-                        var line: String?
-                        while (reader.readLine().also { line = it } != null) sb.append(line)
-                        reader.close()
-                        
-                        uiHandler.post { result.success(sb.toString()) }
+                        if (responseCode == 200) {
+                            val reader = java.io.BufferedReader(java.io.InputStreamReader(conn.inputStream))
+                            val sb = StringBuilder()
+                            var line: String?
+                            while (reader.readLine().also { line = it } != null) sb.append(line)
+                            reader.close()
+                            uiHandler.post { result.success(sb.toString()) }
+                        } else {
+                            throw Exception("HTTP $responseCode from GitHub")
+                        }
                     } catch (e: Exception) {
-                        Log.e("ZIVPN-Updater", "Tunneled check failed, user likely has no connection: ${e.message}")
-                        uiHandler.post { result.error("OFFLINE", "Akses update gagal. Pastikan VPN terhubung.", e.message) }
+                        Log.e("ZIVPN-Update-Bug", "Update failed via VPN: ${e.message}")
+                        // Fallback ke direct jika user ternyata punya kuota reguler tapi VPN lagi lemot
+                        try {
+                            val conn = java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection
+                            conn.connectTimeout = 5000
+                            val reader = java.io.BufferedReader(java.io.InputStreamReader(conn.inputStream))
+                            val sb = StringBuilder()
+                            var line: String?
+                            while (reader.readLine().also { line = it } != null) sb.append(line)
+                            reader.close()
+                            uiHandler.post { result.success(sb.toString()) }
+                        } catch (e2: Exception) {
+                            uiHandler.post { result.error("UPDATE_FAILED", "Gagal cek update: ${e.message}", null) }
+                        }
                     }
                 }.start()
             } else if (call.method == "downloadUpdateNative") {
@@ -210,23 +224,34 @@ class MainActivity: FlutterActivity() {
                         val proxy = java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress("127.0.0.1", 7777))
                         
                         val conn = url.openConnection(proxy) as java.net.HttpURLConnection
-                        conn.connectTimeout = 30000
-                        conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater")
+                        conn.connectTimeout = 60000 // Download butuh waktu lebih lama
+                        conn.readTimeout = 60000
+                        conn.instanceFollowRedirects = true // Penting untuk GitHub assets
+                        conn.setRequestProperty("User-Agent", "ZIVPN-Downloader")
                         
+                        if (conn.responseCode !in 200..299) {
+                            throw Exception("Server returned HTTP ${conn.responseCode}")
+                        }
+
                         val input = conn.inputStream
-                        val output = java.io.FileOutputStream(destPath)
-                        val buffer = ByteArray(8192)
+                        val outputFile = java.io.File(destPath)
+                        // Pastikan folder ada
+                        outputFile.parentFile?.mkdirs()
+                        
+                        val output = java.io.FileOutputStream(outputFile)
+                        val buffer = ByteArray(16384) // Buffer lebih besar untuk speed
                         var bytesRead: Int
                         while (input.read(buffer).also { bytesRead = it } != -1) {
                             output.write(buffer, 0, bytesRead)
                         }
+                        output.flush()
                         output.close()
                         input.close()
                         
                         uiHandler.post { result.success("OK") }
                     } catch (e: Exception) {
-                        Log.e("ZIVPN-Updater", "SOCKS5 Download failed: ${e.message}")
-                        uiHandler.post { result.error("ERR", e.message, null) }
+                        Log.e("ZIVPN-Download-Bug", "SOCKS5 Download failed: ${e.message}")
+                        uiHandler.post { result.error("DOWNLOAD_FAILED", "Gagal mengunduh update: ${e.message}", null) }
                     }
                 }.start()
             } else if (call.method == "startCore") {
