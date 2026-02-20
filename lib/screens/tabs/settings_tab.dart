@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -57,6 +58,7 @@ class _SettingsTabState extends State<SettingsTab> {
   String _appVersion = 'Unknown';
 
   final _backupRepo = BackupRepository();
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -67,6 +69,7 @@ class _SettingsTabState extends State<SettingsTab> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _mtuCtrl.dispose();
     _pingTargetCtrl.dispose();
     _pingIntervalCtrl.dispose();
@@ -89,6 +92,13 @@ class _SettingsTabState extends State<SettingsTab> {
     super.dispose();
   }
 
+  void _triggerAutoSave() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 1000), () {
+      _saveSettings(silent: true);
+    });
+  }
+
   Future<void> _openAppSelector() async {
     final currentList = _appsListCtrl.text
         .split('\n')
@@ -105,6 +115,7 @@ class _SettingsTabState extends State<SettingsTab> {
 
     if (result != null) {
       setState(() => _appsListCtrl.text = result.join('\n'));
+      _triggerAutoSave();
     }
   }
 
@@ -179,7 +190,7 @@ class _SettingsTabState extends State<SettingsTab> {
     });
   }
 
-  Future<void> _saveSettings() async {
+  Future<void> _saveSettings({bool silent = false}) async {
     final prefs = await SharedPreferences.getInstance();
     String val(TextEditingController c, String d) => c.text.isEmpty ? d : c.text;
 
@@ -213,8 +224,10 @@ class _SettingsTabState extends State<SettingsTab> {
     await prefs.setString('pdnsd_query_method', _pdnsdQueryMethod);
     await prefs.setInt('core_count', _coreCount.toInt());
 
-    _loadSettings();
-    if (mounted) {
+    // Only reload settings on manual save to avoid UI glitch while typing
+    if (!silent) _loadSettings();
+    
+    if (mounted && !silent) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Settings Saved')),
       );
@@ -265,6 +278,7 @@ class _SettingsTabState extends State<SettingsTab> {
     if (_nativePerfProfile != 'custom') {
       setState(() => _nativePerfProfile = 'custom');
     }
+    _triggerAutoSave();
   }
 
   @override
@@ -483,7 +497,10 @@ class _SettingsTabState extends State<SettingsTab> {
       child: TextField(
         controller: ctrl,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-        onChanged: onChanged,
+        onChanged: (val) {
+          onChanged?.call(val);
+          _triggerAutoSave();
+        },
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon),
