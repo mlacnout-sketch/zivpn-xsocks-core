@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Uri
+import android.net.TrafficStats
 import android.os.Build
 import android.provider.Settings
 import android.text.format.Formatter
@@ -109,7 +110,20 @@ class ProxyUsageManager(private val context: Context) {
         val mobile = queryDetails(ConnectivityManager.TYPE_MOBILE, uid, startTime, endTime)
         val wifi = queryDetails(ConnectivityManager.TYPE_WIFI, uid, startTime, endTime)
 
-        return Pair(mobile.first + wifi.first, mobile.second + wifi.second)
+        val txTotal = mobile.first + wifi.first
+        val rxTotal = mobile.second + wifi.second
+
+        // Some ROMs / devices return empty NetworkStats buckets intermittently.
+        // Fallback to TrafficStats to avoid flat zero realtime/session metrics.
+        if (txTotal == 0L && rxTotal == 0L) {
+            val txFallback = TrafficStats.getUidTxBytes(uid).coerceAtLeast(0L)
+            val rxFallback = TrafficStats.getUidRxBytes(uid).coerceAtLeast(0L)
+            if (txFallback > 0L || rxFallback > 0L) {
+                return Pair(txFallback, rxFallback)
+            }
+        }
+
+        return Pair(txTotal, rxTotal)
     }
 
     private fun queryDetails(networkType: Int, uid: Int, startTime: Long, endTime: Long): Pair<Long, Long> {
