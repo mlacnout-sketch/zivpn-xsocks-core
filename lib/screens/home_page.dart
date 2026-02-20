@@ -305,6 +305,11 @@ class _HomePageState extends State<HomePage> {
 
       if (openSettings == true) {
         await platform.invokeMethod('requestUsageStatsPermission');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cari dan aktifkan MiniZIVPN pada menu Usage Access.')),
+          );
+        }
       }
     } catch (_) {}
   }
@@ -444,10 +449,11 @@ class _HomePageState extends State<HomePage> {
     }
 
     if (_autoPilot.isRunning) {
-      _logs.add("[AUTOPILOT] Lexpesawat already active.");
+      _autoPilot.stop();
+      _logs.add("[AUTOPILOT] Lexpesawat stopped from Dashboard shortcut.");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Lexpesawat sudah aktif.")),
+          const SnackBar(content: Text("Lexpesawat dimatikan.")),
         );
       }
       return;

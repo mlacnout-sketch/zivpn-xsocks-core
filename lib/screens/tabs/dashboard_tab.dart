@@ -116,6 +116,35 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
           ),
           const Text("Turbo Tunnel Engine", style: TextStyle(color: Colors.grey)),
           const SiOrenBanner(), // Banner Si Oren
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: widget.onStartLexpesawat,
+              icon: AnimatedBuilder(
+                animation: _planeTiltAnimation,
+                builder: (context, child) {
+                  return Transform.rotate(
+                    angle: widget.autoPilotActive ? _planeTiltAnimation.value : 0,
+                    child: Icon(
+                      Icons.airplanemode_active,
+                      size: 18,
+                      color: widget.autoPilotActive ? Colors.lightBlueAccent : AppColors.primary,
+                    ),
+                  );
+                },
+              ),
+              label: Text(
+                widget.autoPilotActive ? 'Stop Lexpesawat' : 'Start Lexpesawat',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: BorderSide(color: AppColors.primary.withValues(alpha: 0.45)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
           const SizedBox(height: 20),
           Expanded(
             child: Stack(
@@ -279,35 +308,6 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                   }
                 );
               }
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: widget.onStartLexpesawat,
-              icon: AnimatedBuilder(
-                animation: _planeTiltAnimation,
-                builder: (context, child) {
-                  return Transform.rotate(
-                    angle: widget.autoPilotActive ? _planeTiltAnimation.value : 0,
-                    child: Icon(
-                      Icons.airplanemode_active,
-                      size: 18,
-                      color: widget.autoPilotActive ? Colors.lightBlueAccent : AppColors.primary,
-                    ),
-                  );
-                },
-              ),
-              label: Text(
-                widget.autoPilotActive ? 'Lexpesawat Aktif' : 'Start Lexpesawat',
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: BorderSide(color: AppColors.primary.withValues(alpha: 0.45)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
             ),
           ),
           Row(
