@@ -50,30 +50,51 @@ class ProxyUsageManager(private val context: Context) {
     }
 
     fun computeCurrentDelta(proxyId: String? = null, uid: Int = android.os.Process.myUid()): Long {
-        val session = repository.loadSession() ?: return 0L
-        if (proxyId != null && session.proxyId != proxyId) return 0L
+        val snapshot = computeDeltaSnapshot(proxyId, uid) ?: return 0L
+        return snapshot.totalDelta
+    }
+
+    fun computeDeltaSnapshot(proxyId: String? = null, uid: Int = android.os.Process.myUid()): ProxyUsageDeltaSnapshot? {
+        val session = repository.loadSession() ?: return null
+        if (proxyId != null && session.proxyId != proxyId) return null
+
         val totals = queryUidTotals(uid)
         val txDelta = (totals.first - session.startTx).coerceAtLeast(0L)
         val rxDelta = (totals.second - session.startRx).coerceAtLeast(0L)
-        return txDelta + rxDelta
+
+        return ProxyUsageDeltaSnapshot(
+            proxyId = session.proxyId,
+            txDelta = txDelta,
+            rxDelta = rxDelta,
+            totalDelta = txDelta + rxDelta,
+            lastPersistedTxDelta = session.lastPersistedTxDelta,
+            lastPersistedRxDelta = session.lastPersistedRxDelta,
+        )
     }
 
     fun commitDelta(proxyId: String? = null, uid: Int = android.os.Process.myUid()): Long {
-        val session = repository.loadSession() ?: return 0L
-        if (proxyId != null && session.proxyId != proxyId) return 0L
+        val snapshot = computeDeltaSnapshot(proxyId, uid) ?: return 0L
 
-        val currentDelta = computeCurrentDelta(session.proxyId, uid)
-        val increment = (currentDelta - session.lastPersistedDelta).coerceAtLeast(0L)
+        val txIncrement = (snapshot.txDelta - snapshot.lastPersistedTxDelta).coerceAtLeast(0L)
+        val rxIncrement = (snapshot.rxDelta - snapshot.lastPersistedRxDelta).coerceAtLeast(0L)
 
-        if (increment > 0L) {
-            repository.addToTotal(session.proxyId, increment)
-            repository.updateLastPersistedDelta(currentDelta)
+        if (txIncrement > 0L || rxIncrement > 0L) {
+            repository.addToTotal(snapshot.proxyId, txIncrement, rxIncrement)
+            repository.updateLastPersistedDelta(snapshot.txDelta, snapshot.rxDelta)
         }
 
-        return repository.getTotalBytes(session.proxyId)
+        return repository.getTotalBytes(snapshot.proxyId)
     }
 
     fun getTotalBytes(proxyId: String): Long = repository.getTotalBytes(proxyId)
+
+    fun getSessionAwareTotalBytes(proxyId: String, uid: Int = android.os.Process.myUid()): Long {
+        val base = repository.getTotalBytes(proxyId)
+        val snapshot = computeDeltaSnapshot(proxyId, uid) ?: return base
+        val pendingTx = (snapshot.txDelta - snapshot.lastPersistedTxDelta).coerceAtLeast(0L)
+        val pendingRx = (snapshot.rxDelta - snapshot.lastPersistedRxDelta).coerceAtLeast(0L)
+        return base + pendingTx + pendingRx
+    }
 
     fun getActiveProxyId(): String? = repository.loadSession()?.proxyId
 
@@ -111,3 +132,13 @@ class ProxyUsageManager(private val context: Context) {
         return Pair(tx, rx)
     }
 }
+
+
+data class ProxyUsageDeltaSnapshot(
+    val proxyId: String,
+    val txDelta: Long,
+    val rxDelta: Long,
+    val totalDelta: Long,
+    val lastPersistedTxDelta: Long,
+    val lastPersistedRxDelta: Long,
+)

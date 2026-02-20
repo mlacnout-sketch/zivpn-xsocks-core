@@ -109,7 +109,7 @@ class _HomePageState extends State<HomePage> {
         }
 
         setState(() {
-          _autoPilotActive = state.status != AutoPilotStatus.stopped;
+          _autoPilotActive = state.status != AutoPilotStatus.stopped && state.status != AutoPilotStatus.idle && state.status != AutoPilotStatus.error;
           _autoPilotResetting = state.status == AutoPilotStatus.resetting || 
                                state.status == AutoPilotStatus.stabilizing;
           
@@ -266,14 +266,27 @@ class _HomePageState extends State<HomePage> {
     statsChannel.receiveBroadcastStream().listen((event) {
       if (event is String && mounted) {
         final parts = event.split('|');
-        if (parts.length == 2) {
-          final rx = int.tryParse(parts[0]) ?? 0;
-          final tx = int.tryParse(parts[1]) ?? 0;
-          _dlSpeed.value = FormatUtils.formatBytes(rx, asSpeed: true);
-          _ulSpeed.value = FormatUtils.formatBytes(tx, asSpeed: true);
-          _sessionRx.value += rx;
-          _sessionTx.value += tx;
-          if (_activeAccountIndex != -1) _accounts[_activeAccountIndex].usage += rx + tx;
+        if (parts.length >= 2) {
+          final rxSpeed = int.tryParse(parts[0]) ?? 0;
+          final txSpeed = int.tryParse(parts[1]) ?? 0;
+          _dlSpeed.value = FormatUtils.formatBytes(rxSpeed, asSpeed: true);
+          _ulSpeed.value = FormatUtils.formatBytes(txSpeed, asSpeed: true);
+
+          if (parts.length >= 5) {
+            final sessionRx = int.tryParse(parts[2]) ?? 0;
+            final sessionTx = int.tryParse(parts[3]) ?? 0;
+            final accountTotal = int.tryParse(parts[4]) ?? 0;
+
+            _sessionRx.value = sessionRx;
+            _sessionTx.value = sessionTx;
+            if (_activeAccountIndex != -1) {
+              _accounts[_activeAccountIndex].usage = accountTotal;
+            }
+          } else {
+            _sessionRx.value += rxSpeed;
+            _sessionTx.value += txSpeed;
+            if (_activeAccountIndex != -1) _accounts[_activeAccountIndex].usage += rxSpeed + txSpeed;
+          }
         }
       }
     });

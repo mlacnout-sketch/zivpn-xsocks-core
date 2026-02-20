@@ -50,7 +50,9 @@ class MainActivity: FlutterActivity() {
     private var statsSink: EventChannel.EventSink? = null
     private var statsTimer: Timer? = null
     private lateinit var proxyUsageManager: ProxyUsageManager
-    private var lastNetworkStatsTotal: Long = 0L
+    private var lastNetworkTxDelta: Long = 0L
+    private var lastNetworkRxDelta: Long = 0L
+    private var usageCommitTick: Int = 0
     private var initialIntentData: String? = null // Store file URI
     
     private val uiHandler = Handler(Looper.getMainLooper())
@@ -312,7 +314,9 @@ class MainActivity: FlutterActivity() {
                 val proxyId = call.argument<String>("proxyId") ?: "default"
                 val started = proxyUsageManager.startConnection(proxyId)
                 if (started) {
-                    lastNetworkStatsTotal = 0L
+                    lastNetworkTxDelta = 0L
+                    lastNetworkRxDelta = 0L
+                    usageCommitTick = 0
                 }
                 result.success(started)
             } else if (call.method == "getProxyUsageDelta") {
@@ -323,7 +327,7 @@ class MainActivity: FlutterActivity() {
                 result.success(proxyUsageManager.commitDelta(proxyId))
             } else if (call.method == "getProxyUsageTotal") {
                 val proxyId = call.argument<String>("proxyId") ?: "default"
-                result.success(proxyUsageManager.getTotalBytes(proxyId))
+                result.success(proxyUsageManager.getSessionAwareTotalBytes(proxyId))
             } else if (call.method == "getInstalledApps") {
                 Thread {
                     val apps = mutableListOf<Map<String, String>>()
@@ -382,7 +386,9 @@ class MainActivity: FlutterActivity() {
         if (proxyUsageManager.hasUsageStatsPermission()) {
             val started = proxyUsageManager.startConnection(proxyId)
             if (started) {
-                lastNetworkStatsTotal = 0L
+                lastNetworkTxDelta = 0L
+                    lastNetworkRxDelta = 0L
+                    usageCommitTick = 0
                 sendToLog("[USAGE] Session baseline captured for proxy: $proxyId")
             }
         } else {
@@ -395,7 +401,9 @@ class MainActivity: FlutterActivity() {
         val total = proxyUsageManager.commitDelta(activeProxy)
         sendToLog("[USAGE] Proxy $activeProxy total: ${proxyUsageManager.formatBytes(total)}")
         proxyUsageManager.clearActiveSession()
-        lastNetworkStatsTotal = 0L
+        lastNetworkTxDelta = 0L
+                    lastNetworkRxDelta = 0L
+                    usageCommitTick = 0
     }
 
     private fun startStatsTimer() {
@@ -410,17 +418,24 @@ class MainActivity: FlutterActivity() {
                 val proxyId = proxyUsageManager.getActiveProxyId()
 
                 if (proxyId != null && proxyUsageManager.hasUsageStatsPermission()) {
-                    val currentTotal = proxyUsageManager.computeCurrentDelta(proxyId)
-                    val speed = (currentTotal - lastNetworkStatsTotal).coerceAtLeast(0L)
-                    lastNetworkStatsTotal = currentTotal
+                    val snapshot = proxyUsageManager.computeDeltaSnapshot(proxyId)
+                    if (snapshot != null) {
+                        val txSpeed = (snapshot.txDelta - lastNetworkTxDelta).coerceAtLeast(0L)
+                        val rxSpeed = (snapshot.rxDelta - lastNetworkRxDelta).coerceAtLeast(0L)
+                        lastNetworkTxDelta = snapshot.txDelta
+                        lastNetworkRxDelta = snapshot.rxDelta
+                        usageCommitTick++
+                        if (usageCommitTick >= 10) {
+                            proxyUsageManager.commitDelta(proxyId)
+                            usageCommitTick = 0
+                        }
+                        val accountTotal = proxyUsageManager.getSessionAwareTotalBytes(proxyId)
 
-                    // Split speed as rx/tx approximation for existing Flutter UI channel
-                    val rxSpeed = speed / 2
-                    val txSpeed = speed - rxSpeed
-                    uiHandler.post {
-                        statsSink?.success("$rxSpeed|$txSpeed")
+                        uiHandler.post {
+                            statsSink?.success("$rxSpeed|$txSpeed|${snapshot.rxDelta}|${snapshot.txDelta}|$accountTotal")
+                        }
+                        return
                     }
-                    return
                 }
 
                 // Fallback when usage stats permission unavailable
