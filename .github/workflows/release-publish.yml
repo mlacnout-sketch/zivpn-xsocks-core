@@ -137,22 +137,22 @@ jobs:
           tag_name: ${{ env.VERSION }}
           name: ZIVPN xSocks Core ${{ env.VERSION }}
           body: |
-            ### 🚀 Optimized Release ${{ env.VERSION }}
+            🚀 Optimized Release ${{ env.VERSION }}
             
             Build otomatis untuk ZIVPN xSocks Core dengan optimasi performa native dan perbaikan akurasi trafik.
             
-            ### 📦 Daftar Artefak (APK):
-            - **ZIVPN-v8a-release.apk** : Direkomendasikan untuk HP modern (64-bit). Lebih cepat dan efisien.
-            - **ZIVPN-v7a-release.apk** : Untuk HP lama (32-bit). Kompatibilitas luas.
-            - **ZIVPN-Universal-release.apk** : Mendukung semua arsitektur ARM (Ukuran file lebih besar).
+            📦 Daftar Artefak (APK):
+            - ZIVPN-v8a-release.apk : Direkomendasikan untuk HP modern (64-bit). Lebih cepat dan efisien.
+            - ZIVPN-v7a-release.apk : Untuk HP lama (32-bit). Kompatibilitas luas.
+            - ZIVPN-Universal-release.apk : Mendukung semua arsitektur ARM (Ukuran file lebih besar).
             
-            ### 🛠️ Key Improvements:
-            - **Fixed:** Akurasi RX/TX dashboard (menggunakan interface tun0).
-            - **Optimized:** Manajemen memori UDPGW dan efisiensi CPU Pdnsd.
-            - **Feature:** Auto Pilot shortcut di Dashboard dengan animasi.
-            - **Robust:** Auto update via VPN (SOCKS5 + Remote DNS).
+            🛠️ Key Improvements:
+            - Fixed: Akurasi RX/TX dashboard (menggunakan interface tun0).
+            - Optimized: Manajemen memori UDPGW dan efisiensi CPU Pdnsd.
+            - Feature: Auto Pilot shortcut di Dashboard dengan animasi.
+            - Robust: Auto update via VPN (SOCKS5 + Remote DNS).
             
-            Run ID: `${{ github.run_id }}`
+            Run ID: ${{ github.run_id }}
           files: |
             ZIVPN-v7a-release.apk
             ZIVPN-v8a-release.apk
