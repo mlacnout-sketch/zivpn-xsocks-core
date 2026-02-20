@@ -275,6 +275,22 @@ class ZivpnService : VpnService() {
                     
                     logToApp("Excluding server IP: $resolvedIp")
                     val dynamicRoutes = RoutingUtils.calculateDynamicRoutes(resolvedIp)
+                    
+                    // Also exclude GitHub for reliable updates via direct connection if needed
+                    // (Optional: can be toggled, but good for stability)
+                    try {
+                        val githubIps = InetAddress.getAllByName("api.github.com").map { it.hostAddress } +
+                                        InetAddress.getAllByName("github.com").map { it.hostAddress }
+                        // Note: excluding multiple IPs dynamically is complex with the current calculateDynamicRoutes
+                        // Ideally, we just rely on SOCKS5 for updates inside the tunnel, or allow direct connection.
+                        // Since we implemented SOCKS5 support in MainActivity for updates, we DON'T strictly need to exclude GitHub
+                        // unless we want 'direct' mode fallback to work even when VPN is 'on'.
+                        
+                        // Let's add them as separate routes if calculateDynamicRoutes supports excluding multiple?
+                        // Current impl only supports one excludeIp.
+                        // So we stick to SOCKS5 tunneling for updates which is more secure/standard for VPN apps.
+                    } catch (e: Exception) {}
+
                     for (route in dynamicRoutes) {
                         try {
                             builder.addRoute(route.first, route.second)
