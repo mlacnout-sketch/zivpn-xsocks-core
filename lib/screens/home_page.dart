@@ -427,6 +427,7 @@ class _HomePageState extends State<HomePage> {
               sessionTx: _sessionTx,
               autoPilotActive: _autoPilotActive,
               isResetting: _autoPilotResetting,
+              onOpenLexpesawat: () => setState(() => _selectedIndex = 3),
             ),
             ProxiesTab(
               accounts: _accounts,

@@ -12,6 +12,7 @@ class DashboardTab extends StatefulWidget {
   final ValueNotifier<int> sessionRx, sessionTx;
   final bool autoPilotActive;
   final bool isResetting;
+  final VoidCallback onOpenLexpesawat;
 
   const DashboardTab({
     super.key,
@@ -24,6 +25,7 @@ class DashboardTab extends StatefulWidget {
     required this.sessionTx,
     this.autoPilotActive = false,
     this.isResetting = false,
+    required this.onOpenLexpesawat,
   });
 
   @override
@@ -253,6 +255,23 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                   }
                 );
               }
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: widget.onOpenLexpesawat,
+              icon: const Icon(Icons.radar, size: 18),
+              label: Text(
+                widget.autoPilotActive ? 'Buka Lexpesawat (Aktif)' : 'Buka Lexpesawat',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: BorderSide(color: AppColors.primary.withValues(alpha: 0.45)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
             ),
           ),
           Row(
