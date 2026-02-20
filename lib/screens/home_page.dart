@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:open_filex/open_filex.dart';
 
@@ -182,7 +183,20 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _executeDownload(AppVersion update) async {
+    // Tampilkan dialog progress
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _DownloadProgressDialog(
+        progress: _updateViewModel.downloadProgress,
+        abi: update.abi ?? "Universal",
+      ),
+    );
+
     final file = await _updateViewModel.startDownload(update);
+    
+    if (mounted) Navigator.pop(context); // Tutup dialog progress
+
     if (file != null) {
       final result = await OpenFilex.open(file.path, type: "application/vnd.android.package-archive");
       if (result.type != ResultType.done) {
@@ -488,6 +502,117 @@ class _HomePageState extends State<HomePage> {
           NavigationDestination(icon: Icon(Icons.radar_outlined), selectedIcon: Icon(Icons.radar), label: 'Auto Pilot'),
           NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
         ],
+      ),
+    );
+  }
+}
+
+class _DownloadProgressDialog extends StatefulWidget {
+  final Stream<double> progress;
+  final String abi;
+
+  const _DownloadProgressDialog({required this.progress, required this.abi});
+
+  @override
+  State<_DownloadProgressDialog> createState() => _DownloadProgressDialogState();
+}
+
+class _DownloadProgressDialogState extends State<_DownloadProgressDialog> with SingleTickerProviderStateMixin {
+  late AnimationController _rotationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      content: StreamBuilder<double>(
+        stream: widget.progress,
+        builder: (context, snapshot) {
+          final progress = snapshot.data ?? 0.0;
+          final percent = (progress * 100).toInt().clamp(0, 100);
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 20),
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Background Circle
+                  SizedBox(
+                    width: 100,
+                    height: 100,
+                    child: CircularProgressIndicator(
+                      value: 1.0,
+                      strokeWidth: 8,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white.withValues(alpha: 0.05)),
+                    ),
+                  ),
+                  // Rotating "Snake" Progress
+                  RotationTransition(
+                    turns: _rotationController,
+                    child: SizedBox(
+                      width: 100,
+                      height: 100,
+                      child: CircularProgressIndicator(
+                        value: 0.2, // Fixed length "snake"
+                        strokeWidth: 8,
+                        strokeCap: StrokeCap.round,
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                      ),
+                    ),
+                  ),
+                  // Real Progress Circle
+                  SizedBox(
+                    width: 100,
+                    height: 100,
+                    child: CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 8,
+                      strokeCap: StrokeCap.round,
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary.withValues(alpha: 0.5)),
+                    ),
+                  ),
+                  Text(
+                    "$percent%",
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                "Downloading Update...",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Architecture: ${widget.abi}",
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              LinearProgressIndicator(
+                value: progress,
+                backgroundColor: Colors.white10,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

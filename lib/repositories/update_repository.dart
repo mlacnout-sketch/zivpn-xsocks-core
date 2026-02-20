@@ -180,6 +180,7 @@ class UpdateRepository {
                 apkUrl: bestAsset['browser_download_url'],
                 apkSize: bestAsset['size'],
                 description: release['body'] ?? "",
+                abi: deviceAbi?.contains('64') == true ? 'arm64-v8a' : (deviceAbi?.contains('32') == true ? 'armeabi-v7a' : 'Universal'),
               );
             }
           }
