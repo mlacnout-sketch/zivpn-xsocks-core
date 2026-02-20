@@ -12,7 +12,7 @@ class DashboardTab extends StatefulWidget {
   final ValueNotifier<int> sessionRx, sessionTx;
   final bool autoPilotActive;
   final bool isResetting;
-  final VoidCallback onOpenLexpesawat;
+  final VoidCallback onStartLexpesawat;
 
   const DashboardTab({
     super.key,
@@ -25,7 +25,7 @@ class DashboardTab extends StatefulWidget {
     required this.sessionTx,
     this.autoPilotActive = false,
     this.isResetting = false,
-    required this.onOpenLexpesawat,
+    required this.onStartLexpesawat,
   });
 
   @override
@@ -261,10 +261,10 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: widget.onOpenLexpesawat,
+              onPressed: widget.onStartLexpesawat,
               icon: const Icon(Icons.radar, size: 18),
               label: Text(
-                widget.autoPilotActive ? 'Buka Lexpesawat (Aktif)' : 'Buka Lexpesawat',
+                widget.autoPilotActive ? 'Lexpesawat Aktif' : 'Start Lexpesawat',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               style: OutlinedButton.styleFrom(

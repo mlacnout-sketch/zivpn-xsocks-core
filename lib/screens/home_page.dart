@@ -396,6 +396,47 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+
+  Future<void> _startLexpesawatShortcut() async {
+    await _autoPilot.init();
+
+    if (_vpnState != "connected") {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Connect VPN dulu sebelum start Lexpesawat.")),
+        );
+      }
+      return;
+    }
+
+    if (_autoPilot.isRunning) {
+      _logs.add("[AUTOPILOT] Lexpesawat already active.");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Lexpesawat sudah aktif.")),
+        );
+      }
+      return;
+    }
+
+    final started = await _autoPilot.tryAutoStart();
+    if (started) {
+      _logs.add("[AUTOPILOT] Lexpesawat started from Dashboard shortcut.");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Lexpesawat started.")),
+        );
+      }
+    } else {
+      _logs.add("[AUTOPILOT] Shortcut start failed: Shizuku not running/authorized.");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Shizuku belum aktif/izin belum diberikan.")),
+        );
+      }
+    }
+  }
+
   Future<void> _handleAccountSwitch(int index) async {
     final account = _accounts[index];
     final prefs = await SharedPreferences.getInstance();
@@ -427,7 +468,7 @@ class _HomePageState extends State<HomePage> {
               sessionTx: _sessionTx,
               autoPilotActive: _autoPilotActive,
               isResetting: _autoPilotResetting,
-              onOpenLexpesawat: () => setState(() => _selectedIndex = 3),
+              onStartLexpesawat: () { unawaited(_startLexpesawatShortcut()); },
             ),
             ProxiesTab(
               accounts: _accounts,
