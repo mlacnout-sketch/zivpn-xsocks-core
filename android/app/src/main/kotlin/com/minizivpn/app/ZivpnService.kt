@@ -391,7 +391,15 @@ class ZivpnService : VpnService() {
 
             val libDir = applicationInfo.nativeLibraryDir
             val tun2socksBin = File(libDir, "libtun2socks.so").absolutePath
-            val tsLogLevel = when (logLevel) { "debug" -> "debug"; "error" -> "error"; "silent" -> "none"; else -> "info" }
+            
+            // Standardized Log Level Mapping
+            val tsLogLevel = when (logLevel) { 
+                "debug" -> "debug" 
+                "error" -> "error" 
+                "warning" -> "warning"
+                "silent" -> "none" 
+                else -> "notice" // 'info' is too verbose for badvpn, 'notice' is better for default
+            }
 
             val useUdpgw = getPrefBool(prefs, "enable_udpgw", true)
             val udpgwPort = getPrefString(prefs, "udpgw_port", "7300")
@@ -452,6 +460,7 @@ class ZivpnService : VpnService() {
         val hyLogLevel = when(logLevel) {
             "silent" -> "disable"
             "error" -> "error"
+            "warning" -> "warn"
             "debug" -> "debug"
             else -> "info"
         }
