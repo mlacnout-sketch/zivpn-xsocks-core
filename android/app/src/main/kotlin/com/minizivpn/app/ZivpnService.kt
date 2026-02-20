@@ -10,7 +10,6 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import android.net.TrafficStats
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import android.content.pm.ServiceInfo
@@ -199,14 +198,14 @@ class ZivpnService : VpnService() {
         stopNotificationStatsUpdater()
 
         val uid = android.os.Process.myUid()
-        notifLastRxBytes = getReliableRxBytes(uid)
-        notifLastTxBytes = getReliableTxBytes(uid)
+        notifLastRxBytes = TrafficStatsCompat.getReliableRxBytes(uid)
+        notifLastTxBytes = TrafficStatsCompat.getReliableTxBytes(uid)
 
         notifStatsExecutor = Executors.newSingleThreadScheduledExecutor()
         notifStatsExecutor?.scheduleAtFixedRate({
             try {
-                val currentRx = getReliableRxBytes(uid)
-                val currentTx = getReliableTxBytes(uid)
+                val currentRx = TrafficStatsCompat.getReliableRxBytes(uid)
+                val currentTx = TrafficStatsCompat.getReliableTxBytes(uid)
 
                 val rxDelta = (currentRx - notifLastRxBytes).coerceAtLeast(0L)
                 val txDelta = (currentTx - notifLastTxBytes).coerceAtLeast(0L)
@@ -223,24 +222,6 @@ class ZivpnService : VpnService() {
     private fun stopNotificationStatsUpdater() {
         notifStatsExecutor?.shutdownNow()
         notifStatsExecutor = null
-    }
-
-    private fun getReliableRxBytes(uid: Int): Long {
-        val uidRx = TrafficStats.getUidRxBytes(uid)
-        return if (uidRx != TrafficStats.UNSUPPORTED.toLong()) {
-            uidRx.coerceAtLeast(0L)
-        } else {
-            TrafficStats.getTotalRxBytes().coerceAtLeast(0L)
-        }
-    }
-
-    private fun getReliableTxBytes(uid: Int): Long {
-        val uidTx = TrafficStats.getUidTxBytes(uid)
-        return if (uidTx != TrafficStats.UNSUPPORTED.toLong()) {
-            uidTx.coerceAtLeast(0L)
-        } else {
-            TrafficStats.getTotalTxBytes().coerceAtLeast(0L)
-        }
     }
 
     private fun updateForegroundTrafficNotification(rxBytesPerSec: Long, txBytesPerSec: Long) {

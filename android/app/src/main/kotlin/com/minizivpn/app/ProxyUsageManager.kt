@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Uri
-import android.net.TrafficStats
 import android.os.Build
 import android.provider.Settings
 import android.text.format.Formatter
@@ -116,8 +115,8 @@ class ProxyUsageManager(private val context: Context) {
         // Some ROMs / devices return empty NetworkStats buckets intermittently.
         // Fallback to TrafficStats to avoid flat zero realtime/session metrics.
         if (txTotal == 0L && rxTotal == 0L) {
-            val txFallback = TrafficStats.getUidTxBytes(uid).coerceAtLeast(0L)
-            val rxFallback = TrafficStats.getUidRxBytes(uid).coerceAtLeast(0L)
+            val txFallback = TrafficStatsCompat.getReliableTxBytes(uid)
+            val rxFallback = TrafficStatsCompat.getReliableRxBytes(uid)
             if (txFallback > 0L || rxFallback > 0L) {
                 return Pair(txFallback, rxFallback)
             }

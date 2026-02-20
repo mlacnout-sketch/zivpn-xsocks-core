@@ -16,7 +16,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
 
-import android.net.TrafficStats
 import java.util.Timer
 import java.util.TimerTask
 import androidx.core.content.ContextCompat
@@ -410,8 +409,8 @@ class MainActivity: FlutterActivity() {
         stopStatsTimer()
         statsTimer = Timer()
         val uid = android.os.Process.myUid()
-        var lastRxFallback = getReliableRxBytes(uid)
-        var lastTxFallback = getReliableTxBytes(uid)
+        var lastRxFallback = TrafficStatsCompat.getReliableRxBytes(uid)
+        var lastTxFallback = TrafficStatsCompat.getReliableTxBytes(uid)
 
         statsTimer?.schedule(object : TimerTask() {
             override fun run() {
@@ -439,8 +438,8 @@ class MainActivity: FlutterActivity() {
                 }
 
                 // Fallback when usage stats permission unavailable
-                val currentRx = getReliableRxBytes(uid)
-                val currentTx = getReliableTxBytes(uid)
+                val currentRx = TrafficStatsCompat.getReliableRxBytes(uid)
+                val currentTx = TrafficStatsCompat.getReliableTxBytes(uid)
 
                 val rxSpeed = currentRx - lastRxFallback
                 val txSpeed = currentTx - lastTxFallback
@@ -460,24 +459,6 @@ class MainActivity: FlutterActivity() {
     private fun stopStatsTimer() {
         statsTimer?.cancel()
         statsTimer = null
-    }
-
-    private fun getReliableRxBytes(uid: Int): Long {
-        val uidRx = TrafficStats.getUidRxBytes(uid)
-        return if (uidRx != TrafficStats.UNSUPPORTED.toLong()) {
-            uidRx.coerceAtLeast(0L)
-        } else {
-            TrafficStats.getTotalRxBytes().coerceAtLeast(0L)
-        }
-    }
-
-    private fun getReliableTxBytes(uid: Int): Long {
-        val uidTx = TrafficStats.getUidTxBytes(uid)
-        return if (uidTx != TrafficStats.UNSUPPORTED.toLong()) {
-            uidTx.coerceAtLeast(0L)
-        } else {
-            TrafficStats.getTotalTxBytes().coerceAtLeast(0L)
-        }
     }
 
     private fun sendToLog(msg: String) {
