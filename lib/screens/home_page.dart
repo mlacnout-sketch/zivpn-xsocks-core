@@ -21,6 +21,7 @@ import '../models/app_version.dart';
 import '../models/account.dart';
 import '../widgets/donation_widgets.dart';
 import '../utils/format_utils.dart';
+import '../services/notification_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
