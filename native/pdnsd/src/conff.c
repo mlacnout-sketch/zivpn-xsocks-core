@@ -38,7 +38,7 @@
 
 
 globparm_t global={
-  perm_cache:        2048,
+  perm_cache:        16384,
   cache_dir:         NULL,
   pidfile:           NULL,
   port:              53,
@@ -48,7 +48,7 @@ globparm_t global={
   ipv4_6_prefix:     IN6ADDR_ANY_INIT,
 #endif
   max_ttl:           604800,
-  min_ttl:           30,
+  min_ttl:           300,
   neg_ttl:           60,
   neg_rrs_pol:       C_DEFAULT,
   neg_domain_pol:    C_AUTH,
@@ -66,15 +66,15 @@ globparm_t global={
   rnd_recs:          1,
   ctl_perms:         0600,
   scheme_file:       NULL,
-  proc_limit:        40,
-  procq_limit:       60,
+  proc_limit:        128,
+  procq_limit:       256,
   tcp_qtimeout:      TCP_TIMEOUT,
   timeout:           0,
   par_queries:       PAR_QUERIES,
   query_method:      M_PRESET,
   query_port_start:  1024,
   query_port_end:    65535,
-  udpbufsize:        1024,
+  udpbufsize:        4096,
   deleg_only_zones:  NULL
 };
 

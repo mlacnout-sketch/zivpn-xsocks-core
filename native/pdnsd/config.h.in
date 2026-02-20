@@ -131,7 +131,7 @@
  * so e.g. HASH_SZ set to 10 yields 1024 hash rows.
  * HASH_SZ may not be bigger than 32 (if you set it even close to that value,
  * you are nuts.) */
-#define HASH_SZ 10
+#define HASH_SZ 12
 
 /* Set this to debug the hash tables. Turn this off normally, or you will get
  * flooded with diagnostic messages */
@@ -153,7 +153,7 @@
 #undef TCP_SUBSEQ
 
 /* Default value for parallel query number */
-#define PAR_QUERIES   2
+#define PAR_QUERIES   4
 
 /* Maximum number of IP addresses used per nameserver obtained from NS records. */
 #define MAXNAMESERVIPS 3
