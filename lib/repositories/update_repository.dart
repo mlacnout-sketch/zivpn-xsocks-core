@@ -163,8 +163,8 @@ class UpdateRepository {
             final assets = release['assets'] as List?;
             if (assets == null) continue;
             final asset = assets.firstWhere(
-              (a) => a['name'].toString().endsWith('.apk'),
-              orElse: () => null
+              (a) => _isApkAsset(a),
+              orElse: () => null,
             );
             if (asset != null) {
               return AppVersion(
@@ -178,6 +178,20 @@ class UpdateRepository {
         }
       } catch (_) {}
       return null;
+  }
+
+
+  bool _isApkAsset(dynamic asset) {
+    if (asset is! Map) return false;
+
+    final name = asset['name']?.toString().toLowerCase() ?? '';
+    if (name.endsWith('.apk')) return true;
+
+    final contentType = asset['content_type']?.toString().toLowerCase() ?? '';
+    if (contentType.contains('android.package-archive')) return true;
+
+    final url = asset['browser_download_url']?.toString().toLowerCase() ?? '';
+    return url.endsWith('.apk');
   }
 
   bool _isNewer(String latestTag, String currentVersion) {
