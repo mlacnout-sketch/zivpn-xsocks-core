@@ -139,20 +139,35 @@ jobs:
           body: |
             🚀 Optimized Release ${{ env.VERSION }}
             
-            Build otomatis untuk ZIVPN xSocks Core dengan optimasi performa native dan perbaikan akurasi trafik.
+            Daftar Perubahan (Changelog):
+            
+            ✅ Akurasi Trafik & Dashboard:
+            - Fixed: Perhitungan RX/TX kini 100% akurat menggunakan interface tun0.
+            - Dashboard: Shortcut Auto Pilot baru dengan animasi pesawat terbang.
+            
+            ✅ Fitur Auto Update (Zero Quota Support):
+            - Smart Update: Cek update via SOCKS5 + Remote DNS.
+            - ABI Aware: Otomatis memilih APK optimal (v8a/v7a).
+            - Visual: Animasi progres download 'ular berputar'.
+            - Fix: Perbaikan fitur 'Tap-to-Install'.
+            
+            ✅ Optimasi Core Native (C/C++):
+            - udpgw: Static memory buffers.
+            - pdnsd: Zero-allocation drop path.
+            - tun2socks: Fixed memory leaks.
+            - DNS: Hemat baterai dengan reduksi I/O.
+            
+            ✅ Stabilitas & Pembersihan:
+            - Backup: Atomis dengan hash integritas.
+            - Auto-Save: Simpan otomatis di tab Settings.
+            - Cleanup: Repo lebih ringan (No tests/docs).
             
             📦 Daftar Artefak (APK):
-            - ZIVPN-v8a-release.apk : Direkomendasikan untuk HP modern (64-bit). Lebih cepat dan efisien.
-            - ZIVPN-v7a-release.apk : Untuk HP lama (32-bit). Kompatibilitas luas.
-            - ZIVPN-Universal-release.apk : Mendukung semua arsitektur ARM (Ukuran file lebih besar).
+            - ZIVPN-v8a-release.apk : HP Modern (64-bit).
+            - ZIVPN-v7a-release.apk : HP Lama (32-bit).
+            - ZIVPN-Universal-release.apk : Semua ARM.
             
-            🛠️ Key Improvements:
-            - Fixed: Akurasi RX/TX dashboard (menggunakan interface tun0).
-            - Optimized: Manajemen memori UDPGW dan efisiensi CPU Pdnsd.
-            - Feature: Auto Pilot shortcut di Dashboard dengan animasi.
-            - Robust: Auto update via VPN (SOCKS5 + Remote DNS).
-            
-            Run ID: ${{ github.run_id }}
+            Run ID: `${{ github.run_id }}`
           files: |
             ZIVPN-v7a-release.apk
             ZIVPN-v8a-release.apk
