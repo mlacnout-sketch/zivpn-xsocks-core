@@ -129,12 +129,18 @@ class _SettingsTabState extends State<SettingsTab> {
     );
     if (result != null && result.files.single.path != null) {
       final success = await _backupRepo.restoreBackup(File(result.files.single.path!));
-      if (mounted && success) {
+      if (!mounted) return;
+
+      if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Restore successful.')),
         );
         _loadSettings();
         widget.onRestoreSuccess?.call();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Restore failed. Backup file invalid.')),
+        );
       }
     }
   }
