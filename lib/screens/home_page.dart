@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../app_colors.dart';
 import 'tabs/dashboard_tab.dart';
@@ -31,6 +32,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   final _updateViewModel = UpdateViewModel();
+  final _backupRepo = BackupRepository();
 
   static const platform = MethodChannel('com.minizivpn.app/core');
   static const logChannel = EventChannel('com.minizivpn.app/logs');
@@ -510,6 +512,33 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+
+  Future<void> _backupSpecificAccount(Account account) async {
+    if (account.name.trim().isEmpty || account.ip.trim().isEmpty || account.auth.trim().isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot backup invalid account data.')),
+      );
+      return;
+    }
+
+    await _saveAccounts();
+    final file = await _backupRepo.createBackup(specificAccount: account);
+
+    if (!mounted) return;
+    if (file == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to create account backup ZIP.')),
+      );
+      return;
+    }
+
+    await Share.shareXFiles(
+      [XFile(file.path)],
+      text: 'MiniZIVPN Proxy Backup (${account.name})',
+    );
+  }
+
   Future<void> _handleAccountSwitch(int index) async {
     final account = _accounts[index];
     final prefs = await SharedPreferences.getInstance();
@@ -549,6 +578,7 @@ class _HomePageState extends State<HomePage> {
               onActivate: _handleAccountSwitch,
               onAdd: (acc) { setState(() => _accounts.add(acc)); _saveAccounts(); },
               onEdit: (index, newAcc) { setState(() => _accounts[index] = newAcc); _saveAccounts(); },
+              onBackupAccount: (acc) => _backupSpecificAccount(acc),
               onDelete: (index) {
                 setState(() {
                   _accounts.removeAt(index);

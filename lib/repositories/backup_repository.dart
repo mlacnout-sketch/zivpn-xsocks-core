@@ -7,23 +7,29 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/account.dart';
+
 class BackupRepository {
   static const Set<String> _ephemeralKeys = {
     'vpn_running',
     'vpn_start_time',
   };
 
-  Future<File?> createBackup() async {
+  static const String savedAccountsKey = 'saved_accounts';
+  static const String activeAccountIndexKey = 'active_account_index';
+
+  Future<File?> createBackup({Account? specificAccount}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final allPrefs = <String, dynamic>{};
+      final sourcePrefs = <String, dynamic>{};
 
       final keys = prefs.getKeys();
       for (final key in keys) {
         if (_ephemeralKeys.contains(key)) continue;
-        allPrefs[key] = prefs.get(key);
+        sourcePrefs[key] = prefs.get(key);
       }
 
+      final allPrefs = prepareBackupPrefs(sourcePrefs, specificAccount: specificAccount);
       final configJson = jsonEncode(allPrefs);
       final configBytes = utf8.encode(configJson);
 
@@ -32,7 +38,8 @@ class BackupRepository {
 
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      final fileName = 'minizivpn_backup_$timestamp.zip';
+      final suffix = specificAccount == null ? '' : '_${_safeAccountName(specificAccount.name)}';
+      final fileName = 'minizivpn_backup_${timestamp}${suffix}.zip';
       final zipFile = File('${tempDir.path}/$fileName');
 
       final zipData = ZipEncoder().encode(archive);
@@ -44,6 +51,27 @@ class BackupRepository {
       print('Backup failed: $e');
       return null;
     }
+  }
+
+  Map<String, dynamic> prepareBackupPrefs(
+    Map<String, dynamic> rawPrefs, {
+    Account? specificAccount,
+  }) {
+    final sanitized = <String, dynamic>{};
+    for (final entry in rawPrefs.entries) {
+      if (_ephemeralKeys.contains(entry.key)) continue;
+      sanitized[entry.key] = entry.value;
+    }
+
+    if (specificAccount != null) {
+      sanitized[savedAccountsKey] = jsonEncode([specificAccount.toJson()]);
+      sanitized[activeAccountIndexKey] = 0;
+      sanitized['ip'] = specificAccount.ip;
+      sanitized['auth'] = specificAccount.auth;
+      sanitized['obfs'] = specificAccount.obfs;
+    }
+
+    return sanitized;
   }
 
   Future<bool> restoreBackup(File backupFile) async {
@@ -103,5 +131,10 @@ class BackupRepository {
     if (content is List<int>) return content;
     if (content is Uint8List) return content;
     return null;
+  }
+
+  String _safeAccountName(String input) {
+    final cleaned = input.trim().replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '_');
+    return cleaned.isEmpty ? 'account' : cleaned;
   }
 }

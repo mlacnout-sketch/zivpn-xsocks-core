@@ -10,6 +10,7 @@ class ProxiesTab extends StatefulWidget {
   final Function(Account) onAdd;
   final Function(int, Account) onEdit;
   final Function(int) onDelete;
+  final Future<void> Function(Account) onBackupAccount;
 
   const ProxiesTab({
     super.key,
@@ -19,6 +20,7 @@ class ProxiesTab extends StatefulWidget {
     required this.onAdd,
     required this.onEdit,
     required this.onDelete,
+    required this.onBackupAccount,
   });
 
   @override
@@ -192,11 +194,14 @@ class _ProxiesTabState extends State<ProxiesTab> {
                     trailing: PopupMenuButton(
                       itemBuilder: (ctx) => [
                         const PopupMenuItem(value: 'edit', child: Text("Edit")),
+                        const PopupMenuItem(value: 'backup', child: Text("Backup ZIP")),
                         const PopupMenuItem(value: 'del', child: Text("Delete")),
                       ],
                       onSelected: (val) {
                         if (val == 'edit') {
                           _showAccountDialog(context, index: index);
+                        } else if (val == 'backup') {
+                          widget.onBackupAccount(acc);
                         } else if (val == 'del') {
                           widget.onDelete(index);
                         }
