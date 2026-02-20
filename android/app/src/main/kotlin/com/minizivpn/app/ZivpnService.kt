@@ -10,6 +10,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.net.TrafficStats
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import android.content.pm.ServiceInfo
@@ -52,6 +53,9 @@ class ZivpnService : VpnService() {
     private val processes = mutableListOf<Process>()
     private var wakeLock: PowerManager.WakeLock? = null
     private var pingExecutor: ScheduledExecutorService? = null
+    private var notifStatsExecutor: ScheduledExecutorService? = null
+    private var notifLastRxBytes: Long = 0L
+    private var notifLastTxBytes: Long = 0L
     
     // Class-level properties to be accessible within inner classes/lambdas
     private var consecutiveFailures = 0
@@ -185,6 +189,75 @@ class ZivpnService : VpnService() {
              startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
              startForeground(NOTIFICATION_ID, notification)
+        }
+
+        startNotificationStatsUpdater()
+    }
+
+
+    private fun startNotificationStatsUpdater() {
+        stopNotificationStatsUpdater()
+
+        val uid = android.os.Process.myUid()
+        notifLastRxBytes = TrafficStats.getUidRxBytes(uid).coerceAtLeast(0L)
+        notifLastTxBytes = TrafficStats.getUidTxBytes(uid).coerceAtLeast(0L)
+
+        notifStatsExecutor = Executors.newSingleThreadScheduledExecutor()
+        notifStatsExecutor?.scheduleAtFixedRate({
+            try {
+                val currentRx = TrafficStats.getUidRxBytes(uid).coerceAtLeast(0L)
+                val currentTx = TrafficStats.getUidTxBytes(uid).coerceAtLeast(0L)
+
+                val rxDelta = (currentRx - notifLastRxBytes).coerceAtLeast(0L)
+                val txDelta = (currentTx - notifLastTxBytes).coerceAtLeast(0L)
+
+                notifLastRxBytes = currentRx
+                notifLastTxBytes = currentTx
+
+                updateForegroundTrafficNotification(rxDelta, txDelta)
+            } catch (_: Exception) {
+            }
+        }, 1, 1, TimeUnit.SECONDS)
+    }
+
+    private fun stopNotificationStatsUpdater() {
+        notifStatsExecutor?.shutdownNow()
+        notifStatsExecutor = null
+    }
+
+    private fun updateForegroundTrafficNotification(rxBytesPerSec: Long, txBytesPerSec: Long) {
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val content = "RX ${formatBytes(rxBytesPerSec)}/s • TX ${formatBytes(txBytesPerSec)}/s"
+
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("MiniZIVPN Running")
+            .setContentText(content)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+
+        val manager = getSystemService(NotificationManager::class.java)
+        manager?.notify(NOTIFICATION_ID, notification)
+    }
+
+    private fun formatBytes(bytes: Long): String {
+        val kb = 1024.0
+        val mb = kb * 1024
+        val gb = mb * 1024
+        val value = bytes.toDouble()
+
+        return when {
+            value >= gb -> String.format("%.2f GB", value / gb)
+            value >= mb -> String.format("%.2f MB", value / mb)
+            value >= kb -> String.format("%.1f KB", value / kb)
+            else -> "$bytes B"
         }
     }
 
@@ -505,6 +578,7 @@ class ZivpnService : VpnService() {
         Log.i("ZIVPN-Tun", "Stopping VPN and cores...")
         
         stopPingTimer()
+        stopNotificationStatsUpdater()
 
         releaseCpuWakeLock()
         
@@ -593,6 +667,7 @@ class ZivpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        stopNotificationStatsUpdater()
         disconnect()
         super.onDestroy()
     }
