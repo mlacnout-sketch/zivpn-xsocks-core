@@ -28,9 +28,7 @@ import java.io.InputStreamReader
 import android.os.PowerManager
 import com.minizivpn.app.NativeSystem
 
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * ZIVPN TunService
@@ -49,7 +47,7 @@ class ZivpnService : VpnService() {
     }
 
     private var vpnInterface: ParcelFileDescriptor? = null
-    private val processes = mutableListOf<Process>()
+    private val processes = CopyOnWriteArrayList<Process>()
     private var wakeLock: PowerManager.WakeLock? = null
     private var pingExecutor: ScheduledExecutorService? = null
     
@@ -225,6 +223,7 @@ class ZivpnService : VpnService() {
         }
     }
 
+    @Synchronized
     private fun connect() {
         if (vpnInterface != null) return
 
@@ -525,7 +524,8 @@ class ZivpnService : VpnService() {
         // Added libtun2socks.so and libpdnsd.so to cleanup
         Thread {
             try {
-                val cleanupCmd = arrayOf("sh", "-c", "pkill -9 libuz; pkill -9 libload; pkill -9 libuz.so; pkill -9 libload.so; pkill -9 libtun2socks.so; pkill -9 libpdnsd.so")
+                // Kill by binary name (android often runs them as just the file name)
+                val cleanupCmd = arrayOf("sh", "-c", "pkill -9 libuz; pkill -9 libload; pkill -9 libtun2socks; pkill -9 libpdnsd; pkill -f libuz.so; pkill -f libload.so")
                 Runtime.getRuntime().exec(cleanupCmd).waitFor()
             } catch (e: Exception) {}
         }.start()

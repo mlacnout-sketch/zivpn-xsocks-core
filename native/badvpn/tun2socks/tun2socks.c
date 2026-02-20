@@ -139,6 +139,7 @@ static void free_connections()
     while (!BAVL_IsEmpty(&connections_tree)) {
         Connection *con = UPPER_OBJECT(BAVL_GetLast(&connections_tree), Connection, connections_tree_node);
         BAVL_Remove(&connections_tree, &con->connections_tree_node);
+        free(con);
     }
 }
 
