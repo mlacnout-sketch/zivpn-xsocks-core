@@ -34,10 +34,10 @@
 #define DEFAULT_UDP_MTU 65520
 
 // connection buffer size for sending to client, in packets
-#define CONNECTION_CLIENT_BUFFER_SIZE 1
+#define CONNECTION_CLIENT_BUFFER_SIZE 8
 
 // connection buffer size for sending to UDP, in packets
-#define CONNECTION_UDP_BUFFER_SIZE 1
+#define CONNECTION_UDP_BUFFER_SIZE 8
 
 // maximum number of clients
 #define DEFAULT_MAX_CLIENTS 3

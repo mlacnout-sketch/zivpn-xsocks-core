@@ -51,6 +51,10 @@ class MainActivity: FlutterActivity() {
     private var statsTimer: Timer? = null
     private var initialIntentData: String? = null // Store file URI
     
+    private var sessionStartRx: Long = 0
+    private var sessionStartTx: Long = 0
+    private var vpnInterfaceName: String? = null
+    
     private val uiHandler = Handler(Looper.getMainLooper())
 
     private val logReceiver = object : BroadcastReceiver() {
@@ -286,6 +290,18 @@ class MainActivity: FlutterActivity() {
             } else if (call.method == "stopCore") {
                 stopVpn()
                 result.success("Stopped")
+            } else if (call.method == "resetStats") {
+                vpnInterfaceName = findVpnInterface()
+                if (vpnInterfaceName != null) {
+                    sessionStartRx = TrafficStats.getRxBytes(vpnInterfaceName!!)
+                    sessionStartTx = TrafficStats.getTxBytes(vpnInterfaceName!!)
+                } else {
+                    // Fallback to UID but with loopback exclusion if possible (simplified here)
+                    val uid = android.os.Process.myUid()
+                    sessionStartRx = TrafficStats.getUidRxBytes(uid)
+                    sessionStartTx = TrafficStats.getUidTxBytes(uid)
+                }
+                result.success("OK")
             } else if (call.method == "startVpn") {
                 startVpn(result)
             } else if (call.method == "getInstalledApps") {
@@ -318,28 +334,56 @@ class MainActivity: FlutterActivity() {
         }
     }
 
+    private fun findVpnInterface(): String? {
+        try {
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val iface = interfaces.nextElement()
+                if (iface.name.startsWith("tun") || iface.name.startsWith("ppp")) {
+                    return iface.name
+                }
+            }
+        } catch (e: Exception) {}
+        return "tun0" // Default fallback
+    }
+
     private fun startStatsTimer() {
         stopStatsTimer()
         statsTimer = Timer()
         val uid = android.os.Process.myUid()
-        var lastRx = TrafficStats.getUidRxBytes(uid)
-        var lastTx = TrafficStats.getUidTxBytes(uid)
+        
+        fun getSafeRx(): Long {
+            val iface = vpnInterfaceName ?: findVpnInterface()
+            val ifaceBytes = if (iface != null) TrafficStats.getRxBytes(iface) else TrafficStats.UNSUPPORTED.toLong()
+            return if (ifaceBytes != TrafficStats.UNSUPPORTED.toLong()) ifaceBytes else TrafficStats.getUidRxBytes(uid)
+        }
+        
+        fun getSafeTx(): Long {
+            val iface = vpnInterfaceName ?: findVpnInterface()
+            val ifaceBytes = if (iface != null) TrafficStats.getTxBytes(iface) else TrafficStats.UNSUPPORTED.toLong()
+            return if (ifaceBytes != TrafficStats.UNSUPPORTED.toLong()) ifaceBytes else TrafficStats.getUidTxBytes(uid)
+        }
+
+        var lastRx = getSafeRx()
+        var lastTx = getSafeTx()
         
         statsTimer?.schedule(object : TimerTask() {
             override fun run() {
-                val currentRx = TrafficStats.getUidRxBytes(uid)
-                val currentTx = TrafficStats.getUidTxBytes(uid)
+                val currentRx = getSafeRx()
+                val currentTx = getSafeTx()
                 
-                val rxSpeed = currentRx - lastRx
-                val txSpeed = currentTx - lastTx
+                val rxSpeed = (currentRx - lastRx).coerceAtLeast(0)
+                val txSpeed = (currentTx - lastTx).coerceAtLeast(0)
+                
+                val totalRx = (currentRx - sessionStartRx).coerceAtLeast(0)
+                val totalTx = (currentTx - sessionStartTx).coerceAtLeast(0)
                 
                 lastRx = currentRx
                 lastTx = currentTx
                 
-                // Only send if positive (handle reboot/overflow)
-                if (rxSpeed >= 0 && txSpeed >= 0) {
+                if (statsSink != null) {
                     uiHandler.post {
-                        statsSink?.success("$rxSpeed|$txSpeed")
+                        statsSink?.success("$rxSpeed|$txSpeed|$totalRx|$totalTx")
                     }
                 }
             }
@@ -424,6 +468,12 @@ class MainActivity: FlutterActivity() {
                 "minimizeApp" -> {
                     moveTaskToBack(true)
                     result.success("Minimized")
+                }
+                "cancelNotification" -> {
+                    val id = call.argument<Int>("id") ?: 0
+                    val notificationManager = getSystemService(NotificationManager::class.java)
+                    notificationManager?.cancel(id)
+                    result.success("Cancelled")
                 }
                 else -> result.notImplemented()
             }

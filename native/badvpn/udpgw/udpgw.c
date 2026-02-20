@@ -71,7 +71,7 @@
 #define LOGGER_STDOUT 1
 #define LOGGER_SYSLOG 2
 
-#define DNS_UPDATE_TIME 2000
+#define DNS_UPDATE_TIME 30000
 
 struct client {
     BConnection con;
@@ -923,6 +923,9 @@ BAddr get_local_addr (int addr_type)
     }
 }
 
+static uint8_t *port_usage_buffer = NULL;
+static int port_usage_buffer_size = 0;
+
 uint8_t * build_port_usage_array_and_find_least_used_connection (BAddr remote_addr, struct connection **out_con)
 {
     ASSERT(remote_addr.type == BADDR_TYPE_IPV4 || remote_addr.type == BADDR_TYPE_IPV6)
@@ -930,11 +933,17 @@ uint8_t * build_port_usage_array_and_find_least_used_connection (BAddr remote_ad
     
     int local_num_ports = get_local_num_ports(remote_addr.type);
     
-    // allocate port usage array
-    uint8_t *port_usage = (uint8_t *)BAllocSize(bsize_fromint(local_num_ports));
-    if (!port_usage) {
-        return NULL;
+    // ensure buffer is large enough
+    if (port_usage_buffer_size < local_num_ports) {
+        uint8_t *new_buf = (uint8_t *)realloc(port_usage_buffer, local_num_ports);
+        if (!new_buf) {
+            return NULL;
+        }
+        port_usage_buffer = new_buf;
+        port_usage_buffer_size = local_num_ports;
     }
+    
+    uint8_t *port_usage = port_usage_buffer;
     
     // zero array
     memset(port_usage, 0, local_num_ports);
@@ -1098,10 +1107,7 @@ void connection_init (struct client *client, uint16_t conid, BAddr addr, BAddr o
             goto cont;
         }
         
-    failed:
-        client_log(client, BLOG_WARNING, "failed to bind to any local address; proceeding regardless");
     cont:;
-        BFree(port_usage);
     }
     
     // set UDP dgram send address

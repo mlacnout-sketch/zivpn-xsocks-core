@@ -7,6 +7,7 @@ import '../../utils/format_utils.dart';
 class DashboardTab extends StatefulWidget {
   final String vpnState;
   final VoidCallback onToggle;
+  final VoidCallback? onToggleAutoPilot;
   final ValueNotifier<String> dl, ul;
   final ValueNotifier<String> duration;
   final ValueNotifier<int> sessionRx, sessionTx;
@@ -17,6 +18,7 @@ class DashboardTab extends StatefulWidget {
     super.key,
     required this.vpnState,
     required this.onToggle,
+    this.onToggleAutoPilot,
     required this.dl,
     required this.ul,
     required this.duration,
@@ -80,15 +82,30 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            "ZIVPN",
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "ZIVPN",
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  Text("Turbo Tunnel Engine", style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+              if (widget.onToggleAutoPilot != null)
+                _AutoPilotShortcut(
+                  isActive: widget.autoPilotActive,
+                  onToggle: widget.onToggleAutoPilot!,
+                ),
+            ],
           ),
-          const Text("Turbo Tunnel Engine", style: TextStyle(color: Colors.grey)),
           const SiOrenBanner(), // Banner Si Oren
           const SizedBox(height: 20),
           Expanded(
@@ -288,6 +305,100 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
     );
   }
 
+}
+
+class _AutoPilotShortcut extends StatefulWidget {
+  final bool isActive;
+  final VoidCallback onToggle;
+
+  const _AutoPilotShortcut({required this.isActive, required this.onToggle});
+
+  @override
+  State<_AutoPilotShortcut> createState() => _AutoPilotShortcutState();
+}
+
+class _AutoPilotShortcutState extends State<_AutoPilotShortcut> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _planeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+
+    _planeAnimation = Tween<Offset>(
+      begin: const Offset(-0.3, 0),
+      end: const Offset(0.3, 0),
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    ));
+
+    if (widget.isActive) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_AutoPilotShortcut oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive != oldWidget.isActive) {
+      if (widget.isActive) {
+        _controller.repeat(reverse: true);
+      } else {
+        _controller.stop();
+        _controller.reset();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onToggle,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: widget.isActive ? Colors.blueAccent.withValues(alpha: 0.1) : AppColors.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: widget.isActive ? Colors.blueAccent : Colors.white10,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            SlideTransition(
+              position: _planeAnimation,
+              child: Icon(
+                widget.isActive ? Icons.airplanemode_active : Icons.airplanemode_inactive,
+                size: 18,
+                color: widget.isActive ? Colors.blueAccent : Colors.grey,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              "Auto Pilot",
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: widget.isActive ? Colors.blueAccent : Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class StatCard extends StatelessWidget {

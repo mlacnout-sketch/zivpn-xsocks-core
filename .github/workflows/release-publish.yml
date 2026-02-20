@@ -84,14 +84,23 @@ jobs:
           flutter build apk --release --target-platform android-arm,android-arm64
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/ZIVPN-Universal-release.apk
 
-      - name: Upload Release APKs
+      - name: Upload v7a APK
         uses: actions/upload-artifact@v4
         with:
-          name: ZIVPN-Release-APKs
-          path: |
-            build/app/outputs/flutter-apk/ZIVPN-v7a-release.apk
-            build/app/outputs/flutter-apk/ZIVPN-v8a-release.apk
-            build/app/outputs/flutter-apk/ZIVPN-Universal-release.apk
+          name: ZIVPN-v7a-Release
+          path: build/app/outputs/flutter-apk/ZIVPN-v7a-release.apk
+
+      - name: Upload v8a APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZIVPN-v8a-Release
+          path: build/app/outputs/flutter-apk/ZIVPN-v8a-release.apk
+
+      - name: Upload Universal APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZIVPN-Universal-Release
+          path: build/app/outputs/flutter-apk/ZIVPN-Universal-release.apk
 
   release:
     needs: build
@@ -103,10 +112,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download Artifact
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: ZIVPN-Release-APKs
+          pattern: ZIVPN-*-Release
+          merge-multiple: true
 
       - name: Create Release Tag
         id: tag_version

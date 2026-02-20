@@ -263,14 +263,26 @@ class _HomePageState extends State<HomePage> {
     statsChannel.receiveBroadcastStream().listen((event) {
       if (event is String && mounted) {
         final parts = event.split('|');
-        if (parts.length == 2) {
+        if (parts.length >= 2) {
           final rx = int.tryParse(parts[0]) ?? 0;
           final tx = int.tryParse(parts[1]) ?? 0;
           _dlSpeed.value = FormatUtils.formatBytes(rx, asSpeed: true);
           _ulSpeed.value = FormatUtils.formatBytes(tx, asSpeed: true);
-          _sessionRx.value += rx;
-          _sessionTx.value += tx;
-          if (_activeAccountIndex != -1) _accounts[_activeAccountIndex].usage += rx + tx;
+          
+          if (parts.length == 4) {
+             // New accurate total from Android
+             _sessionRx.value = int.tryParse(parts[2]) ?? 0;
+             _sessionTx.value = int.tryParse(parts[3]) ?? 0;
+          } else {
+             // Fallback to legacy accumulation
+             _sessionRx.value += rx;
+             _sessionTx.value += tx;
+          }
+
+          if (_activeAccountIndex != -1) {
+             // For account usage, we still accumulate deltas to avoid losing data across sessions
+             _accounts[_activeAccountIndex].usage += rx + tx;
+          }
         }
       }
     });
@@ -369,6 +381,7 @@ class _HomePageState extends State<HomePage> {
           "hysteria_recv_window": recvWin,
           "hysteria_recv_conn": recvConn
         });
+        await platform.invokeMethod('resetStats');
         await platform.invokeMethod('startVpn');
 
         final now = DateTime.now();
@@ -410,6 +423,13 @@ class _HomePageState extends State<HomePage> {
             DashboardTab(
               vpnState: _vpnState,
               onToggle: _toggleVpn,
+              onToggleAutoPilot: () {
+                if (_autoPilot.isRunning) {
+                  _autoPilot.stop();
+                } else {
+                  _autoPilot.start();
+                }
+              },
               dl: _dlSpeed,
               ul: _ulSpeed,
               duration: _durationNotifier,

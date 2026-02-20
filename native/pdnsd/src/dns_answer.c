@@ -1665,16 +1665,12 @@ void *udp_server_thread(void *dummy)
 	}
 
 	sock=udp_socket;
+	int udpbufsize = global.udpbufsize;
+	udp_buf_t *drop_buf = (udp_buf_t *)pdnsd_calloc(1, sizeof(udp_buf_t) + udpbufsize);
 
 	while (1) {
-		int udpbufsize= global.udpbufsize;
-		if (!(buf=(udp_buf_t *)pdnsd_calloc(1,sizeof(udp_buf_t)+udpbufsize))) {
-			if (++da_mem_errs<=MEM_MAX_ERRS) {
-				log_error("Out of memory in request handling.");
-			}
-			break;
-		}
-
+		if (!drop_buf) break;
+		buf = drop_buf;
 		buf->sock=sock;
 
 		v.iov_base=(char *)buf->buf;
@@ -1799,12 +1795,19 @@ void *udp_server_thread(void *dummy)
 				int err;
 				++qprocs; ++spawned;
 				pthread_mutex_unlock(&proc_lock);
-				buf->len=qlen;
-				err=pthread_create(&pt,&attr_detached,udp_answer_thread,(void *)buf);
-				if(err==0)
-					continue;
+
+				udp_buf_t *thread_buf = (udp_buf_t *)pdnsd_calloc(1, sizeof(udp_buf_t) + udpbufsize);
+				if (thread_buf) {
+					memcpy(thread_buf, buf, sizeof(udp_buf_t) + qlen);
+					thread_buf->len = qlen;
+					err = pthread_create(&pt, &attr_detached, udp_answer_thread, (void *)thread_buf);
+					if (err == 0)
+						continue;
+					pdnsd_free(thread_buf);
+				}
+
 				if(++da_thrd_errs<=THRD_MAX_ERRS)
-					log_warn("pthread_create failed: %s",strerror(err));
+					log_warn("pthread_create failed or OOM: %s", strerror(errno));
 				/* If thread creation failed, free resources associated with it. */
 				pthread_mutex_lock(&proc_lock);
 				--qprocs; --spawned;
@@ -1813,9 +1816,10 @@ void *udp_server_thread(void *dummy)
 			pthread_mutex_unlock(&proc_lock);
 		}
 	free_buf_continue:
-		pdnsd_free(buf);
 		usleep_r(50000);
 	}
+
+	if (drop_buf) pdnsd_free(drop_buf);
 
 	udp_socket=-1;
 	close(sock);

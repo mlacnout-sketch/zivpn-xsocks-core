@@ -114,6 +114,16 @@ jobs:
           flutter build apk --release --target-platform android-arm
           mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/mini-zivpn-armeabi-v7a.apk
 
+      - name: Build APK (Universal)
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/android/app/release.jks
+          KEY_ALIAS: 'androiddebugkey'
+          KEY_PASSWORD: 'android'
+          STORE_PASSWORD: 'android'
+        run: |
+          flutter build apk --release --target-platform android-arm,android-arm64
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/mini-zivpn-universal.apk
+
       - name: Upload ARM64 Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -127,5 +137,13 @@ jobs:
         with:
           name: mini-zivpn-armeabi-v7a
           path: build/app/outputs/flutter-apk/mini-zivpn-armeabi-v7a.apk
+          compression-level: 9
+          retention-days: 7
+
+      - name: Upload Universal Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mini-zivpn-universal
+          path: build/app/outputs/flutter-apk/mini-zivpn-universal.apk
           compression-level: 9
           retention-days: 7

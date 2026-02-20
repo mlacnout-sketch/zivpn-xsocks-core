@@ -148,4 +148,15 @@ class NotificationService {
   Future<void> cancel(int id) async {
     await _notifications.cancel(id);
   }
+
+  Future<void> cancelPingNotification() async {
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        await _platform.invokeMethod('cancelNotification', {'id': 1001});
+      }
+    } catch (e) {
+      debugPrint('[NotificationService] Failed to cancel native notification: $e');
+    }
+    await _notifications.cancel(1001);
+  }
 }

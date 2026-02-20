@@ -205,6 +205,7 @@ class AutoPilotService extends ChangeNotifier {
     _timer?.cancel();
     isRunning = false;
     _watchdogRefreshCounter = 0;
+    _notificationService.cancelPingNotification();
 
     _updateState(_currentState.copyWith(
       status: AutoPilotStatus.idle,
