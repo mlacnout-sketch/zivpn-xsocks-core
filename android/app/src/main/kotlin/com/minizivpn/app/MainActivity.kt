@@ -49,6 +49,8 @@ class MainActivity: FlutterActivity() {
     private var logSink: EventChannel.EventSink? = null
     private var statsSink: EventChannel.EventSink? = null
     private var statsTimer: Timer? = null
+    private lateinit var proxyUsageManager: ProxyUsageManager
+    private var lastNetworkStatsTotal: Long = 0L
     private var initialIntentData: String? = null // Store file URI
     
     private val uiHandler = Handler(Looper.getMainLooper())
@@ -73,6 +75,7 @@ class MainActivity: FlutterActivity() {
         }
         
         checkAndRequestNotificationPermission()
+        proxyUsageManager = ProxyUsageManager(this)
     }
 
     override fun onBackPressed() {
@@ -258,6 +261,7 @@ class MainActivity: FlutterActivity() {
                 prefs.putString("flutter.pdnsd_query_method", call.argument<String>("pdnsd_query_method") ?: "tcp_only")
                 prefs.putString("flutter.hysteria_recv_window", call.argument<String>("hysteria_recv_window") ?: "327680")
                 prefs.putString("flutter.hysteria_recv_conn", call.argument<String>("hysteria_recv_conn") ?: "131072")
+                prefs.putString("flutter.proxy_id", call.argument<String>("proxy_id") ?: "default")
 
                 // Booleans
                 prefs.putBoolean("flutter.enable_udpgw", call.argument<Boolean>("enable_udpgw") ?: true)
@@ -295,6 +299,31 @@ class MainActivity: FlutterActivity() {
                     val rtt = runNativePing(host, timeoutMs)
                     uiHandler.post { result.success(rtt) }
                 }.start()
+            } else if (call.method == "hasUsageStatsPermission") {
+                result.success(proxyUsageManager.hasUsageStatsPermission())
+            } else if (call.method == "requestUsageStatsPermission") {
+                try {
+                    startActivity(proxyUsageManager.buildUsageStatsSettingsIntent())
+                    result.success(true)
+                } catch (_: Exception) {
+                    result.success(false)
+                }
+            } else if (call.method == "startProxyUsageSession") {
+                val proxyId = call.argument<String>("proxyId") ?: "default"
+                val started = proxyUsageManager.startConnection(proxyId)
+                if (started) {
+                    lastNetworkStatsTotal = 0L
+                }
+                result.success(started)
+            } else if (call.method == "getProxyUsageDelta") {
+                val proxyId = call.argument<String>("proxyId")
+                result.success(proxyUsageManager.computeCurrentDelta(proxyId))
+            } else if (call.method == "commitProxyUsageDelta") {
+                val proxyId = call.argument<String>("proxyId")
+                result.success(proxyUsageManager.commitDelta(proxyId))
+            } else if (call.method == "getProxyUsageTotal") {
+                val proxyId = call.argument<String>("proxyId") ?: "default"
+                result.success(proxyUsageManager.getTotalBytes(proxyId))
             } else if (call.method == "getInstalledApps") {
                 Thread {
                     val apps = mutableListOf<Map<String, String>>()
@@ -346,25 +375,64 @@ class MainActivity: FlutterActivity() {
         }
     }
 
+    private fun startProxyUsageTracking() {
+        val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+        val proxyId = prefs.getString("flutter.proxy_id", "default") ?: "default"
+
+        if (proxyUsageManager.hasUsageStatsPermission()) {
+            val started = proxyUsageManager.startConnection(proxyId)
+            if (started) {
+                lastNetworkStatsTotal = 0L
+                sendToLog("[USAGE] Session baseline captured for proxy: $proxyId")
+            }
+        } else {
+            sendToLog("[USAGE] PACKAGE_USAGE_STATS permission not granted.")
+        }
+    }
+
+    private fun stopProxyUsageTracking() {
+        val activeProxy = proxyUsageManager.getActiveProxyId() ?: return
+        val total = proxyUsageManager.commitDelta(activeProxy)
+        sendToLog("[USAGE] Proxy $activeProxy total: ${proxyUsageManager.formatBytes(total)}")
+        proxyUsageManager.clearActiveSession()
+        lastNetworkStatsTotal = 0L
+    }
+
     private fun startStatsTimer() {
         stopStatsTimer()
         statsTimer = Timer()
         val uid = android.os.Process.myUid()
-        var lastRx = TrafficStats.getUidRxBytes(uid)
-        var lastTx = TrafficStats.getUidTxBytes(uid)
-        
+        var lastRxFallback = TrafficStats.getUidRxBytes(uid)
+        var lastTxFallback = TrafficStats.getUidTxBytes(uid)
+
         statsTimer?.schedule(object : TimerTask() {
             override fun run() {
+                val proxyId = proxyUsageManager.getActiveProxyId()
+
+                if (proxyId != null && proxyUsageManager.hasUsageStatsPermission()) {
+                    val currentTotal = proxyUsageManager.computeCurrentDelta(proxyId)
+                    val speed = (currentTotal - lastNetworkStatsTotal).coerceAtLeast(0L)
+                    lastNetworkStatsTotal = currentTotal
+
+                    // Split speed as rx/tx approximation for existing Flutter UI channel
+                    val rxSpeed = speed / 2
+                    val txSpeed = speed - rxSpeed
+                    uiHandler.post {
+                        statsSink?.success("$rxSpeed|$txSpeed")
+                    }
+                    return
+                }
+
+                // Fallback when usage stats permission unavailable
                 val currentRx = TrafficStats.getUidRxBytes(uid)
                 val currentTx = TrafficStats.getUidTxBytes(uid)
-                
-                val rxSpeed = currentRx - lastRx
-                val txSpeed = currentTx - lastTx
-                
-                lastRx = currentRx
-                lastTx = currentTx
-                
-                // Only send if positive (handle reboot/overflow)
+
+                val rxSpeed = currentRx - lastRxFallback
+                val txSpeed = currentTx - lastTxFallback
+
+                lastRxFallback = currentRx
+                lastTxFallback = currentTx
+
                 if (rxSpeed >= 0 && txSpeed >= 0) {
                     uiHandler.post {
                         statsSink?.success("$rxSpeed|$txSpeed")
@@ -398,6 +466,7 @@ class MainActivity: FlutterActivity() {
             ContextCompat.startForegroundService(this, serviceIntent)
             result.success("STARTED")
             sendToLog("VPN Service started.")
+            startProxyUsageTracking()
         }
     }
 
@@ -405,6 +474,7 @@ class MainActivity: FlutterActivity() {
         val serviceIntent = Intent(this, ZivpnService::class.java)
         serviceIntent.action = ZivpnService.ACTION_DISCONNECT
         startService(serviceIntent)
+        stopProxyUsageTracking()
         sendToLog("VPN Service stopped.")
     }
 
@@ -606,6 +676,7 @@ class MainActivity: FlutterActivity() {
                 serviceIntent.action = ZivpnService.ACTION_CONNECT
                 ContextCompat.startForegroundService(this, serviceIntent)
                 sendToLog("VPN permission granted. Starting service.")
+                startProxyUsageTracking()
             } else {
                 sendToLog("VPN permission denied.")
             }

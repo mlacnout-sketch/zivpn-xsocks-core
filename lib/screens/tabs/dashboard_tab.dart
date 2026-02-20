@@ -236,8 +236,8 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
                 ),
                 if (isConnected)
                   const Positioned(
-                    bottom: 20,
-                    right: 20,
+                    top: 12,
+                    right: 12,
                     child: PingButton(),
                   ),
               ],

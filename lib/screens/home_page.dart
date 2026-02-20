@@ -279,6 +279,36 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  Future<void> _ensureUsageStatsPermission() async {
+    try {
+      final hasPermission = await platform.invokeMethod<bool>('hasUsageStatsPermission') ?? false;
+      if (hasPermission || !mounted) return;
+
+      final openSettings = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppColors.card,
+          title: const Text('Izinkan Akses Data Usage'),
+          content: const Text(
+            'Agar perhitungan kuota per proxy akurat, aktifkan Usage Access untuk aplikasi ini.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Nanti')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Buka Settings'),
+            ),
+          ],
+        ),
+      );
+
+      if (openSettings == true) {
+        await platform.invokeMethod('requestUsageStatsPermission');
+      }
+    } catch (_) {}
+  }
+
   Future<void> _toggleVpn({bool isSystemRequest = false}) async {
     HapticFeedback.mediumImpact();
     final prefs = await SharedPreferences.getInstance();
@@ -318,6 +348,7 @@ class _HomePageState extends State<HomePage> {
       setState(() => _vpnState = "connecting");
 
       try {
+        await _ensureUsageStatsPermission();
         String recvWin = prefs.getString('hysteria_recv_window') ?? "327680";
         String recvConn = prefs.getString('hysteria_recv_conn') ?? "131072";
         final profile = prefs.getString('native_perf_profile') ?? "balanced";
@@ -370,7 +401,10 @@ class _HomePageState extends State<HomePage> {
           "pdnsd_query_method": prefs.getString('pdnsd_query_method') ?? "tcp_only",
           "pdnsd_verbosity": prefs.getInt('pdnsd_verbosity') ?? 2,
           "hysteria_recv_window": recvWin,
-          "hysteria_recv_conn": recvConn
+          "hysteria_recv_conn": recvConn,
+          "proxy_id": _activeAccountIndex >= 0
+              ? "${_accounts[_activeAccountIndex].name}_${_activeAccountIndex}"
+              : "default"
         });
         await platform.invokeMethod('startVpn');
 
