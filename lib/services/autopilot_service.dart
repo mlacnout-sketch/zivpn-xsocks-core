@@ -208,7 +208,7 @@ class AutoPilotService extends ChangeNotifier {
     _notificationService.cancelPingNotification();
 
     _updateState(_currentState.copyWith(
-      status: AutoPilotStatus.idle,
+      status: AutoPilotStatus.stopped,
       message: 'Stopped',
     ));
     notifyListeners();

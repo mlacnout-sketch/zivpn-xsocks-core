@@ -109,7 +109,8 @@ class _HomePageState extends State<HomePage> {
         }
 
         setState(() {
-          _autoPilotActive = state.status != AutoPilotStatus.stopped;
+          _autoPilotActive = state.status != AutoPilotStatus.stopped && 
+                            state.status != AutoPilotStatus.idle;
           _autoPilotResetting = state.status == AutoPilotStatus.resetting || 
                                state.status == AutoPilotStatus.stabilizing;
           
