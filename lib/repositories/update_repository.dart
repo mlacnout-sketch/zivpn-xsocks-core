@@ -130,58 +130,49 @@ class UpdateRepository {
 
   Future<AppVersion?> _processResponse(String jsonStr) async {
       try {
-        // Handle enhanced native response
-        var releasesData = json.decode(jsonStr);
-        List releases;
-
-        if (releasesData is Map) {
-           // Native enriched response
-           // deviceAbi logic removed as unused for now
-           
-           if (releasesData.containsKey('device_abi')) {
-              // Logic for future ABI usage
-           }
-           releases = []; 
-        } else if (releasesData is List) {
-           releases = releasesData;
-        } else {
-           return null;
-        }
-
-        // Try to detect ABI from platform if native injection didn't work/happen
-        // (Since MainActivity logic checks for '{', it won't inject into a List '[')
-        // We can pass ABI from native via a separate channel call if strictly needed, 
-        // but for now, let's infer from asset names based on standard naming.
-        // Actually, we can just fetch all assets and let user pick? 
-        // Or better: filter for "v8a" if we are on 64bit, "v7a" if 32bit.
-        // Since we can't easily get ABI in pure Dart without plugins, 
-        // we'll try to find 'universal' first, then specific if universal missing.
+        final dynamic releasesData = json.decode(jsonStr);
+        final List releases = (releasesData is List) ? releasesData : [];
         
         final packageInfo = await PackageInfo.fromPlatform();
         final currentVersion = packageInfo.version;
         
+        // 1. Dapatkan ABI device secara native (Penting untuk user VPN-only)
+        String? deviceAbi;
+        try {
+          deviceAbi = await _platform.invokeMethod<String>('getDeviceABI');
+        } catch (e) {
+          print("Gagal mendeteksi ABI device: $e");
+        }
+
         for (var release in releases) {
           final tagName = release['tag_name'].toString();
           if (_isNewer(tagName, currentVersion)) {
             final assets = release['assets'] as List?;
             if (assets == null) continue;
             
-            // Smart Asset Selection Logic
+            // 2. Logika Pemilihan Aset Cerdas berbasis ABI:
             Map<String, dynamic>? bestAsset;
             
-            // 1. Try Universal (Safest)
-            bestAsset = assets.firstWhere(
+            if (deviceAbi != null) {
+               // Map ABI panjang ke suffix pendek di nama file GitHub
+               final shortAbi = deviceAbi.contains('64') ? 'v8a' : 'v7a';
+               bestAsset = assets.firstWhere(
+                 (a) => a['name'].toString().toLowerCase().contains(shortAbi),
+                 orElse: () => null
+               );
+            }
+
+            // 3. Fallback ke Universal
+            bestAsset ??= assets.firstWhere(
               (a) => a['name'].toString().toLowerCase().contains('universal'),
               orElse: () => null
             );
 
-            // 2. If no universal, try simple .apk
-            if (bestAsset == null) {
-               bestAsset = assets.firstWhere(
-                (a) => a['name'].toString().endsWith('.apk'),
-                orElse: () => null
-              );
-            }
+            // 4. Fallback ke APK pertama yang ditemukan
+            bestAsset ??= assets.firstWhere(
+              (a) => a['name'].toString().endsWith('.apk'),
+              orElse: () => null
+            );
 
             if (bestAsset != null) {
               return AppVersion(
@@ -193,7 +184,7 @@ class UpdateRepository {
             }
           }
         }
-      } catch (e) { print("Process response error: $e"); }
+      } catch (e) { print("Error saat memproses respon update: $e"); }
       return null;
   }
 

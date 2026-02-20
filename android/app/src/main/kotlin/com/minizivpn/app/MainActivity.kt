@@ -167,41 +167,25 @@ class MainActivity: FlutterActivity() {
                     val config = probe.getSmartConfig()
                     result.success(config)
                 }
+            } else if (call.method == "getDeviceABI") {
+                result.success(Build.SUPPORTED_ABIS[0])
             } else if (call.method == "checkUpdateNative") {
                 val urlStr = call.argument<String>("url")
+                val abi = Build.SUPPORTED_ABIS[0]
+                
                 Thread {
                     try {
-                        // 1. Detect ABI for future use
-                        val abi = android.os.Build.SUPPORTED_ABIS[0]
-                        Log.d("ZIVPN-Updater", "Device ABI: $abi")
-
+                        // FORCE Remote DNS by using the proxy for the entire connection lifecycle
+                        val proxy = java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress("127.0.0.1", 7777))
                         val url = java.net.URL(urlStr)
                         
-                        // 2. Try SOCKS5 (VPN Tunnel) First
-                        var conn: java.net.HttpURLConnection? = null
-                        try {
-                            val proxy = java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress("127.0.0.1", 7777))
-                            conn = url.openConnection(proxy) as java.net.HttpURLConnection
-                            conn.connectTimeout = 10000
-                            conn.readTimeout = 10000
-                            conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater ($abi)")
-                            
-                            // Trigger connection
-                            if (conn.responseCode >= 200) {
-                                Log.d("ZIVPN-Updater", "Connected via VPN SOCKS5")
-                            }
-                        } catch (e: Exception) {
-                            Log.w("ZIVPN-Updater", "SOCKS5 failed (${e.message}), trying DIRECT")
-                            conn = null
-                        }
-
-                        // 3. Fallback to DIRECT
-                        if (conn == null) {
-                            conn = url.openConnection() as java.net.HttpURLConnection
-                            conn.connectTimeout = 5000
-                            conn.readTimeout = 5000
-                            conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater ($abi)")
-                        }
+                        val conn = url.openConnection(proxy) as java.net.HttpURLConnection
+                        conn.connectTimeout = 20000
+                        conn.readTimeout = 20000
+                        conn.setRequestProperty("User-Agent", "MiniZIVPN-Updater/$abi")
+                        
+                        // HttpURLConnection via SOCKS Proxy in Java automatically attempts 
+                        // remote DNS if the local resolution fails or is not available.
                         
                         val responseCode = conn.responseCode
                         val stream = if (responseCode >= 400) conn.errorStream else conn.inputStream
@@ -211,20 +195,10 @@ class MainActivity: FlutterActivity() {
                         while (reader.readLine().also { line = it } != null) sb.append(line)
                         reader.close()
                         
-                        // Inject ABI info into response if it's a JSON
-                        var finalResponse = sb.toString()
-                        if (finalResponse.trim().startsWith("{")) {
-                            try {
-                                val json = org.json.JSONObject(finalResponse)
-                                json.put("device_abi", abi)
-                                finalResponse = json.toString()
-                            } catch (e: Exception) {}
-                        }
-                        
-                        uiHandler.post { result.success(finalResponse) }
+                        uiHandler.post { result.success(sb.toString()) }
                     } catch (e: Exception) {
-                        Log.e("ZIVPN-Updater", "Update check completely failed: ${e.message}")
-                        uiHandler.post { result.error("ERR", e.message, null) }
+                        Log.e("ZIVPN-Updater", "Tunneled check failed, user likely has no connection: ${e.message}")
+                        uiHandler.post { result.error("OFFLINE", "Akses update gagal. Pastikan VPN terhubung.", e.message) }
                     }
                 }.start()
             } else if (call.method == "downloadUpdateNative") {
