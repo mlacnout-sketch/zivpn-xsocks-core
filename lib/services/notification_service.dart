@@ -12,8 +12,10 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
+  Function(String?)? _onTap;
 
-  Future<void> init() async {
+  Future<void> init({Function(String?)? onTap}) async {
+    if (onTap != null) _onTap = onTap;
     if (_isInitialized) return;
 
     const androidChannel = AndroidNotificationChannel(
@@ -32,7 +34,12 @@ class NotificationService {
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidSettings);
 
-    await _notifications.initialize(initSettings);
+    await _notifications.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (response) {
+        _onTap?.call(response.payload);
+      },
+    );
     _isInitialized = true;
   }
 
@@ -128,7 +135,7 @@ class NotificationService {
     await _notifications.show(id, title, body, details);
   }
 
-  Future<void> showComplete(int id, String title, String body) async {
+  Future<void> showComplete(int id, String title, String body, {String? payload}) async {
     if (!_isInitialized) await init();
 
     const androidDetails = AndroidNotificationDetails(
@@ -142,7 +149,7 @@ class NotificationService {
     );
 
     final details = NotificationDetails(android: androidDetails);
-    await _notifications.show(id, title, body, details);
+    await _notifications.show(id, title, body, details, payload: payload);
   }
 
   Future<void> cancel(int id) async {

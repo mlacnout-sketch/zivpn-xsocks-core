@@ -62,6 +62,11 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    NotificationService().init(onTap: (payload) {
+      if (payload != null && payload.endsWith('.apk')) {
+        OpenFilex.open(payload, type: "application/vnd.android.package-archive");
+      }
+    });
     _loadData();
     _initLogListener();
     _initStatsListener();
@@ -178,7 +183,12 @@ class _HomePageState extends State<HomePage> {
 
   void _executeDownload(AppVersion update) async {
     final file = await _updateViewModel.startDownload(update);
-    if (file != null) await OpenFilex.open(file.path);
+    if (file != null) {
+      final result = await OpenFilex.open(file.path, type: "application/vnd.android.package-archive");
+      if (result.type != ResultType.done) {
+        debugPrint("Failed to open APK: ${result.message}");
+      }
+    }
   }
 
   Future<void> _loadData() async {

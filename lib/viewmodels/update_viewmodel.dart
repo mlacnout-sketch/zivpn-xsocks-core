@@ -57,7 +57,7 @@ class UpdateViewModel {
       if (file != null) {
         if (!_isDownloading.isClosed) _isDownloading.add(false);
         if (!_downloadProgress.isClosed) _downloadProgress.add(1.0);
-        await _notificationService.showComplete(100, "Download Complete", "Tap to install");
+        await _notificationService.showComplete(100, "Download Complete", "Tap to install", payload: file.path);
         return file;
       }
     } catch (e) {
