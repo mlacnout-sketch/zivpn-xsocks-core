@@ -35,6 +35,8 @@ class DashboardTab extends StatefulWidget {
 class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  late AnimationController _planeAnimController;
+  late Animation<double> _planeTiltAnimation;
 
   @override
   void initState() {
@@ -46,9 +48,21 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
     _pulseAnimation = Tween<double>(begin: 0.0, end: 10.0).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOutSine),
     );
-    
+
+    _planeAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _planeTiltAnimation = Tween<double>(begin: -0.06, end: 0.06).animate(
+      CurvedAnimation(parent: _planeAnimController, curve: Curves.easeInOut),
+    );
+
     if (widget.vpnState == "connecting") {
       _pulseController.repeat(reverse: true);
+    }
+
+    if (widget.autoPilotActive) {
+      _planeAnimController.repeat(reverse: true);
     }
   }
 
@@ -63,11 +77,21 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
         _pulseController.reset();
       }
     }
+
+    if (widget.autoPilotActive != oldWidget.autoPilotActive) {
+      if (widget.autoPilotActive) {
+        _planeAnimController.repeat(reverse: true);
+      } else {
+        _planeAnimController.stop();
+        _planeAnimController.reset();
+      }
+    }
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _planeAnimController.dispose();
     super.dispose();
   }
 
@@ -262,7 +286,19 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: widget.onStartLexpesawat,
-              icon: const Icon(Icons.radar, size: 18),
+              icon: AnimatedBuilder(
+                animation: _planeTiltAnimation,
+                builder: (context, child) {
+                  return Transform.rotate(
+                    angle: widget.autoPilotActive ? _planeTiltAnimation.value : 0,
+                    child: Icon(
+                      Icons.airplanemode_active,
+                      size: 18,
+                      color: widget.autoPilotActive ? Colors.lightBlueAccent : AppColors.primary,
+                    ),
+                  );
+                },
+              ),
               label: Text(
                 widget.autoPilotActive ? 'Lexpesawat Aktif' : 'Start Lexpesawat',
                 style: const TextStyle(fontWeight: FontWeight.w700),

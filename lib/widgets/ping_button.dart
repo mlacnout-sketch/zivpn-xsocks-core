@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../app_colors.dart';
 
@@ -63,50 +62,41 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
     if (target.isEmpty) target = "http://clients3.google.com/generate_204";
     if (!target.startsWith("http")) target = "http://$target";
 
-    final stopwatch = Stopwatch()..start();
     final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 10);
-    client.userAgent = "Mozilla/5.0 (Android) MiniZivpn/1.0";
-    client.badCertificateCallback = (cert, host, port) => true;
+    client.connectionTimeout = const Duration(seconds: 6);
+    client.userAgent = "MiniZivpn-Ping/1.0";
+
+    Future<String?> tryHead(String url, int timeoutSeconds) async {
+      final sw = Stopwatch()..start();
+      final req = await client.openUrl('HEAD', Uri.parse(url));
+      final resp = await req.close().timeout(Duration(seconds: timeoutSeconds));
+      sw.stop();
+      await resp.drain();
+      if (resp.statusCode == 200 || resp.statusCode == 204) {
+        return "${sw.elapsedMilliseconds} ms";
+      }
+      return null;
+    }
 
     try {
-      // 1. Try HTTP Ping (Layer 7 - Native)
-      final request = await client.getUrl(Uri.parse(target));
-      final response = await request.close();
-      stopwatch.stop();
-      await response.drain();
+      // 1) Primary lightweight HEAD ping
+      final direct = await tryHead(target, 5);
+      if (direct != null) return direct;
 
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        return "${stopwatch.elapsedMilliseconds} ms";
-      }
-      return "HTTP ${response.statusCode}";
-    } catch (e) {
-      // 1.5. Fallback: Gstatic Ping (Alternative Endpoint)
-      try {
-        final request = await client.getUrl(Uri.parse("http://www.gstatic.com/generate_204"));
-        final response = await request.close();
-        await response.drain();
-        if (response.statusCode == 204) return "Gstatic OK";
-      } catch (_) {}
+      // 2) Stable fallback endpoint
+      final gstatic = await tryHead('http://www.gstatic.com/generate_204', 4);
+      if (gstatic != null) return gstatic;
 
-      // 2. Fallback: TCP Handshake (Layer 4)
-      try {
-        final sw = Stopwatch()..start();
-        final socket = await Socket.connect('1.1.1.1', 80, timeout: const Duration(seconds: 3));
-        sw.stop();
-        socket.destroy();
-        return "TCP ${sw.elapsedMilliseconds} ms";
-      } catch (_) {
-        // 3. Last Resort: Package HTTP (High Level)
-        try {
-           final response = await http.get(Uri.parse("http://1.1.1.1")).timeout(const Duration(seconds: 5));
-           if (response.statusCode == 200) return "HTTP OK";
-        } catch(_) {}
-        
-        return "Timeout";
-      }
+      // 3) Fast TCP handshake fallback (lowest overhead)
+      final sw = Stopwatch()..start();
+      final socket = await Socket.connect('1.1.1.1', 80, timeout: const Duration(seconds: 2));
+      sw.stop();
+      socket.destroy();
+      return "TCP ${sw.elapsedMilliseconds} ms";
+    } catch (_) {
+      return "Timeout";
     } finally {
-      client.close();
+      client.close(force: true);
     }
   }
 
