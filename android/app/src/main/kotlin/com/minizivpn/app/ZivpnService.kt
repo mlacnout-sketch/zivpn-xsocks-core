@@ -29,6 +29,9 @@ import android.os.PowerManager
 import com.minizivpn.app.NativeSystem
 
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 
 /**
  * ZIVPN TunService
