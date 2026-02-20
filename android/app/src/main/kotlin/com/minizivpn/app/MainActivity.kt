@@ -288,6 +288,13 @@ class MainActivity: FlutterActivity() {
                 result.success("Stopped")
             } else if (call.method == "startVpn") {
                 startVpn(result)
+            } else if (call.method == "nativePing") {
+                val host = call.argument<String>("host") ?: "8.8.8.8"
+                val timeoutMs = call.argument<Int>("timeoutMs") ?: 3000
+                Thread {
+                    val rtt = runNativePing(host, timeoutMs)
+                    uiHandler.post { result.success(rtt) }
+                }.start()
             } else if (call.method == "getInstalledApps") {
                 Thread {
                     val apps = mutableListOf<Map<String, String>>()
@@ -315,6 +322,27 @@ class MainActivity: FlutterActivity() {
             } else {
                 result.notImplemented()
             }
+        }
+    }
+
+    private fun runNativePing(host: String, timeoutMs: Int): Int {
+        return try {
+            val timeoutSec = (timeoutMs / 1000).coerceAtLeast(1)
+            val process = ProcessBuilder("/system/bin/ping", "-c", "1", "-W", timeoutSec.toString(), host)
+                .redirectErrorStream(true)
+                .start()
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            process.waitFor()
+
+            val regex = Regex("""time=([0-9]+(?:\.[0-9]+)?)""")
+            val match = regex.find(output)
+            if (match != null) {
+                val value = match.groupValues[1].toDoubleOrNull()
+                return if (value != null) value.toInt() else -1
+            }
+            -1
+        } catch (_: Exception) {
+            -1
         }
     }
 

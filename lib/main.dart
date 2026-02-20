@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 import 'screens/home_page.dart';
 import 'services/autopilot_service.dart';
+import 'services/ping_stabilizer_ffi.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AutoPilotService().init();
+  await PingStabilizerFFI().initialize();
   runApp(const MiniZivpnApp());
 }
 

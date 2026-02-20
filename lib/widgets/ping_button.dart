@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../app_colors.dart';
+import '../services/ping_stabilizer_ffi.dart';
 
 class PingButton extends StatefulWidget {
   const PingButton({super.key});
@@ -58,9 +59,18 @@ class _PingButtonState extends State<PingButton> with SingleTickerProviderStateM
   Future<String> _performPing() async {
     final prefs = await SharedPreferences.getInstance();
     String target = (prefs.getString('ping_target') ?? "http://clients3.google.com/generate_204").trim();
-    
+
     if (target.isEmpty) target = "http://clients3.google.com/generate_204";
     if (!target.startsWith("http")) target = "http://$target";
+
+    final uri = Uri.tryParse(target);
+    final host = (uri?.host.isNotEmpty ?? false) ? uri!.host : '8.8.8.8';
+
+    // 0) Native binary ping first (lowest overhead for RTT)
+    final nativeRtt = await PingStabilizerFFI().ping(host, timeoutMs: 2200);
+    if (nativeRtt >= 0) {
+      return "$nativeRtt ms";
+    }
 
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 6);
