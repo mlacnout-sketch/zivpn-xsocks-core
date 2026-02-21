@@ -45,6 +45,8 @@ class _SettingsTabState extends State<SettingsTab> {
   final _pdnsdVerbosityCtrl = TextEditingController();
   final _hysteriaRecvWinCtrl = TextEditingController();
   final _hysteriaConnCtrl = TextEditingController();
+  final _upMbpsCtrl = TextEditingController();
+  final _downMbpsCtrl = TextEditingController();
 
   bool _cpuWakelock = false;
   bool _enableUdpgw = true;
@@ -177,6 +179,8 @@ class _SettingsTabState extends State<SettingsTab> {
       _pdnsdVerbosityCtrl.text = (prefs.getInt('pdnsd_verbosity') ?? 2).toString();
       _hysteriaRecvWinCtrl.text = prefs.getString('hysteria_recv_window') ?? '327680';
       _hysteriaConnCtrl.text = prefs.getString('hysteria_recv_conn') ?? '131072';
+      _upMbpsCtrl.text = (prefs.getInt('up_mbps') ?? 100).toString();
+      _downMbpsCtrl.text = (prefs.getInt('down_mbps') ?? 100).toString();
 
       _cpuWakelock = prefs.getBool('cpu_wakelock') ?? false;
       _enableUdpgw = prefs.getBool('enable_udpgw') ?? true;
@@ -213,6 +217,8 @@ class _SettingsTabState extends State<SettingsTab> {
     await prefs.setInt('pdnsd_verbosity', int.tryParse(val(_pdnsdVerbosityCtrl, '2')) ?? 2);
     await prefs.setString('hysteria_recv_window', val(_hysteriaRecvWinCtrl, '327680'));
     await prefs.setString('hysteria_recv_conn', val(_hysteriaConnCtrl, '131072'));
+    await prefs.setInt('up_mbps', int.tryParse(val(_upMbpsCtrl, '100')) ?? 100);
+    await prefs.setInt('down_mbps', int.tryParse(val(_downMbpsCtrl, '100')) ?? 100);
 
     await prefs.setBool('cpu_wakelock', _cpuWakelock);
     await prefs.setBool('enable_udpgw', _enableUdpgw);
@@ -325,6 +331,9 @@ class _SettingsTabState extends State<SettingsTab> {
               _buildTextInput(_udpgwMaxConnCtrl, 'Max UDP Connections', Icons.connect_without_contact, onChanged: _onConfigChanged),
               _buildTextInput(_udpgwBufSizeCtrl, 'UDP Buffer (Packets)', Icons.shopping_bag, onChanged: _onConfigChanged),
             ],
+            const Divider(),
+            _buildTextInput(_upMbpsCtrl, 'Up Speed Limit (Mbps)', Icons.upload),
+            _buildTextInput(_downMbpsCtrl, 'Down Speed Limit (Mbps)', Icons.download),
           ],
         ),
         const SizedBox(height: 12),

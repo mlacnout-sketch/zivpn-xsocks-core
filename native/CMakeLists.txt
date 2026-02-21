@@ -192,3 +192,57 @@ target_compile_options(pdnsd PRIVATE
 )
 target_include_directories(pdnsd PRIVATE pdnsd pdnsd/src)
 target_link_libraries(pdnsd log)
+
+# --- udpgw ---
+set(UDPGW_SOURCES
+    badvpn/base/BLog_syslog.c
+    badvpn/system/BReactor_badvpn.c
+    badvpn/system/BSignal.c
+    badvpn/system/BConnection_unix.c
+    badvpn/system/BTime.c
+    badvpn/system/BUnixSignal.c
+    badvpn/system/BNetwork.c
+    badvpn/flow/StreamRecvInterface.c
+    badvpn/flow/PacketRecvInterface.c
+    badvpn/flow/PacketPassInterface.c
+    badvpn/flow/StreamPassInterface.c
+    badvpn/flow/SinglePacketBuffer.c
+    badvpn/flow/BufferWriter.c
+    badvpn/flow/PacketBuffer.c
+    badvpn/flow/PacketStreamSender.c
+    badvpn/flow/PacketPassConnector.c
+    badvpn/flow/PacketProtoFlow.c
+    badvpn/flow/PacketPassFairQueue.c
+    badvpn/flow/PacketProtoEncoder.c
+    badvpn/flow/PacketProtoDecoder.c
+    badvpn/base/DebugObject.c
+    badvpn/base/BLog.c
+    badvpn/base/BPending.c
+    badvpn/system/BDatagram_unix.c
+    badvpn/udpgw/udpgw.c
+)
+
+add_executable(udpgw ${UDPGW_SOURCES})
+set_target_properties(udpgw PROPERTIES OUTPUT_NAME "udpgw")
+set_target_properties(udpgw PROPERTIES SUFFIX ".so")
+set_target_properties(udpgw PROPERTIES PREFIX "lib")
+
+target_compile_definitions(udpgw PRIVATE
+    BADVPN_THREADWORK_USE_PTHREAD
+    BADVPN_LINUX
+    BADVPN_BREACTOR_BADVPN
+    _GNU_SOURCE
+    BADVPN_USE_SELFPIPE
+    BADVPN_USE_EPOLL
+    BADVPN_LITTLE_ENDIAN
+    BADVPN_THREAD_SAFE
+    NDEBUG
+    ANDROID
+)
+
+target_include_directories(udpgw PRIVATE
+    badvpn
+)
+
+target_link_libraries(udpgw log dl)
+target_compile_options(udpgw PRIVATE -O3 -DNDEBUG)

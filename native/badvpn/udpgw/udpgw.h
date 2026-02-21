@@ -40,10 +40,10 @@
 #define CONNECTION_UDP_BUFFER_SIZE 8
 
 // maximum number of clients
-#define DEFAULT_MAX_CLIENTS 3
+#define DEFAULT_MAX_CLIENTS 16
 
 // maximum connections for client
-#define DEFAULT_MAX_CONNECTIONS_FOR_CLIENT 256
+#define DEFAULT_MAX_CONNECTIONS_FOR_CLIENT 2048
 
 // how long after nothing has been received to disconnect a client
 #define CLIENT_DISCONNECT_TIMEOUT 20000

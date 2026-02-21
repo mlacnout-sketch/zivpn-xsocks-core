@@ -241,7 +241,14 @@ class ZivpnService : VpnService() {
                 val range = getPrefString(prefs, "server_range", "")
                 val pass = getPrefString(prefs, "server_pass", "")
                 val obfs = getPrefString(prefs, "server_obfs", "")
-                val mtu = getPrefInt(prefs, "mtu", 1500)
+                var mtu = getPrefInt(prefs, "mtu", 1500)
+                
+                // DYNAMIC MTU: Jika 1500 (default), turunkan ke 1380 untuk menghindari fragmentasi UDP Hysteria
+                if (mtu == 1500) {
+                    mtu = 1380
+                    logToApp("Optimizing MTU to $mtu for Hysteria tunnel")
+                }
+
                 val logLevel = getPrefString(prefs, "log_level", "info")
                 val coreCount = getPrefInt(prefs, "core_count", 4)
                 val useWakelock = getPrefBool(prefs, "cpu_wakelock", false)
@@ -414,7 +421,28 @@ class ZivpnService : VpnService() {
             processes.add(pdnsdProc)
             captureProcessLog(pdnsdProc, "Pdnsd")
 
+            // 3.5 START UDPGW (Fix: connection refused 7300)
             val libDir = applicationInfo.nativeLibraryDir
+            val udpgwBin = File(libDir, "libudpgw.so").absolutePath
+            val useUdpgw = getPrefBool(prefs, "enable_udpgw", true)
+            val udpgwPort = getPrefString(prefs, "udpgw_port", "7300")
+            
+            if (useUdpgw) {
+                // Konfigurasi UDPGW untuk listen di localhost:7300
+                // --max-clients: tingkatkan ke 1024 agar tidak lemot saat banyak koneksi UDP (misal game)
+                val udpgwCmd = listOf(
+                    udpgwBin,
+                    "--listen-addr", "127.0.0.1:$udpgwPort",
+                    "--max-clients", "1024",
+                    "--max-connections-for-client", udpgwMaxConn.toString(),
+                    "--loglevel", if (logLevel == "debug") "debug" else "none"
+                )
+                logToApp("Starting UDPGW on port $udpgwPort")
+                val udpgwProc = ProcessBuilder(udpgwCmd).directory(filesDir).start()
+                processes.add(udpgwProc)
+                captureProcessLog(udpgwProc, "UDPGW")
+            }
+
             val tun2socksBin = File(libDir, "libtun2socks.so").absolutePath
             
             // Standardized Log Level Mapping
@@ -425,9 +453,6 @@ class ZivpnService : VpnService() {
                 "silent" -> "none" 
                 else -> "notice" // 'info' is too verbose for badvpn, 'notice' is better for default
             }
-
-            val useUdpgw = getPrefBool(prefs, "enable_udpgw", true)
-            val udpgwPort = getPrefString(prefs, "udpgw_port", "7300")
 
             val tunCmd = arrayListOf(
                 tun2socksBin, "--netif-ipaddr", "169.254.1.2", "--netif-netmask", "255.255.255.0",
@@ -455,10 +480,15 @@ class ZivpnService : VpnService() {
             captureProcessLog(tunProc, "Tun2Socks")
 
             Thread.sleep(1000)
-            if (NativeSystem.sendfd(fd) == 0) {
-                logToApp("VPN Engine Running.")
-                prefs.edit().putBoolean("flutter.vpn_running", true).apply()
-                val pingInterval = prefs.getInt("ping_interval", 3)
+                            if (NativeSystem.sendfd(fd) == 0) {
+                                logToApp("VPN Engine Running.")
+                                prefs.edit().putBoolean("flutter.vpn_running", true).apply()
+                                
+                                // 4. SMART DNS PRE-RESOLVE (Warming up the tunnel)
+                                preResolveCriticalDomains()
+            
+                                val pingInterval = prefs.getInt("ping_interval", 3)
+            
                 val rawTarget = getPrefString(prefs, "ping_target", "http://connectivitycheck.gstatic.com/generate_204")
                 val finalTarget = if (rawTarget.startsWith("http")) rawTarget else "http://$rawTarget"
                 
@@ -470,6 +500,10 @@ class ZivpnService : VpnService() {
     }
 
     private fun startCores(ip: String, range: String, pass: String, obfs: String, recvWin: Int, recvConn: Int, coreCount: Int, logLevel: String) {
+        val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+        val upMbps = getPrefIntFlexible(prefs, "up_mbps", 100)
+        val downMbps = getPrefIntFlexible(prefs, "down_mbps", 100)
+
         val libDir = applicationInfo.nativeLibraryDir
         val libUz = File(libDir, "libuz.so").absolutePath
         val libLoad = File(libDir, "libload.so").absolutePath
@@ -504,6 +538,8 @@ class ZivpnService : VpnService() {
             hyConfig.put("insecure", true)
             hyConfig.put("recvwindowconn", dynamicConn)
             hyConfig.put("recvwindow", dynamicWin)
+            hyConfig.put("up_mbps", upMbps)
+            hyConfig.put("down_mbps", downMbps)
             
             val hyCmd = arrayListOf(libUz, "-s", obfs, "--config", hyConfig.toString())
             val hyPb = ProcessBuilder(hyCmd)
@@ -559,7 +595,7 @@ class ZivpnService : VpnService() {
         Thread {
             try {
                 // Kill by binary name (android often runs them as just the file name)
-                val cleanupCmd = arrayOf("sh", "-c", "pkill -9 libuz; pkill -9 libload; pkill -9 libtun2socks; pkill -9 libpdnsd; pkill -f libuz.so; pkill -f libload.so")
+                val cleanupCmd = arrayOf("sh", "-c", "pkill -9 libuz; pkill -9 libload; pkill -9 libtun2socks; pkill -9 libpdnsd; pkill -9 libudpgw; pkill -9 udpgw; pkill -f libuz.so; pkill -f libload.so")
                 Runtime.getRuntime().exec(cleanupCmd).waitFor()
             } catch (e: Exception) {}
         }.start()
@@ -572,6 +608,37 @@ class ZivpnService : VpnService() {
         
         stopForeground(true)
         stopSelf()
+    }
+
+    private fun preResolveCriticalDomains() {
+        Thread {
+            val domains = listOf(
+                "api.github.com",
+                "github.com",
+                "objects.githubusercontent.com",
+                "connectivitycheck.gstatic.com",
+                "www.google.com",
+                "one.one.one.one"
+            )
+            
+            logToApp("Pre-warming DNS cache...")
+            for (domain in domains) {
+                try {
+                    // Gunakan SOCKS5 proxy kita sendiri untuk resolve agar masuk cache pdnsd
+                    val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", LOCAL_SOCKS_PORT))
+                    val url = java.net.URL("http://$domain")
+                    val conn = url.openConnection(proxy) as java.net.HttpURLConnection
+                    conn.connectTimeout = 3000
+                    conn.readTimeout = 3000
+                    conn.requestMethod = "HEAD"
+                    // Trigger resolusi DNS
+                    conn.responseCode
+                } catch (e: Exception) {
+                    // Ignore errors, we just want to warm the cache
+                }
+            }
+            logToApp("DNS cache warmed up.")
+        }.start()
     }
 
     private fun startPingTimer(target: String, intervalSeconds: Int) {
