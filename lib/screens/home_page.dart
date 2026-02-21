@@ -190,6 +190,10 @@ class _HomePageState extends State<HomePage> {
       builder: (context) => _DownloadProgressDialog(
         progress: _updateViewModel.downloadProgress,
         abi: update.abi ?? "Universal",
+        onStop: () {
+          Navigator.pop(context);
+          _updateViewModel.stopDownload();
+        },
       ),
     );
 
@@ -517,8 +521,13 @@ class _HomePageState extends State<HomePage> {
 class _DownloadProgressDialog extends StatefulWidget {
   final Stream<double> progress;
   final String abi;
+  final VoidCallback onStop;
 
-  const _DownloadProgressDialog({required this.progress, required this.abi});
+  const _DownloadProgressDialog({
+    required this.progress, 
+    required this.abi,
+    required this.onStop,
+  });
 
   @override
   State<_DownloadProgressDialog> createState() => _DownloadProgressDialogState();
@@ -616,6 +625,12 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> with S
                 value: progress,
                 backgroundColor: Colors.white10,
                 borderRadius: BorderRadius.circular(10),
+              ),
+              const SizedBox(height: 20),
+              TextButton.icon(
+                onPressed: widget.onStop,
+                icon: const Icon(Icons.stop_circle_outlined, color: Colors.redAccent),
+                label: const Text("Stop & Resume Later", style: TextStyle(color: Colors.redAccent)),
               ),
             ],
           );

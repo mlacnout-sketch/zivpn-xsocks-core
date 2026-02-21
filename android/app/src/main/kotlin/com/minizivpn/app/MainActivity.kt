@@ -54,6 +54,7 @@ class MainActivity: FlutterActivity() {
     private var sessionStartRx: Long = 0
     private var sessionStartTx: Long = 0
     @Volatile private var vpnInterfaceName: String? = null
+    @Volatile private var isDownloadCancelled = false
     
     private val uiHandler = Handler(Looper.getMainLooper())
 
@@ -215,55 +216,67 @@ class MainActivity: FlutterActivity() {
                         }
                     }
                 }.start()
+            } else if (call.method == "cancelDownload") {
+                isDownloadCancelled = true
+                result.success("OK")
             } else if (call.method == "downloadUpdateNative") {
                 val urlStr = call.argument<String>("url")
                 val destPath = call.argument<String>("path")
+                isDownloadCancelled = false
                 Thread {
                     try {
                         val url = java.net.URL(urlStr)
                         val proxy = java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress("127.0.0.1", 7777))
                         
-                        val conn = url.openConnection(proxy) as java.net.HttpURLConnection
-                        conn.connectTimeout = 60000 // Download butuh waktu lebih lama
-                        conn.readTimeout = 60000
-                        conn.instanceFollowRedirects = true // Penting untuk GitHub assets
-                        conn.setRequestProperty("User-Agent", "ZIVPN-Downloader")
-                        
-                        if (conn.responseCode !in 200..299) {
-                            throw Exception("Server returned HTTP ${conn.responseCode}")
-                        }
-
-                        val input = conn.inputStream
                         val outputFile = java.io.File(destPath)
                         outputFile.parentFile?.mkdirs()
+                        val existingSize = if (outputFile.exists()) outputFile.length() else 0L
+
+                        val conn = url.openConnection(proxy) as java.net.HttpURLConnection
+                        conn.connectTimeout = 60000
+                        conn.readTimeout = 60000
+                        conn.instanceFollowRedirects = true
+                        conn.setRequestProperty("User-Agent", "ZIVPN-Downloader")
                         
-                        val totalSize = conn.contentLength.toLong()
-                        var bytesDownloaded = 0L
+                        if (existingSize > 0) {
+                            conn.setRequestProperty("Range", "bytes=$existingSize-")
+                        }
                         
-                        val output = java.io.FileOutputStream(outputFile)
+                        val responseCode = conn.responseCode
+                        if (responseCode !in 200..299 && responseCode != 206) {
+                            throw Exception("Server returned HTTP $responseCode")
+                        }
+
+                        val totalSize = (if (responseCode == 206) existingSize else 0L) + conn.contentLength.toLong()
+                        var bytesDownloaded = if (responseCode == 206) existingSize else 0L
+                        
+                        val output = java.io.FileOutputStream(outputFile, responseCode == 206)
+                        val input = conn.inputStream
                         val buffer = ByteArray(16384)
                         var bytesRead: Int
                         
                         while (input.read(buffer).also { bytesRead = it } != -1) {
+                            if (isDownloadCancelled) break
                             output.write(buffer, 0, bytesRead)
                             bytesDownloaded += bytesRead
                             
                             if (totalSize > 0) {
                                 val progress = (bytesDownloaded.toDouble() / totalSize.toDouble())
-                                uiHandler.post {
-                                    // Kirim progres lewat channel statistik dengan prefix khusus
-                                    statsSink?.success("PROGRESS|$progress")
-                                }
+                                uiHandler.post { statsSink?.success("PROGRESS|$progress") }
                             }
                         }
                         output.flush()
                         output.close()
                         input.close()
                         
-                        uiHandler.post { result.success("OK") }
+                        if (isDownloadCancelled) {
+                            uiHandler.post { result.error("CANCELLED", "Stopped", null) }
+                        } else {
+                            uiHandler.post { result.success("OK") }
+                        }
                     } catch (e: Exception) {
                         Log.e("ZIVPN-Download-Bug", "SOCKS5 Download failed: ${e.message}")
-                        uiHandler.post { result.error("DOWNLOAD_FAILED", "Gagal mengunduh update: ${e.message}", null) }
+                        uiHandler.post { result.error("DOWNLOAD_FAILED", e.message, null) }
                     }
                 }.start()
             } else if (call.method == "startCore") {

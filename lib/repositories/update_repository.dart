@@ -73,6 +73,14 @@ class UpdateRepository {
     return null;
   }
 
+  Future<void> cancelDownload() async {
+    try {
+      await _platform.invokeMethod('cancelDownload');
+    } catch (e) {
+      print("Failed to cancel download: $e");
+    }
+  }
+
   Future<String?> _fetchWithSocks(String url) async {
     final client = HttpClient();
     client.connectionTimeout = const Duration(seconds: 15);

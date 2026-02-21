@@ -31,6 +31,12 @@ class UpdateViewModel {
     return update != null;
   }
 
+  Future<void> stopDownload() async {
+    await _repository.cancelDownload();
+    if (!_isDownloading.isClosed) _isDownloading.add(false);
+    if (!_downloadProgress.isClosed) _downloadProgress.add(-1.0);
+  }
+
   Future<File?> startDownload(AppVersion version) async {
     if (_isDownloading.isClosed) return null;
 
