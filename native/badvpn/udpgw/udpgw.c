@@ -1053,13 +1053,13 @@ void connection_init (struct client *client, uint16_t conid, BAddr addr, BAddr o
         uint8_t *port_usage = build_port_usage_array_and_find_least_used_connection(addr, &least_con);
         if (!port_usage) {
             client_log(client, BLOG_ERROR, "build_port_usage_array failed");
-            goto failed;
+            goto fail3;
         }
         
         // set SO_REUSEADDR
         if (!BDatagram_SetReuseAddr(&con->udp_dgram, 1)) {
             client_log(client, BLOG_ERROR, "set SO_REUSEADDR failed");
-            goto failed;
+            goto fail3;
         }
         
         // get starting local address
@@ -1083,7 +1083,7 @@ void connection_init (struct client *client, uint16_t conid, BAddr addr, BAddr o
         
         // try closing an unused connection with the same remote addr
         if (!least_con) {
-            goto failed;
+            goto fail3;
         }
         
         ASSERT(least_con->addr.type == addr.type)
@@ -1157,6 +1157,8 @@ fail4:
     BufferWriter_Free(&con->udp_send_writer);
     BDatagram_RecvAsync_Free(&con->udp_dgram);
     BDatagram_SendAsync_Free(&con->udp_dgram);
+    goto fail3;
+fail3:
     BDatagram_Free(&con->udp_dgram);
 fail2:
     PacketProtoFlow_Free(&con->send_ppflow);
