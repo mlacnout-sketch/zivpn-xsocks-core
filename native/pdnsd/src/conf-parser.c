@@ -289,7 +289,8 @@ static time_t strtotime(char *nptr, char **endptr, char **errstr)
 #define lookup_keyword(name,len,dic) binsearch_keyword(name,len,dic,sizeof(dic)/sizeof(namevalue_t))
 static const char *parse_ip(const char *ipstr, pdnsd_a *a);
 static const char *addr_add(atup_array *ata, const char *ipstr);
-#define addr_add_(ata,ipstr,len) addr_add(ata,ipstr)
+static const char *addr_port_add(servparm_t *serv, const char *ipstr, unsigned int len);
+#define addr_port_add_(serv,ipstr,len) addr_port_add(serv,ipstr,len)
 static const char *reject_add(servparm_t *serv, const char *ipstr);
 #define reject_add_(serv,ipstr,len) reject_add(serv,ipstr)
 static void check_localaddrs(servparm_t *serv);
@@ -972,7 +973,7 @@ int confparse(FILE* in, char *prestr, globparm_t *global, servparm_array *server
 
 	  switch(option) {
 	  case IP:
-	    SCAN_STRING_LIST(&server.atup_a,p,strbuf,len,addr_add_);
+	    SCAN_STRING_LIST(&server,p,strbuf,len,addr_port_add_);
 	    break;
 
 	  case FILET:
@@ -1865,6 +1866,77 @@ static const char* parse_ip(const char *ipstr, pdnsd_a *a)
     }
   }
   return NULL;
+}
+
+
+/* Add an IP endpoint to the list of name servers.
+   Accepts plain IP literals, IPv4-with-port (a.b.c.d:port) and
+   bracketed IPv6-with-port ([IPv6]:port). If a port is supplied in
+   the endpoint, server->port is updated. */
+static const char *addr_port_add(servparm_t *serv, const char *ipstr, unsigned int len)
+{
+  const char *hoststr=ipstr;
+  unsigned port=0;
+  int has_port=0;
+
+  if(ipstr[0]=='[') {
+    const char *endbr=strchr(ipstr,']');
+    if(!endbr)
+      return "bad IP endpoint";
+    if(endbr[1]) {
+      const char *p=endbr+1;
+      char *ep;
+      if(*p!=':')
+        return "bad IP endpoint";
+      ++p;
+      if(!*p)
+        return "bad port number";
+      errno=0;
+      port=strtoul(p,&ep,10);
+      if(errno || *ep || port<1 || port>65535)
+        return "bad port number";
+      has_port=1;
+    }
+
+    {
+      size_t hlen=endbr-(ipstr+1);
+      char hostbuf[len+1];
+      memcpy(hostbuf,ipstr+1,hlen);
+      hostbuf[hlen]=0;
+      hoststr=hostbuf;
+      if(has_port) {
+        if(serv->port!=serv_presets.port && serv->port!=port)
+          return "conflicting per-address ports in ip= option";
+        serv->port=port;
+      }
+      return addr_add(&serv->atup_a,hoststr);
+    }
+  }
+
+  {
+    const char *first_colon=strchr(ipstr,':');
+    if(first_colon && !strchr(first_colon+1,':')) {
+      char *ep;
+      char hostbuf[len+1];
+      size_t hlen=first_colon-ipstr;
+      const char *p=first_colon+1;
+      if(!*p)
+        return "bad port number";
+      errno=0;
+      port=strtoul(p,&ep,10);
+      if(errno || *ep || port<1 || port>65535)
+        return "bad port number";
+      memcpy(hostbuf,ipstr,hlen);
+      hostbuf[hlen]=0;
+      hoststr=hostbuf;
+      if(serv->port!=serv_presets.port && serv->port!=port)
+        return "conflicting per-address ports in ip= option";
+      serv->port=port;
+      return addr_add(&serv->atup_a,hoststr);
+    }
+  }
+
+  return addr_add(&serv->atup_a,hoststr);
 }
 
 /* Add an IP address to the list of name servers. */

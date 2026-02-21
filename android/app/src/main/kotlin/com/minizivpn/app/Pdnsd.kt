@@ -13,6 +13,36 @@ data class PdnsdTuning(
 )
 
 object Pdnsd {
+    private const val DEFAULT_DNS_IP = "8.8.8.8"
+    private const val DEFAULT_DNS_PORT = "53"
+
+    private fun parseDnsEndpoint(upstreamDns: String): Pair<String, String> {
+        val trimmed = upstreamDns.trim()
+        if (trimmed.isEmpty()) {
+            return DEFAULT_DNS_IP to DEFAULT_DNS_PORT
+        }
+
+        if (trimmed.startsWith("[")) {
+            val closingBracketIndex = trimmed.indexOf(']')
+            if (closingBracketIndex > 1) {
+                val host = trimmed.substring(1, closingBracketIndex)
+                val explicitPort = trimmed.substring(closingBracketIndex + 1).removePrefix(":")
+                val port = explicitPort.takeIf { it.toIntOrNull() in 1..65535 } ?: DEFAULT_DNS_PORT
+                return host to port
+            }
+        }
+
+        // Raw IPv6 literals contain multiple ':' and should not be split as host:port.
+        if (trimmed.count { it == ':' } > 1) {
+            return trimmed to DEFAULT_DNS_PORT
+        }
+
+        val parts = trimmed.split(':', limit = 2)
+        val ip = parts[0].ifEmpty { DEFAULT_DNS_IP }
+        val port = parts.getOrNull(1)?.takeIf { it.toIntOrNull() in 1..65535 } ?: DEFAULT_DNS_PORT
+        return ip to port
+    }
+
     fun getExecutable(context: Context): String {
         return File(context.applicationInfo.nativeLibraryDir, "libpdnsd.so").absolutePath
     }
@@ -23,10 +53,8 @@ object Pdnsd {
 
         val configFile = File(context.filesDir, "pdnsd.conf")
 
-        // Handle IP or IP:PORT format. Default to 53 if no port specified.
-        val parts = upstreamDns.split(":")
-        val ip = if (parts[0].isEmpty()) "8.8.8.8" else parts[0]
-        val port = if (parts.size > 1) parts[1] else "53"
+        // Handle IPv4, hostnames, [IPv6]:PORT and raw IPv6 literals.
+        val (ip, port) = parseDnsEndpoint(upstreamDns)
 
         val conf = """
             global {

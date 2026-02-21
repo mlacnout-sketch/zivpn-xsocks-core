@@ -1,5 +1,6 @@
 package com.minizivpn.app
 
+import java.net.Inet4Address
 import java.net.InetAddress
 import kotlin.math.pow
 
@@ -12,8 +13,13 @@ object RoutingUtils {
     fun calculateDynamicRoutes(excludeIp: String): List<Pair<String, Int>> {
         val routes = mutableListOf<Pair<String, Int>>()
         try {
-            val ipLong = bytesToLong(InetAddress.getByName(excludeIp).address)
-            
+            val resolved = InetAddress.getByName(excludeIp)
+            if (resolved !is Inet4Address) {
+                return listOf("0.0.0.0" to 1, "128.0.0.0" to 1)
+            }
+
+            val ipLong = bytesToLong(resolved.address)
+
             var current = 0L
             val maxIp = 0xFFFFFFFFL
             

@@ -13,9 +13,11 @@ import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import android.content.pm.ServiceInfo
+import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.Proxy
 import java.net.InetSocketAddress
+import java.net.Socket
 import java.util.LinkedList
 import androidx.annotation.Keep
 import java.io.File
@@ -75,6 +77,37 @@ class ZivpnService : VpnService() {
             logToApp("CPU Wakelock failed: ${e.message}")
             wakeLock = null
         }
+    }
+
+
+    private fun resolveIpv4Address(hostOrIp: String): String {
+        val input = hostOrIp.trim()
+        if (input.isEmpty()) return input
+
+        return try {
+            InetAddress.getAllByName(input)
+                .firstOrNull { it is Inet4Address }
+                ?.hostAddress
+                ?: input
+        } catch (e: Exception) {
+            input
+        }
+    }
+
+
+    private fun waitForLocalTcpPort(host: String, port: Int, timeoutMs: Long = 1500): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                Socket().use { socket ->
+                    socket.connect(InetSocketAddress(host, port), 250)
+                    return true
+                }
+            } catch (_: Exception) {
+                Thread.sleep(100)
+            }
+        }
+        return false
     }
 
     private fun releaseCpuWakeLock() {
@@ -277,14 +310,10 @@ class ZivpnService : VpnService() {
                 // DYNAMIC ROUTING: Exclude Server IP
                 val serverHost = getPrefString(prefs, "server_ip", "")
                 if (serverHost.isNotEmpty()) {
-                    logToApp("Resolving server: $serverHost")
-                    val resolvedIp = try {
-                        InetAddress.getByName(serverHost).hostAddress
-                    } catch (e: Exception) {
-                        serverHost
-                    }
-                    
-                    logToApp("Excluding server IP: $resolvedIp")
+                    logToApp("Resolving server (IPv4 preferred): $serverHost")
+                    val resolvedIp = resolveIpv4Address(serverHost)
+
+                    logToApp("Excluding server IPv4: $resolvedIp")
                     val dynamicRoutes = RoutingUtils.calculateDynamicRoutes(resolvedIp)
                     
                     // Also exclude GitHub for reliable updates via direct connection if needed
@@ -424,9 +453,9 @@ class ZivpnService : VpnService() {
             // 3.5 START UDPGW (Fix: connection refused 7300)
             val libDir = applicationInfo.nativeLibraryDir
             val udpgwBin = File(libDir, "libudpgw.so").absolutePath
-            val useUdpgw = getPrefBool(prefs, "enable_udpgw", true)
-            val udpgwPort = getPrefString(prefs, "udpgw_port", "7300")
-            
+            var useUdpgw = getPrefBool(prefs, "enable_udpgw", true)
+            val udpgwPort = getPrefIntFlexible(prefs, "udpgw_port", 7300).toString()
+
             if (useUdpgw) {
                 // Konfigurasi UDPGW untuk listen di localhost:7300
                 // --max-clients: tingkatkan ke 1024 agar tidak lemot saat banyak koneksi UDP (misal game)
@@ -438,9 +467,18 @@ class ZivpnService : VpnService() {
                     "--loglevel", if (logLevel == "debug") "debug" else "none"
                 )
                 logToApp("Starting UDPGW on port $udpgwPort")
-                val udpgwProc = ProcessBuilder(udpgwCmd).directory(filesDir).start()
+                val udpgwProc = ProcessBuilder(udpgwCmd)
+                    .directory(filesDir)
+                    .redirectErrorStream(true)
+                    .start()
                 processes.add(udpgwProc)
                 captureProcessLog(udpgwProc, "UDPGW")
+
+                val udpgwReady = waitForLocalTcpPort("127.0.0.1", udpgwPort.toInt(), 2000)
+                if (!udpgwReady) {
+                    useUdpgw = false
+                    logToApp("UDPGW failed to listen on 127.0.0.1:$udpgwPort; disabling UDPGW to avoid SOCKS5 7300 connection refused")
+                }
             }
 
             val tun2socksBin = File(libDir, "libtun2socks.so").absolutePath
@@ -475,7 +513,7 @@ class ZivpnService : VpnService() {
 
             logToApp("Native profile=$profile tcpWnd=$tcpWnd socksBuf=$socksBuf udpgwMax=$udpgwMaxConn pdnsdCache=$pdnsdPermCache")
 
-            val tunProc = ProcessBuilder(tunCmd).directory(filesDir).start()
+            val tunProc = ProcessBuilder(tunCmd).directory(filesDir).redirectErrorStream(true).start()
             processes.add(tunProc)
             captureProcessLog(tunProc, "Tun2Socks")
 
