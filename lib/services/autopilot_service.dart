@@ -368,10 +368,6 @@ class AutoPilotService extends ChangeNotifier {
   }
 
   Future<void> _runPingStabilizer() async {
-    final ioc = HttpClient();
-    ioc.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
-    final client = IOClient(ioc);
-    
     try {
       final totalChunks = _config.stabilizerSizeMb.clamp(1, _maxStabilizerSizeMb);
       for (int i = 0; i < totalChunks; i++) {
@@ -383,20 +379,18 @@ class AutoPilotService extends ChangeNotifier {
           final separator = baseUrl.contains('?') ? '&' : '?';
           final url = '$baseUrl${separator}t=${DateTime.now().millisecondsSinceEpoch}';
           
-          final request = http.Request('GET', Uri.parse(url));
-          final response = await client.send(request).timeout(_stabilizerChunkTimeout);
+          // Use Native SOCKS5 Tunneled Download (Same logic as Update)
+          final result = await _methodChannel.invokeMethod('performChunkDownloadNative', {
+            'url': url
+          });
           
-          // Consume the stream to ensure download happens
-          await for (final _ in response.stream) {
-            if (!isRunning) break;
-          }
-          _logToNative("Stabilizer chunk ${i + 1}/$totalChunks downloaded from ${Uri.parse(baseUrl).host}");
+          _logToNative("Stabilizer chunk ${i + 1}/$totalChunks: $result");
         } catch (e) {
            _logToNative("Stabilizer chunk ${i + 1} error: $e");
         }
       }
-    } finally {
-      client.close();
+    } catch (e) {
+      _logToNative("Ping Stabilizer fatal error: $e");
     }
   }
 

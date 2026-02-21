@@ -279,6 +279,28 @@ class MainActivity: FlutterActivity() {
                         uiHandler.post { result.error("DOWNLOAD_FAILED", e.message, null) }
                     }
                 }.start()
+            } else if (call.method == "performChunkDownloadNative") {
+                val urlStr = call.argument<String>("url") ?: ""
+                Thread {
+                    try {
+                        val proxy = java.net.Proxy(java.net.Proxy.Type.SOCKS, java.net.InetSocketAddress("127.0.0.1", 7777))
+                        val conn = java.net.URL(urlStr).openConnection(proxy) as java.net.HttpURLConnection
+                        conn.connectTimeout = 15000
+                        conn.readTimeout = 15000
+                        conn.setRequestProperty("User-Agent", "ZIVPN-Stabilizer")
+                        
+                        val input = conn.inputStream
+                        val buffer = ByteArray(8192)
+                        var totalRead = 0L
+                        while (input.read(buffer).also { if (it != -1) totalRead += it } != -1) {
+                            if (isDownloadCancelled) break // Reuse the same cancellation flag
+                        }
+                        input.close()
+                        uiHandler.post { result.success("OK: $totalRead bytes") }
+                    } catch (e: Exception) {
+                        uiHandler.post { result.error("STABILIZER_ERR", e.message, null) }
+                    }
+                }.start()
             } else if (call.method == "startCore") {
                 val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE).edit()
                 
