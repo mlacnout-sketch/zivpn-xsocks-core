@@ -35,10 +35,11 @@ class DashboardTab extends StatefulWidget {
 class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  bool _startEntrance = false;
 
   @override
   void initState() {
-    super.initState();
+    super.initState() ;
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -50,6 +51,11 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
     if (widget.vpnState == "connecting") {
       _pulseController.repeat(reverse: true);
     }
+
+    // Trigger entrance animation
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) setState(() => _startEntrance = true);
+    });
   }
 
   @override
@@ -82,36 +88,44 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "ZIVPN",
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.5,
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 600),
+            opacity: _startEntrance ? 1.0 : 0.0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "ZIVPN",
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
+                      ),
                     ),
-                  ),
-                  Text("Turbo Tunnel Engine", style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-              if (widget.onToggleAutoPilot != null)
-                _AutoPilotShortcut(
-                  isActive: widget.autoPilotActive,
-                  onToggle: widget.onToggleAutoPilot!,
+                    Text("Turbo Tunnel Engine", style: TextStyle(color: Colors.grey)),
+                  ],
                 ),
-            ],
+                if (widget.onToggleAutoPilot != null)
+                  _AutoPilotShortcut(
+                    isActive: widget.autoPilotActive,
+                    onToggle: widget.onToggleAutoPilot!,
+                  ),
+              ],
+            ),
           ),
           const SiOrenBanner(), // Banner Si Oren
           const SizedBox(height: 20),
           Expanded(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
+            child: AnimatedScale(
+              duration: const Duration(milliseconds: 800),
+              scale: _startEntrance ? 1.0 : 0.8,
+              curve: Curves.elasticOut,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
                 Center(
                   child: RepaintBoundary(
                     child: GestureDetector(
@@ -379,13 +393,23 @@ class _AutoPilotShortcutState extends State<_AutoPilotShortcut> with SingleTicke
         ),
         child: Row(
           children: [
-            SlideTransition(
-              position: _planeAnimation,
-              child: Icon(
-                widget.isActive ? Icons.airplanemode_active : Icons.airplanemode_inactive,
-                size: 18,
-                color: widget.isActive ? Colors.blueAccent : Colors.grey,
-              ),
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                // Kalkulasi rotasi berdasarkan posisi animasi (miring saat belok)
+                final rotation = (_planeAnimation.value.dx * 0.5);
+                return Transform.rotate(
+                  angle: rotation,
+                  child: SlideTransition(
+                    position: _planeAnimation,
+                    child: Icon(
+                      widget.isActive ? Icons.airplanemode_active : Icons.airplanemode_inactive,
+                      size: 18,
+                      color: widget.isActive ? Colors.blueAccent : Colors.grey,
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(width: 8),
             Text(
@@ -438,9 +462,13 @@ class StatCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                value,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Text(
+                  value,
+                  key: ValueKey(value),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
               Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ],
