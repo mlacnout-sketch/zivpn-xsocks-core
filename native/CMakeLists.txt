@@ -24,6 +24,50 @@ add_library(ancillary STATIC
 )
 target_include_directories(ancillary PUBLIC libancillary)
 
+# --- badvpn base library (Common for tun2socks and udpgw) ---
+set(BADVPN_BASE_SOURCES
+    badvpn/base/BLog.c
+    badvpn/base/BLog_syslog.c
+    badvpn/base/BPending.c
+    badvpn/base/DebugObject.c
+    badvpn/system/BReactor_badvpn.c
+    badvpn/system/BSignal.c
+    badvpn/system/BConnection_unix.c
+    badvpn/system/BTime.c
+    badvpn/system/BUnixSignal.c
+    badvpn/system/BNetwork.c
+    badvpn/system/BDatagram_unix.c
+    badvpn/flow/StreamRecvInterface.c
+    badvpn/flow/PacketRecvInterface.c
+    badvpn/flow/PacketPassInterface.c
+    badvpn/flow/StreamPassInterface.c
+    badvpn/flow/SinglePacketBuffer.c
+    badvpn/flow/BufferWriter.c
+    badvpn/flow/PacketBuffer.c
+    badvpn/flow/PacketStreamSender.c
+    badvpn/flow/PacketPassConnector.c
+    badvpn/flow/PacketProtoFlow.c
+    badvpn/flow/PacketPassFairQueue.c
+    badvpn/flow/PacketProtoEncoder.c
+    badvpn/flow/PacketProtoDecoder.c
+)
+
+add_library(badvpn_base STATIC ${BADVPN_BASE_SOURCES})
+target_include_directories(badvpn_base PUBLIC badvpn)
+target_compile_definitions(badvpn_base PUBLIC
+    BADVPN_THREADWORK_USE_PTHREAD
+    BADVPN_LINUX
+    BADVPN_BREACTOR_BADVPN
+    _GNU_SOURCE
+    BADVPN_USE_SELFPIPE
+    BADVPN_USE_EPOLL
+    BADVPN_LITTLE_ENDIAN
+    BADVPN_THREAD_SAFE
+    NDEBUG
+    ANDROID
+)
+target_link_libraries(badvpn_base log dl)
+
 # --- tun2socks ---
 set(BADVPN_SOURCES
     badvpn/base/BLog_syslog.c
@@ -175,74 +219,36 @@ if(NOT SKIP_JNI_CHECK)
 endif()
 
 # --- pdnsd ---
-file(GLOB PDNSD_SOURCES "pdnsd/src/*.c")
-# Remove pdnsd-ctl.c if it exists in the glob to avoid multiple mains or conflicts
-list(FILTER PDNSD_SOURCES EXCLUDE REGEX "pdnsd-ctl.c")
+set(PDNSD_SOURCES
+    pdnsd/src/cache.c
+    pdnsd/src/conf-parser.c
+    pdnsd/src/conff.c
+    pdnsd/src/consts.c
+    pdnsd/src/debug.c
+    pdnsd/src/dns.c
+    pdnsd/src/dns_answer.c
+    pdnsd/src/dns_query.c
+    pdnsd/src/error.c
+    pdnsd/src/hash.c
+    pdnsd/src/helpers.c
+    pdnsd/src/icmp.c
+    pdnsd/src/list.c
+    pdnsd/src/main.c
+    pdnsd/src/netdev.c
+    pdnsd/src/rr_types.c
+    pdnsd/src/servers.c
+    pdnsd/src/status.c
+    pdnsd/src/thread.c
+)
 
 add_executable(pdnsd ${PDNSD_SOURCES})
-set_target_properties(pdnsd PROPERTIES OUTPUT_NAME "pdnsd")
-set_target_properties(pdnsd PROPERTIES SUFFIX ".so")
-set_target_properties(pdnsd PROPERTIES PREFIX "lib")
-target_compile_options(pdnsd PRIVATE 
-    -Wall -O3 
-    -Wno-deprecated-declarations 
-    -Wno-unused-variable 
-    -Wno-string-plus-int
-    -Wno-gnu-designator
-)
+set_target_properties(pdnsd PROPERTIES OUTPUT_NAME "pdnsd" SUFFIX ".so" PREFIX "lib")
+target_compile_options(pdnsd PRIVATE -Wall -O3 -Wno-deprecated-declarations -Wno-unused-variable -Wno-string-plus-int -Wno-gnu-designator)
 target_include_directories(pdnsd PRIVATE pdnsd pdnsd/src)
 target_link_libraries(pdnsd log)
 
 # --- udpgw ---
-set(UDPGW_SOURCES
-    badvpn/base/BLog_syslog.c
-    badvpn/system/BReactor_badvpn.c
-    badvpn/system/BSignal.c
-    badvpn/system/BConnection_unix.c
-    badvpn/system/BTime.c
-    badvpn/system/BUnixSignal.c
-    badvpn/system/BNetwork.c
-    badvpn/flow/StreamRecvInterface.c
-    badvpn/flow/PacketRecvInterface.c
-    badvpn/flow/PacketPassInterface.c
-    badvpn/flow/StreamPassInterface.c
-    badvpn/flow/SinglePacketBuffer.c
-    badvpn/flow/BufferWriter.c
-    badvpn/flow/PacketBuffer.c
-    badvpn/flow/PacketStreamSender.c
-    badvpn/flow/PacketPassConnector.c
-    badvpn/flow/PacketProtoFlow.c
-    badvpn/flow/PacketPassFairQueue.c
-    badvpn/flow/PacketProtoEncoder.c
-    badvpn/flow/PacketProtoDecoder.c
-    badvpn/base/DebugObject.c
-    badvpn/base/BLog.c
-    badvpn/base/BPending.c
-    badvpn/system/BDatagram_unix.c
-    badvpn/udpgw/udpgw.c
-)
-
-add_executable(udpgw ${UDPGW_SOURCES})
-set_target_properties(udpgw PROPERTIES OUTPUT_NAME "udpgw")
-set_target_properties(udpgw PROPERTIES SUFFIX ".so")
-set_target_properties(udpgw PROPERTIES PREFIX "lib")
-
-target_compile_definitions(udpgw PRIVATE
-    BADVPN_THREADWORK_USE_PTHREAD
-    BADVPN_LINUX
-    BADVPN_BREACTOR_BADVPN
-    _GNU_SOURCE
-    BADVPN_USE_SELFPIPE
-    BADVPN_USE_EPOLL
-    BADVPN_LITTLE_ENDIAN
-    BADVPN_THREAD_SAFE
-    NDEBUG
-    ANDROID
-)
-
-target_include_directories(udpgw PRIVATE
-    badvpn
-)
-
-target_link_libraries(udpgw log dl)
+add_executable(udpgw badvpn/udpgw/udpgw.c)
+set_target_properties(udpgw PROPERTIES OUTPUT_NAME "udpgw" SUFFIX ".so" PREFIX "lib")
+target_link_libraries(udpgw badvpn_base log dl)
 target_compile_options(udpgw PRIVATE -O3 -DNDEBUG)
