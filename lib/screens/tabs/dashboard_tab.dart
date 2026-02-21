@@ -248,6 +248,7 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
               ],
             ),
           ),
+          ),
           Container(
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 15),
