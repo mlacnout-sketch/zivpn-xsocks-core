@@ -1,9 +1,19 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:archive/archive_io.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+
+// Helper for Isolate
+List<int>? _encodeZip(Archive archive) {
+  return ZipEncoder().encode(archive);
+}
+
+Archive _decodeZip(List<int> bytes) {
+  return ZipDecoder().decodeBytes(bytes);
+}
 
 class BackupRepository {
   Future<File?> createBackup() async {
@@ -32,15 +42,14 @@ class BackupRepository {
       final archive = Archive();
       archive.addFile(ArchiveFile('config.json', configJson.length, utf8.encode(configJson)));
       
-      // 5. Save ZIP to temp atomically
+      // 5. Save ZIP to temp atomically using Isolate
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
       final fileName = "minizivpn_backup_$timestamp.zip";
       final zipFile = File('${tempDir.path}/$fileName');
       final tmpFile = File('${tempDir.path}/$fileName.tmp');
       
-      final encoder = ZipEncoder();
-      final zipData = encoder.encode(archive);
+      final List<int>? zipData = await compute(_encodeZip, archive);
       if (zipData == null) return null;
       
       await tmpFile.writeAsBytes(zipData, flush: true);
@@ -68,7 +77,7 @@ class BackupRepository {
     try {
       if (!await backupFile.exists()) return false;
       final bytes = await backupFile.readAsBytes();
-      final archive = ZipDecoder().decodeBytes(bytes);
+      final archive = await compute(_decodeZip, bytes);
       
       // Find config.json
       final ArchiveFile? configFile = archive.findFile('config.json');

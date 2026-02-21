@@ -287,6 +287,13 @@ class _HomePageState extends State<HomePage> {
   void _initStatsListener() {
     statsChannel.receiveBroadcastStream().listen((event) {
       if (event is String && mounted) {
+        if (event.startsWith("PROGRESS|")) {
+           final pStr = event.split('|')[1];
+           final pVal = double.tryParse(pStr) ?? 0.0;
+           _updateViewModel.updateManualProgress(pVal);
+           return;
+        }
+
         final parts = event.split('|');
         if (parts.length >= 2) {
           final rx = int.tryParse(parts[0]) ?? 0;
@@ -570,7 +577,7 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> with S
                       width: 100,
                       height: 100,
                       child: CircularProgressIndicator(
-                        value: 0.2, // Fixed length "snake"
+                        value: 0.1 + (progress * 0.1), // Snake memanjang sedikit saat progres naik
                         strokeWidth: 8,
                         strokeCap: StrokeCap.round,
                         valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),

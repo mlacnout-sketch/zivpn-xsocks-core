@@ -1269,35 +1269,33 @@ void connection_send_to_client (struct connection *con, uint8_t flags, const uin
         connection_log(con, BLOG_ERROR, "out of client buffer");
         return;
     }
-    int out_pos = 0;
     
     if (con->orig_addr.type == BADDR_TYPE_IPV6) {
         flags |= UDPGW_CLIENT_FLAG_IPV6;
     }
     
-    // write header
+    int out_pos = 0;
+    
+    // Write header and address using more efficient block copy if possible
+    // but keep it compatible with the existing structure for safety.
     struct udpgw_header header;
     header.flags = htol8(flags);
     header.conid = htol16(con->conid);
     memcpy(out + out_pos, &header, sizeof(header));
     out_pos += sizeof(header);
     
-    // write address
-    switch (con->orig_addr.type) {
-        case BADDR_TYPE_IPV4: {
-            struct udpgw_addr_ipv4 addr_ipv4;
-            addr_ipv4.addr_ip = con->orig_addr.ipv4.ip;
-            addr_ipv4.addr_port = con->orig_addr.ipv4.port;
-            memcpy(out + out_pos, &addr_ipv4, sizeof(addr_ipv4));
-            out_pos += sizeof(addr_ipv4);
-        } break;
-        case BADDR_TYPE_IPV6: {
-            struct udpgw_addr_ipv6 addr_ipv6;
-            memcpy(addr_ipv6.addr_ip, con->orig_addr.ipv6.ip, sizeof(addr_ipv6.addr_ip));
-            addr_ipv6.addr_port = con->orig_addr.ipv6.port;
-            memcpy(out + out_pos, &addr_ipv6, sizeof(addr_ipv6));
-            out_pos += sizeof(addr_ipv6);
-        } break;
+    if (con->orig_addr.type == BADDR_TYPE_IPV4) {
+        struct udpgw_addr_ipv4 addr_ipv4;
+        addr_ipv4.addr_ip = con->orig_addr.ipv4.ip;
+        addr_ipv4.addr_port = con->orig_addr.ipv4.port;
+        memcpy(out + out_pos, &addr_ipv4, sizeof(addr_ipv4));
+        out_pos += sizeof(addr_ipv4);
+    } else {
+        struct udpgw_addr_ipv6 addr_ipv6;
+        memcpy(addr_ipv6.addr_ip, con->orig_addr.ipv6.ip, sizeof(addr_ipv6.addr_ip));
+        addr_ipv6.addr_port = con->orig_addr.ipv6.port;
+        memcpy(out + out_pos, &addr_ipv6, sizeof(addr_ipv6));
+        out_pos += sizeof(addr_ipv6);
     }
     
     // write message

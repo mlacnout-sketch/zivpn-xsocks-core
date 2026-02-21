@@ -317,9 +317,10 @@ class _AutoPilotShortcut extends StatefulWidget {
   State<_AutoPilotShortcut> createState() => _AutoPilotShortcutState();
 }
 
-class _AutoPilotShortcutState extends State<_AutoPilotShortcut> with SingleTickerProviderStateMixin {
+class _AutoPilotShortcutState extends State<_AutoPilotShortcut> with SingleTickerProviderStateMixin, RouteAware {
   late AnimationController _controller;
   late Animation<Offset> _planeAnimation;
+  bool _isVisible = true;
 
   @override
   void initState() {
@@ -337,8 +338,14 @@ class _AutoPilotShortcutState extends State<_AutoPilotShortcut> with SingleTicke
       curve: Curves.easeInOut,
     ));
 
-    if (widget.isActive) {
+    _updateAnimation();
+  }
+
+  void _updateAnimation() {
+    if (widget.isActive && _isVisible) {
       _controller.repeat(reverse: true);
+    } else {
+      _controller.stop();
     }
   }
 
@@ -346,12 +353,7 @@ class _AutoPilotShortcutState extends State<_AutoPilotShortcut> with SingleTicke
   void didUpdateWidget(_AutoPilotShortcut oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isActive != oldWidget.isActive) {
-      if (widget.isActive) {
-        _controller.repeat(reverse: true);
-      } else {
-        _controller.stop();
-        _controller.reset();
-      }
+      _updateAnimation();
     }
   }
 

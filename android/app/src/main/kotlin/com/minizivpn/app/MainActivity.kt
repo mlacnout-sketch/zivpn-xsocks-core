@@ -53,7 +53,7 @@ class MainActivity: FlutterActivity() {
     
     private var sessionStartRx: Long = 0
     private var sessionStartTx: Long = 0
-    private var vpnInterfaceName: String? = null
+    @Volatile private var vpnInterfaceName: String? = null
     
     private val uiHandler = Handler(Looper.getMainLooper())
 
@@ -235,14 +235,26 @@ class MainActivity: FlutterActivity() {
 
                         val input = conn.inputStream
                         val outputFile = java.io.File(destPath)
-                        // Pastikan folder ada
                         outputFile.parentFile?.mkdirs()
                         
+                        val totalSize = conn.contentLength.toLong()
+                        var bytesDownloaded = 0L
+                        
                         val output = java.io.FileOutputStream(outputFile)
-                        val buffer = ByteArray(16384) // Buffer lebih besar untuk speed
+                        val buffer = ByteArray(16384)
                         var bytesRead: Int
+                        
                         while (input.read(buffer).also { bytesRead = it } != -1) {
                             output.write(buffer, 0, bytesRead)
+                            bytesDownloaded += bytesRead
+                            
+                            if (totalSize > 0) {
+                                val progress = (bytesDownloaded.toDouble() / totalSize.toDouble())
+                                uiHandler.post {
+                                    // Kirim progres lewat channel statistik dengan prefix khusus
+                                    statsSink?.success("PROGRESS|$progress")
+                                }
+                            }
                         }
                         output.flush()
                         output.close()

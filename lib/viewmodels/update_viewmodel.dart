@@ -17,6 +17,12 @@ class UpdateViewModel {
   Stream<double> get downloadProgress => _downloadProgress.stream;
   Stream<bool> get isDownloading => _isDownloading.stream;
 
+  void updateManualProgress(double p) {
+    if (!_downloadProgress.isClosed) {
+      _downloadProgress.add(p);
+    }
+  }
+
   Future<bool> checkForUpdate() async {
     final update = await _repository.fetchUpdate();
     if (!_availableUpdate.isClosed) {
