@@ -231,6 +231,7 @@ class ZivpnService : VpnService() {
         if (vpnInterface != null) return
 
         Thread {
+            var initializedSuccessfully = false
             try {
                 Log.i("ZIVPN-Tun", "Initializing ZIVPN (native tun2socks)...")
                 
@@ -326,14 +327,19 @@ class ZivpnService : VpnService() {
                 builder.addAddress("169.254.1.1", 24)
 
                 vpnInterface = builder.establish()
-                val fd = vpnInterface?.fd ?: return@Thread
+                val fd = vpnInterface?.fd ?: throw Exception("Failed to establish VPN interface")
 
                 // 3. Start Pdnsd & tun2socks
                 val pdnsdPort = getPrefIntFlexible(prefs, "pdnsd_port", 8091)
                 startNativeEngines(fd, mtu, logLevel, prefs, pdnsdPort)
+                initializedSuccessfully = true
 
             } catch (e: Exception) {
                 logToApp("Connect Error: ${e.message}")
+                if (!initializedSuccessfully) {
+                    releaseCpuWakeLock()
+                    disconnect()
+                }
                 stopSelf()
             }
         }.start()

@@ -178,12 +178,12 @@ class AutoPilotService extends ChangeNotifier {
 
       await _applyShizukuWatchdogPriority();
 
-      isRunning = true;
       _timer = Timer.periodic(
         Duration(seconds: _config.checkIntervalSeconds),
         (timer) async => await _checkAndRecover(),
       );
 
+      isRunning = true;
       _updateState(_currentState.copyWith(
         status: AutoPilotStatus.running,
         failCount: 0,

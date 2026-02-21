@@ -308,16 +308,27 @@ class MainActivity: FlutterActivity() {
                 stopVpn()
                 result.success("Stopped")
             } else if (call.method == "resetStats") {
-                vpnInterfaceName = findVpnInterface()
-                if (vpnInterfaceName != null) {
-                    sessionStartRx = TrafficStats.getRxBytes(vpnInterfaceName!!)
-                    sessionStartTx = TrafficStats.getTxBytes(vpnInterfaceName!!)
-                } else {
-                    // Fallback to UID but with loopback exclusion if possible (simplified here)
-                    val uid = android.os.Process.myUid()
-                    sessionStartRx = TrafficStats.getUidRxBytes(uid)
-                    sessionStartTx = TrafficStats.getUidTxBytes(uid)
-                }
+                // Berikan delay kecil atau retry untuk memastikan interface tun0 sudah muncul
+                Thread {
+                    var retryCount = 0
+                    while (retryCount < 5) {
+                        vpnInterfaceName = findVpnInterface()
+                        if (vpnInterfaceName != null) break
+                        Thread.sleep(200)
+                        retryCount++
+                    }
+                    
+                    if (vpnInterfaceName != null) {
+                        sessionStartRx = TrafficStats.getRxBytes(vpnInterfaceName!!)
+                        sessionStartTx = TrafficStats.getTxBytes(vpnInterfaceName!!)
+                        Log.d("ZIVPN-Stats", "Anchored to interface: $vpnInterfaceName")
+                    } else {
+                        val uid = android.os.Process.myUid()
+                        sessionStartRx = TrafficStats.getUidRxBytes(uid)
+                        sessionStartTx = TrafficStats.getUidTxBytes(uid)
+                        Log.d("ZIVPN-Stats", "Fallback to UID stats")
+                    }
+                }.start()
                 result.success("OK")
             } else if (call.method == "startVpn") {
                 startVpn(result)
