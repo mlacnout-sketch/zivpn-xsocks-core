@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:http/io_client.dart';
 import 'package:shizuku_api/shizuku_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
@@ -27,7 +25,6 @@ class AutoPilotService extends ChangeNotifier {
     'https://proof.ovh.net/files/1Mb.dat',
     'https://speedtest.selectel.ru/1MB',
   ];
-  static const Duration _stabilizerChunkTimeout = Duration(seconds: 20);
   static const int _maxStabilizerSizeMb = 10;
   static const Duration _shizukuCommandTimeout = Duration(seconds: 4);
   static const int _watchdogPriorityRefreshInterval = 5;
